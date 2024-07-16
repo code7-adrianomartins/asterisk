@@ -1489,6 +1489,7 @@ static int global_maxsilence = 0;
  * \param beep Whether to play a beep before starting to record.
  * \param silencethreshold
  * \param maxsilence Length of silence that will end a recording (in milliseconds).
+ * \param start_silence Length of silence that will start a recording (in milliseconds).
  * \param path Optional filesystem path to unlock.
  * \param prepend If true, prepend the recorded audio to an existing file and follow prepend mode recording rules
  * \param acceptdtmf DTMF digits that will end the recording.
@@ -1500,7 +1501,7 @@ static int global_maxsilence = 0;
  * \retval 't' Recording ended from the message exceeding the maximum duration, or via DTMF in prepend mode
  * \retval dtmfchar Recording ended via the return value's DTMF character for either cancel or accept.
  */
-static int __ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence, const char *path, int prepend, const char *acceptdtmf, const char *canceldtmf, int skip_confirmation_sound, enum ast_record_if_exists if_exists)
+static int __ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence, int startsilence, const char *path, int prepend, const char *acceptdtmf, const char *canceldtmf, int skip_confirmation_sound, enum ast_record_if_exists if_exists)
 {
 	int d = 0;
 	char *fmts;
@@ -1514,10 +1515,13 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	int totalsilence = 0;
 	int dspsilence = 0;
 	int olddspsilence = 0;
+	int initial_silence = 0; // Variável para acompanhar o silêncio inicial
+	int detecting_initial_silence = 1; // Flag para monitorar a fase de detecção do silêncio inicial
 	struct ast_format *rfmt = NULL;
 	struct ast_silence_generator *silgen = NULL;
 	char prependfile[PATH_MAX];
 	int ioflags;	/* IO flags for writing output file */
+	char cstart = 0;
 
 	ioflags = O_CREAT|O_WRONLY;
 
@@ -1540,8 +1544,14 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 		silencethreshold = global_silence_threshold;
 	}
 
+
 	if (maxsilence < 0) {
 		maxsilence = global_maxsilence;
+	}
+
+
+	if (startsilence < 0) {
+		startsilence = 0;
 	}
 
 	/* barf if no pointer passed to store duration in */
@@ -1604,7 +1614,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 		ast_unlock_path(path);
 	}
 
-	if (maxsilence > 0) {
+	if ((maxsilence > 0) || (startsilence >0)) {
 		sildet = ast_dsp_new(); /* Create the silence detector */
 		if (!sildet) {
 			ast_log(LOG_WARNING, "Unable to create silence detector :(\n");
@@ -1684,6 +1694,28 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 				}
 
 				/* Silence Detection */
+				if(detecting_initial_silence ){
+				      // Verificar o silêncio inicial
+					dspsilence = 0;
+					ast_dsp_silence(sildet, f, &dspsilence);
+    			                if (initial_silence == 0) {
+                        			initial_silence = dspsilence;
+                    			}
+	       				else {
+                     			   	initial_silence += dspsilence;
+                    			}
+
+                    			if (initial_silence > startsilence) {
+                        			ast_verb(3, "Recording automatically stopped after initial silence of %d seconds\n", initial_silence / 1000);
+                        			res = 'S';
+                        			outmsg = 2;
+                        			break;
+                    			}
+				        if (dspsilence == 0) {
+                        			/* Fala detectada, iniciar a detecção de silêncio contínuo */
+                        			detecting_initial_silence = 0;
+                    			}	
+				}
 				if (maxsilence > 0) {
 					dspsilence = 0;
 					ast_dsp_silence(sildet, f, &dspsilence);
@@ -1912,19 +1944,19 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 static const char default_acceptdtmf[] = "#";
 static const char default_canceldtmf[] = "";
 
-int ast_play_and_record_full(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence, const char *path, const char *acceptdtmf, const char *canceldtmf, int skip_confirmation_sound, enum ast_record_if_exists if_exists)
+int ast_play_and_record_full(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence, int start_silence_ms, const char *path, const char *acceptdtmf, const char *canceldtmf, int skip_confirmation_sound, enum ast_record_if_exists if_exists)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, beep, silencethreshold, maxsilence, path, 0, S_OR(acceptdtmf, ""), S_OR(canceldtmf, default_canceldtmf), skip_confirmation_sound, if_exists);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, beep, silencethreshold, maxsilence, start_silence_ms, path, 0, S_OR(acceptdtmf, ""), S_OR(canceldtmf, default_canceldtmf), skip_confirmation_sound, if_exists);
 }
 
 int ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int silencethreshold, int maxsilence, const char *path)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, path, 0, default_acceptdtmf, default_canceldtmf, 0, AST_RECORD_IF_EXISTS_OVERWRITE);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, 0, path, 0, default_acceptdtmf, default_canceldtmf, 0, AST_RECORD_IF_EXISTS_OVERWRITE);
 }
 
 int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordfile, int maxtime, char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, beep, silencethreshold, maxsilence, NULL, 1, default_acceptdtmf, default_canceldtmf, 1, AST_RECORD_IF_EXISTS_OVERWRITE);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, beep, silencethreshold, maxsilence, 0, NULL, 1, default_acceptdtmf, default_canceldtmf, 1, AST_RECORD_IF_EXISTS_OVERWRITE);
 }
 
 /* Channel group core functions */

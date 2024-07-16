@@ -1342,6 +1342,19 @@
 							}
 						},
 						{
+							"name": "startSilenceSeconds",
+							"description": "Maximum start duration of silence, in seconds. 0 for no limit",
+							"paramType": "query",
+							"required": false,
+							"allowMultiple": false,
+							"dataType": "int",
+							"defaultValue": 0,
+							"allowableValues": {
+								"valueType": "RANGE",
+								"min": 0
+							}
+						},
+						{
 							"name": "ifExists",
 							"description": "Action to take if a recording with the same name already exists.",
 							"paramType": "query",
