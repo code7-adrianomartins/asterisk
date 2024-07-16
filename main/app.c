@@ -1694,7 +1694,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 				}
 
 				/* Silence Detection */
-				if(detecting_initial_silence ){
+				if(detecting_initial_silence && startsilence > 0 ){
 				      // Verificar o silêncio inicial
 					dspsilence = 0;
 					ast_dsp_silence(sildet, f, &dspsilence);
