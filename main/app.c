@@ -1715,32 +1715,33 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
                         			/* Fala detectada, iniciar a detecção de silêncio contínuo */
                         			detecting_initial_silence = 0;
                     			}	
-				}
-				if (maxsilence > 0) {
-					dspsilence = 0;
-					ast_dsp_silence(sildet, f, &dspsilence);
-					if (olddspsilence > dspsilence) {
-						totalsilence += olddspsilence;
-					}
-					olddspsilence = dspsilence;
+				}else{
+					if (maxsilence > 0) {
+						dspsilence = 0;
+						ast_dsp_silence(sildet, f, &dspsilence);
+						if (olddspsilence > dspsilence) {
+							totalsilence += olddspsilence;
+						}	
+						olddspsilence = dspsilence;
 
-					if (paused) {
-						/* record how much silence there was while we are paused */
-						pausedsilence = dspsilence;
-					} else if (dspsilence > pausedsilence) {
-						/* ignore the paused silence */
-						dspsilence -= pausedsilence;
-					} else {
-						/* dspsilence has reset, reset pausedsilence */
-						pausedsilence = 0;
-					}
+						if (paused) {
+							/* record how much silence there was while we are paused */
+							pausedsilence = dspsilence;
+						} else if (dspsilence > pausedsilence) {
+							/* ignore the paused silence */
+							dspsilence -= pausedsilence;
+						} else {
+							/* dspsilence has reset, reset pausedsilence */
+							pausedsilence = 0;
+						}
 
-					if (dspsilence > maxsilence) {
-						/* Ended happily with silence */
-						ast_verb(3, "Recording automatically stopped after a silence of %d seconds\n", dspsilence/1000);
-						res = 'S';
-						outmsg = 2;
-						break;
+						if (dspsilence > maxsilence) {
+							/* Ended happily with silence */
+							ast_verb(3, "Recording automatically stopped after a silence of %d seconds\n", dspsilence/1000);
+							res = 'S';
+							outmsg = 2;
+							break;
+						}
 					}
 				}
 				/* Exit on any error */
