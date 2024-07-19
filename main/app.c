@@ -1953,7 +1953,7 @@ int ast_play_and_record_full(struct ast_channel *chan, const char *playfile, con
 
 int ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int silencethreshold, int maxsilence, const char *path)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, start_silence_ms, path, 0, default_acceptdtmf, default_canceldtmf, 0, AST_RECORD_IF_EXISTS_OVERWRITE);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, 0, path, 0, default_acceptdtmf, default_canceldtmf, 0, AST_RECORD_IF_EXISTS_OVERWRITE);
 }
 
 int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordfile, int maxtime, char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence)
