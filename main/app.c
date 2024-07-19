@@ -1704,7 +1704,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	       				else {
                      			   	initial_silence += dspsilence;
                     			}
-					ast_verb(3, "Recording  dspsilence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, initial_silence/1000, startSilence);
+					ast_verb(3, "Recording  dspsilence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, initial_silence/1000, startsilence);
 
                     			if (initial_silence > startsilence) {
                         			ast_verb(3, "Recording automatically stopped after initial silence of %d startsilence = %d seconds\n", initial_silence/1000, startsilence/1000);
