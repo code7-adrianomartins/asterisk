@@ -120,8 +120,6 @@
 							<enum name="ast_channel_hangup_request_type" />
 							<enum name="ast_channel_dtmf_begin_type" />
 							<enum name="ast_channel_dtmf_end_type" />
-							<enum name="ast_channel_flash_type" />
-							<enum name="ast_channel_wink_type" />
 							<enum name="ast_channel_hold_type" />
 							<enum name="ast_channel_unhold_type" />
 							<enum name="ast_channel_chanspy_start_type" />
@@ -130,9 +128,8 @@
 							<enum name="ast_channel_hangup_handler_type" />
 							<enum name="ast_channel_moh_start_type" />
 							<enum name="ast_channel_moh_stop_type" />
-							<enum name="ast_channel_mixmonitor_start_type" />
-							<enum name="ast_channel_mixmonitor_stop_type" />
-							<enum name="ast_channel_mixmonitor_mute_type" />
+							<enum name="ast_channel_monitor_start_type" />
+							<enum name="ast_channel_monitor_stop_type" />
 							<enum name="ast_channel_agent_login_type" />
 							<enum name="ast_channel_agent_logoff_type" />
 							<enum name="ast_channel_talking_start" />
@@ -249,8 +246,8 @@
  * The destructors of both have assertions regarding this to catch ref-counting
  * problems where a subscription or topic has had an extra ao2_cleanup().
  *
- * The \ref dispatch_exec_sync object is a transient object, which is posted to
- * a subscription's taskprocessor to send a message to the subscriber. They have
+ * The \ref dispatch object is a transient object, which is posted to a
+ * subscription's taskprocessor to send a message to the subscriber. They have
  * short life cycles, allocated on one thread, destroyed on another.
  *
  * During shutdown, or the deletion of a domain object, there are a flurry of
@@ -286,8 +283,8 @@
  * \par Subscriber shutdown sequencing
  *
  * Subscribers are sensitive to shutdown sequencing, specifically in how the
- * reference message types. This is fully detailed in the documentation at
- * https://docs.asterisk.org/Development/Roadmap/Asterisk-12-Projects/Asterisk-12-API-Improvements/Stasis-Message-Bus/Using-the-Stasis-Message-Bus/Stasis-Subscriber-Shutdown-Problem/.
+ * reference message types. This is fully detailed on the wiki at
+ * https://wiki.asterisk.org/wiki/x/K4BqAQ.
  *
  * In short, the lifetime of the \a data (and \a callback, if in a module) must
  * be held until the stasis_subscription_final_message() has been received.
@@ -749,6 +746,7 @@ static void subscription_dtor(void *obj)
 /*!
  * \brief Invoke the subscription's callback.
  * \param sub Subscription to invoke.
+ * \param topic Topic message was published to.
  * \param message Message to send.
  */
 static void subscription_invoke(struct stasis_subscription *sub,
@@ -1431,8 +1429,8 @@ static void publish_msg(struct stasis_topic *topic,
 	struct stasis_message *message, struct stasis_subscription *sync_sub)
 {
 	size_t i;
-#ifdef AST_DEVMODE
 	unsigned int dispatched = 0;
+#ifdef AST_DEVMODE
 	int message_type_id = stasis_message_type_id(stasis_message_type(message));
 	struct stasis_message_type_statistics *statistics;
 	struct timeval start;
@@ -1482,10 +1480,8 @@ static void publish_msg(struct stasis_topic *topic,
 		struct stasis_subscription *sub = AST_VECTOR_GET(&topic->subscribers, i);
 
 		ast_assert(sub != NULL);
-#ifdef AST_DEVMODE
-		dispatched +=
-#endif
-			dispatch_message(sub, message, (sub == sync_sub));
+
+		dispatched += dispatch_message(sub, message, (sub == sync_sub));
 	}
 	ao2_unlock(topic);
 
@@ -2296,7 +2292,7 @@ int stasis_message_type_declined(const char *name)
 	ao2_cleanup(name_in_declined);
 	ao2_ref(cfg, -1);
 	if (res) {
-		ast_debug(4, "Declining to allocate Stasis message type '%s' due to configuration\n", name);
+		ast_log(LOG_NOTICE, "Declining to allocate Stasis message type '%s' due to configuration\n", name);
 	}
 	return res;
 }

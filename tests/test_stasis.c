@@ -259,7 +259,7 @@ static int consumer_wait_for(struct consumer *consumer, size_t expected_len)
 		if (r == ETIMEDOUT) {
 			break;
 		}
-		ast_assert(r == 0); /* Not expecting any other types of errors */
+		ast_assert(r == 0); /* Not expecting any othet types of errors */
 	}
 	return consumer->messages_rxed_len;
 }
@@ -280,7 +280,7 @@ static int consumer_wait_for_completion(struct consumer *consumer)
 		if (r == ETIMEDOUT) {
 			break;
 		}
-		ast_assert(r == 0); /* Not expecting any other types of errors */
+		ast_assert(r == 0); /* Not expecting any othet types of errors */
 	}
 	return consumer->complete;
 }
@@ -306,7 +306,7 @@ static int consumer_should_stay(struct consumer *consumer, size_t expected_len)
 		if (r == ETIMEDOUT) {
 			break;
 		}
-		ast_assert(r == 0); /* Not expecting any other types of errors */
+		ast_assert(r == 0); /* Not expecting any othet types of errors */
 	}
 	return consumer->messages_rxed_len;
 }
@@ -2195,7 +2195,7 @@ static void dump_consumer(struct ast_test *test, struct cts *cts)
 	int i;
 	struct stasis_subscription_change *data;
 
-	ast_test_status_update(test, "Messages received: %zu  Final? %s\n", cts->consumer->messages_rxed_len,
+	ast_test_status_update(test, "Messages received: %ld  Final? %s\n", cts->consumer->messages_rxed_len,
 		cts->consumer->complete ? "yes" : "no");
 	for (i = 0; i < cts->consumer->messages_rxed_len; i++) {
 		data = stasis_message_data(cts->consumer->messages_rxed[i]);

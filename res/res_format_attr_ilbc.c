@@ -31,12 +31,10 @@
 
 #include "asterisk.h"
 
-#include <ctype.h>                      /* for tolower */
-
 #include "asterisk/module.h"
 #include "asterisk/format.h"
 #include "asterisk/strings.h"           /* for ast_str_append */
-#include "asterisk/utils.h"             /* for ast_free */
+#include "asterisk/utils.h"             /* for ast_calloc, ast_free */
 
 #include "asterisk/ilbc.h"
 
@@ -73,7 +71,6 @@ static int ilbc_clone(const struct ast_format *src, struct ast_format *dst)
 
 static struct ast_format *ilbc_parse_sdp_fmtp(const struct ast_format *format, const char *attributes)
 {
-	char *attribs = ast_strdupa(attributes), *attrib;
 	struct ast_format *cloned;
 	struct ilbc_attr *attr;
 	const char *kvp;
@@ -85,12 +82,7 @@ static struct ast_format *ilbc_parse_sdp_fmtp(const struct ast_format *format, c
 	}
 	attr = ast_format_get_attribute_data(cloned);
 
-	/* lower-case everything, so we are case-insensitive */
-	for (attrib = attribs; *attrib; ++attrib) {
-		*attrib = tolower(*attrib);
-	} /* based on channels/chan_sip.c:process_a_sdp_image() */
-
-	if ((kvp = strstr(attribs, "mode")) && sscanf(kvp, "mode=%30u", &val) == 1) {
+	if ((kvp = strstr(attributes, "mode")) && sscanf(kvp, "mode=%30u", &val) == 1) {
 		attr->mode = val;
 	} else {
 		attr->mode = 30; /* optional attribute; 30 is default value */
@@ -171,7 +163,8 @@ static int unload_module(void)
 	return 0;
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "iLBC Format Attribute Module",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER,
+	"iLBC Format Attribute Module",
 	.support_level = AST_MODULE_SUPPORT_CORE,
 	.load = load_module,
 	.unload = unload_module,

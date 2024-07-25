@@ -1,7 +1,7 @@
 """pjsip add use_callerid_contact
 
 Revision ID: 2bb1a85135ad
-Revises: 465f47f880be
+Revises: 7f85dd44c775
 Create Date: 2018-10-18 15:13:40.462354
 
 """

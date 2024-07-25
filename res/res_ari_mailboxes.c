@@ -53,11 +53,9 @@
 
 /*!
  * \brief Parameter parsing callback for /mailboxes.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_mailboxes_list_cb(
@@ -105,11 +103,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /mailboxes/{mailboxName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_mailboxes_get_cb(
@@ -182,11 +178,9 @@ int ast_ari_mailboxes_update_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /mailboxes/{mailboxName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_mailboxes_update_cb(
@@ -255,11 +249,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /mailboxes/{mailboxName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_mailboxes_delete_cb(

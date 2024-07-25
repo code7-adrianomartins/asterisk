@@ -45,8 +45,8 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-static const char *config = "extensions.lua";
-static const char *registrar = "pbx_lua";
+static char *config = "extensions.lua";
+static char *registrar = "pbx_lua";
 
 #ifdef LOW_MEMORY
 #define LUA_EXT_DATA_SIZE 256
@@ -60,7 +60,7 @@ static const char *registrar = "pbx_lua";
  * applications might return */
 #define LUA_GOTO_DETECTED 5
 
-static char *lua_read_extensions_file(lua_State *L, size_t *size, int *file_not_openable);
+static char *lua_read_extensions_file(lua_State *L, long *size, int *file_not_openable);
 static int lua_load_extensions(lua_State *L, struct ast_channel *chan);
 static int lua_reload_extensions(lua_State *L);
 static void lua_free_extensions(void);
@@ -105,7 +105,7 @@ static int exec(struct ast_channel *chan, const char *context, const char *exten
 
 AST_MUTEX_DEFINE_STATIC(config_file_lock);
 static char *config_file_data = NULL;
-static size_t config_file_size = 0;
+static long config_file_size = 0;
 
 static struct ast_context *local_contexts = NULL;
 static struct ast_hashtab *local_table = NULL;
@@ -174,11 +174,10 @@ static int lua_pbx_findapp(lua_State *L)
  * lua, don't call directly)
  *
  * \param L the lua_State to use
+ * \return nothing
  *
  * This funciton is executed as the '()' operator for apps accessed through the
  * 'app' table.
- *
- * \return LUA error
  *
  * \code
  * app.playback('demo-congrats')
@@ -294,8 +293,6 @@ static int lua_pbx_exec(lua_State *L)
  * 'get()' function in the following example as would be seen in
  * extensions.lua.
  *
- * \return LUA error
- *
  * \code
  * channel.variable:get()
  * \endcode
@@ -355,8 +352,6 @@ static int lua_get_variable_value(lua_State *L)
  *
  * This function is the 'set()' function in the following example as would be
  * seen in extensions.lua.
- *
- * \return LUA error
  *
  * \code
  * channel.variable:set("value")
@@ -461,7 +456,7 @@ static void lua_create_app_table(lua_State *L)
 }
 
 /*!
- * \brief Create the global 'channel' table for accessing channel variables
+ * \brief Create the global 'channel' table for accesing channel variables
  *
  * \param L the lua_State to use
  */
@@ -721,7 +716,7 @@ static int lua_autoservice_start(lua_State *L)
 }
 
 /*!
- * \brief [lua_CFunction] Tell pbx_lua to stop maintaining an autoservice on
+ * \brief [lua_CFunction] Tell pbx_lua to stop maintaning an autoservice on
  * this channel (for access from lua, don't call directly)
  *
  * \param L the lua_State to use
@@ -883,7 +878,7 @@ static int lua_sort_extensions(lua_State *L)
 		lua_newtable(L);
 		context_order = lua_gettop(L);
 
-		/* iterate through this context an populate the corrisponding
+		/* iterate through this context an popluate the corrisponding
 		 * table in the extensions_order table */
 		for (lua_pushnil(L); lua_next(L, context); lua_pop(L, 1)) {
 			int exten = lua_gettop(L) - 1;
@@ -924,7 +919,7 @@ static int lua_sort_extensions(lua_State *L)
 }
 
 /*!
- * \brief Register dialplan switches for our pbx_lua contexts.
+ * \brief Register dialplan switches for our pbx_lua contexs.
  *
  * In the event of an error, an error string will be pushed onto the lua stack.
  *
@@ -982,7 +977,7 @@ static int lua_register_switches(lua_State *L)
 }
 
 /*!
- * \brief Register dialplan hints for our pbx_lua contexts.
+ * \brief Register dialplan hints for our pbx_lua contexs.
  *
  * In the event of an error, an error string will be pushed onto the lua stack.
  *
@@ -1093,7 +1088,7 @@ static int lua_extension_cmp(lua_State *L)
  *
  * \return a pointer to the buffer
  */
-static char *lua_read_extensions_file(lua_State *L, size_t *size, int *file_not_openable)
+static char *lua_read_extensions_file(lua_State *L, long *size, int *file_not_openable)
 {
 	FILE *f;
 	int error_func;
@@ -1217,7 +1212,7 @@ static int lua_load_extensions(lua_State *L, struct ast_channel *chan)
  */
 static int lua_reload_extensions(lua_State *L)
 {
-	size_t size = 0;
+	long size = 0;
 	char *data = NULL;
 	int file_not_openable = 0;
 
@@ -1497,8 +1492,7 @@ static int exec(struct ast_channel *chan, const char *context, const char *exten
  */
 static int lua_find_extension(lua_State *L, const char *context, const char *exten, int priority, ast_switch_f *func, int push_func)
 {
-	int context_table, context_order_table;
-	size_t i;
+	int context_table, context_order_table, i;
 
 	ast_debug(2, "Looking up %s@%s:%i\n", exten, context, priority);
 	if (priority != 1)
@@ -1691,7 +1685,7 @@ static int load_module(void)
 		return res;
 
 	if (ast_register_switch(&lua_switch)) {
-		ast_log(LOG_ERROR, "Unable to register Lua PBX switch\n");
+		ast_log(LOG_ERROR, "Unable to register LUA PBX switch\n");
 		return AST_MODULE_LOAD_FAILURE;
 	}
 

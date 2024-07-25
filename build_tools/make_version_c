@@ -2,11 +2,6 @@
 
 GREP=${GREP:-grep}
 
-if test ! -f include/asterisk/buildopts.h ; then
-	echo "include/asterisk/buildopts.h is missing"
-	exit 1
-fi
-
 if test ! -f .flavor ; then
     EXTRA=""
 elif test ! -f .version ; then
@@ -23,11 +18,14 @@ then
 	BUILDOPTS="AST_DEVMODE"
 fi
 
-BUILDOPTS=$(sed -n -r -e 's/#define\s+AST_BUILDOPTS\s+"([^"]+)"/\1/gp' \
-	include/asterisk/buildopts.h )
-
-BUILDOPTS_ALL=$(sed -n -r -e 's/#define\s+AST_BUILDOPTS_ALL\s+"([^"]+)"/\1/gp' \
-	include/asterisk/buildopts.h )
+TMP=`${GREP} -e "^MENUSELECT_CFLAGS" menuselect.makeopts | sed 's/MENUSELECT_CFLAGS\=//g' | sed 's/-D//g'`
+for x in ${TMP}; do
+	if test "x${BUILDOPTS}" != "x" ; then
+		BUILDOPTS="${BUILDOPTS}, ${x}"
+	else
+		BUILDOPTS="${x}"
+	fi
+done
 
 cat << END
 /*
@@ -45,8 +43,6 @@ static const char asterisk_version_num[] = "${ASTERISKVERSIONNUM}";
 
 static const char asterisk_build_opts[] = "${BUILDOPTS}";
 
-static const char asterisk_build_opts_all[] = "${BUILDOPTS_ALL}";
-
 const char *ast_get_version(void)
 {
 	return asterisk_version;
@@ -60,11 +56,6 @@ const char *ast_get_version_num(void)
 const char *ast_get_build_opts(void)
 {
 	return asterisk_build_opts;
-}
-
-const char *ast_get_build_opts_all(void)
-{
-	return asterisk_build_opts_all;
 }
 
 END

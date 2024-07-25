@@ -17,11 +17,9 @@
  */
 
 /*!
- * \file
- *
- * \brief Definitions to aid in the use of thread local storage
- *
+ * \file threadstorage.h
  * \author Russell Bryant <russell@digium.com>
+ * \brief Definitions to aid in the use of thread local storage
  *
  * \arg \ref AstThreadStorage
  */
@@ -245,7 +243,6 @@ void *ast_threadstorage_get_ptr(struct ast_threadstorage *ts),
 /*!
  * \brief Set a raw pointer from threadstorage.
  * \param ts Threadstorage object to operate on.
- * \param ptr
  *
  * \retval 0 Success
  * \retval non-zero Failure

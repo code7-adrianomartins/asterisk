@@ -29,11 +29,8 @@
 
 #include "asterisk/test.h"
 #include "asterisk/module.h"
-#include "asterisk/bridge.h"
-#include "asterisk/bridge_basic.h"
 #include "asterisk/config.h"
 #include "asterisk/res_prometheus.h"
-#include "../res/prometheus/prometheus_internal.h"
 
 #define CATEGORY "/res/prometheus/"
 
@@ -56,6 +53,8 @@ static void prometheus_metric_free_wrapper(void *ptr)
 		prometheus_metric_free(ptr);
 	}
 }
+
+#define GLOBAL_USERAGENT "asterisk-libcurl-agent/1.0"
 
 static struct prometheus_general_config *config_alloc(void)
 {
@@ -85,7 +84,7 @@ static CURL *get_curl_instance(void)
 
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 180);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, AST_CURL_USER_AGENT);
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, GLOBAL_USERAGENT);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl, CURLOPT_URL, server_uri);
 
@@ -702,52 +701,6 @@ AST_TEST_DEFINE(config_general_core_metrics)
 	return AST_TEST_PASS;
 }
 
-static void safe_bridge_destroy(struct ast_bridge *bridge)
-{
-	if (!bridge) {
-		return;
-	}
-	ast_bridge_destroy(bridge, 0);
-}
-
-AST_TEST_DEFINE(bridge_to_string)
-{
-	RAII_VAR(struct ast_bridge *, bridge1, NULL, safe_bridge_destroy);
-	RAII_VAR(struct ast_bridge *, bridge2, NULL, safe_bridge_destroy);
-	struct ast_str *response;
-
-	switch (cmd) {
-	case TEST_INIT:
-		info->name = __func__;
-		info->category = CATEGORY;
-		info->summary = "Test producing bridge metrics";
-		info->description =
-			"This test covers checking the metrics produced by the\n"
-			"bridge support of the basic Promtheus module.";
-		return AST_TEST_NOT_RUN;
-	case TEST_EXECUTE:
-		break;
-	}
-
-	bridge1 = ast_bridge_basic_new();
-	ast_test_validate(test, bridge1 != NULL);
-
-	bridge2 = ast_bridge_base_new(AST_BRIDGE_CAPABILITY_HOLDING,
-		AST_BRIDGE_FLAG_INVISIBLE,
-		"test_res_prometheus", "test_bridge_invisible", NULL);
-
-	response = prometheus_scrape_to_string();
-	if (!response) {
-		return AST_TEST_FAIL;
-	}
-
-	ast_test_status_update(test, " -> Retrieved: %s\n", ast_str_buffer(response));
-	ast_test_validate(test, strstr(ast_str_buffer(response), "(null)") == NULL);
-	ast_test_validate(test, strstr(ast_str_buffer(response), "asterisk_bridges_channels_count{") != NULL);
-	ast_free(response);
-	return AST_TEST_PASS;
-}
-
 static int process_config(int reload)
 {
 	struct ast_config *config;
@@ -840,8 +793,6 @@ static int unload_module(void)
 	AST_TEST_UNREGISTER(config_general_basic_auth);
 	AST_TEST_UNREGISTER(config_general_core_metrics);
 
-	AST_TEST_UNREGISTER(bridge_to_string);
-
 	return 0;
 }
 
@@ -863,8 +814,6 @@ static int load_module(void)
 	AST_TEST_REGISTER(config_general_enabled);
 	AST_TEST_REGISTER(config_general_basic_auth);
 	AST_TEST_REGISTER(config_general_core_metrics);
-
-	AST_TEST_REGISTER(bridge_to_string);
 
 	ast_test_register_init(CATEGORY, &test_init_cb);
 	ast_test_register_cleanup(CATEGORY, &test_cleanup_cb);

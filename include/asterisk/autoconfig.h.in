@@ -50,6 +50,9 @@
    */
 #undef HAVE_ALLOCA_H
 
+/* Define to 1 if you have the Advanced Linux Sound Architecture library. */
+#undef HAVE_ALSA
+
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
@@ -202,10 +205,6 @@
 
 /* Define DAHDI headers version */
 #undef HAVE_DAHDI_VERSION
-
-/* Define to 1 if you have the declaration of `gethostbyname_r', and to 0 if
-   you don't. */
-#undef HAVE_DECL_GETHOSTBYNAME_R
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -405,6 +404,9 @@
 /* Define to 1 if you have the `isascii' function. */
 #undef HAVE_ISASCII
 
+/* Define to 1 if you have the ISDN4Linux library. */
+#undef HAVE_ISDNNET
+
 /* Define to 1 if you have the Jack Audio Connection Kit library. */
 #undef HAVE_JACK
 
@@ -431,12 +433,6 @@
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
-
-/* Define if your system has the LIBJWT libraries. */
-#undef HAVE_LIBJWT
-
-/* Define if your system has LIBJWT_BUNDLED */
-#undef HAVE_LIBJWT_BUNDLED
 
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
@@ -514,6 +510,15 @@
 /* Define to 1 if you have the `memset' function. */
 #undef HAVE_MEMSET
 
+/* Define to 1 if you have the mISDN user library. */
+#undef HAVE_MISDN
+
+/* Define if your system has the MISDN_FAC_ERROR headers. */
+#undef HAVE_MISDN_FAC_ERROR
+
+/* Define if your system has the MISDN_FAC_RESULT headers. */
+#undef HAVE_MISDN_FAC_RESULT
+
 /* Define to 1 if you have the `mkdir' function. */
 #undef HAVE_MKDIR
 
@@ -522,6 +527,9 @@
 
 /* Define to 1 if you have a working `mmap' system call. */
 #undef HAVE_MMAP
+
+/* Define if your system has the MSG_NOSIGNAL headers. */
+#undef HAVE_MSG_NOSIGNAL
 
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
@@ -534,6 +542,9 @@
 
 /* Define to 1 if mysql/mysql.h has my_bool defined. */
 #undef HAVE_MYSQLCLIENT_MY_BOOL
+
+/* Define to 1 if you have the Network Broadcast Sound library. */
+#undef HAVE_NBS
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
@@ -574,17 +585,26 @@
 /* Define to 1 if you have the MFR2 library. */
 #undef HAVE_OPENR2
 
-/* Define if your system has the OPENSSL libraries. */
+/* Define to 1 if you have the OpenSSL Secure Sockets Layer library. */
 #undef HAVE_OPENSSL
 
 /* Define to 1 if CRYPTO has the OpenSSL BIO Method Support feature. */
 #undef HAVE_OPENSSL_BIO_METHOD
+
+/* Define to 1 if CRYPTO has the OpenSSL SRTP Extension Support feature. */
+#undef HAVE_OPENSSL_SRTP
 
 /* Define to 1 if you have the Opus library. */
 #undef HAVE_OPUS
 
 /* Define to 1 if you have the Opusfile library. */
 #undef HAVE_OPUSFILE
+
+/* Define this to indicate the ${OSPTK_DESCRIP} library */
+#undef HAVE_OSPTK
+
+/* Define to 1 if you have the Open Sound System library. */
+#undef HAVE_OSS
 
 /* Define to 1 if your system defines the file flag O_EVTONLY in fcntl.h */
 #undef HAVE_O_EVTONLY
@@ -609,9 +629,6 @@
 
 /* Define if your system has PJPROJECT_BUNDLED */
 #undef HAVE_PJPROJECT_BUNDLED
-
-/* Define if doing a bundled pjproject out-of-tree build. */
-#undef HAVE_PJPROJECT_BUNDLED_OOT
 
 /* Define to 1 if on_valid_pair callback is present. */
 #undef HAVE_PJPROJECT_ON_VALID_ICE_PAIR_CALLBACK
@@ -650,21 +667,8 @@
 /* Define if your system has the PJSIP_REPLACE_MEDIA_STREAM headers. */
 #undef HAVE_PJSIP_REPLACE_MEDIA_STREAM
 
-/* Define if your system has the PJSIP_TLS_1_1 headers. */
-#undef HAVE_PJSIP_TLS_1_1
-
-/* Define if your system has the PJSIP_TLS_1_2 headers. */
-#undef HAVE_PJSIP_TLS_1_2
-
-/* Define if your system has the PJSIP_TLS_1_3 headers. */
-#undef HAVE_PJSIP_TLS_1_3
-
 /* Define if your system has the PJSIP_TLS_TRANSPORT_PROTO headers. */
 #undef HAVE_PJSIP_TLS_TRANSPORT_PROTO
-
-/* Define to 1 if PJPROJECT has the PJSIP TLS Transport Restart Support
-   feature. */
-#undef HAVE_PJSIP_TLS_TRANSPORT_RESTART
 
 /* Define if your system has the PJSIP_TRANSPORT_DISABLE_CONNECTION_REUSE
    headers. */
@@ -904,6 +908,9 @@
 /* Define to 1 if your system has soxmix application. */
 #undef HAVE_SOXMIX
 
+/* Define if your system has the SO_NOSIGPIPE headers. */
+#undef HAVE_SO_NOSIGPIPE
+
 /* Define if your system has the SPANDSP headers. */
 #undef HAVE_SPANDSP
 
@@ -915,6 +922,9 @@
 
 /* Define to 1 if you have the speex_preprocess_ctl library. */
 #undef HAVE_SPEEX_PREPROCESS
+
+/* Define to 1 if you have the SQLite library. */
+#undef HAVE_SQLITE
 
 /* Define to 1 if you have the SQLite library. */
 #undef HAVE_SQLITE3
@@ -1063,8 +1073,8 @@
 /* Define to 1 if `uid' is a member of `struct ucred'. */
 #undef HAVE_STRUCT_UCRED_UID
 
-/* Define to 1 if `_u._ext.nsaddrs' is a member of `struct __res_state'. */
-#undef HAVE_STRUCT___RES_STATE__U__EXT_NSADDRS
+/* Define to 1 if you have the mISDN Supplemental Services library. */
+#undef HAVE_SUPPSERV
 
 /* Define to 1 if you have the `swapctl' function. */
 #undef HAVE_SWAPCTL
@@ -1156,6 +1166,9 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
+/* Define to 1 if you have the <sys/thr.h> header file. */
+#undef HAVE_SYS_THR_H
+
 /* Define to 1 if you have the <sys/time.h> header file. */
 #undef HAVE_SYS_TIME_H
 
@@ -1246,6 +1259,9 @@
 
 /* Define if your system has OV_CALLBACKS_NOCLOSE declared. */
 #undef HAVE_VORBIS_OPEN_CALLBACKS
+
+/* Define if your system has the VoiceTronix API libraries. */
+#undef HAVE_VPB
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
@@ -1344,6 +1360,9 @@
    slash. */
 #undef LSTAT_FOLLOWS_SLASHED_SYMLINK
 
+/* Build chan_misdn for mISDN 1.2 or later. */
+#undef MISDN_1_2
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -1406,6 +1425,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
+#undef TIME_WITH_SYS_TIME
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME

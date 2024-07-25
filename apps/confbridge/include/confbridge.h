@@ -69,9 +69,6 @@ enum user_profile_flags {
 	USER_OPT_SEND_EVENTS = (1 << 17), /*!< Send text message events to users */
 	USER_OPT_ECHO_EVENTS = (1 << 18), /*!< Send events only to the admin(s) */
 	USER_OPT_TEXT_MESSAGING = (1 << 19), /*!< Send text messages to the user */
-	USER_OPT_ANSWER_CHANNEL = (1 << 20), /*!< Sets if the channel should be answered if currently unanswered */
-	USER_OPT_HEAR_OWN_JOIN_SOUND  = (1 << 21), /*!< Set if the caller should hear the join sound */
-	USER_OPT_ENDMARKEDANY = (1 << 22), /*!< Set if the user should be kicked after any marked user exits */
 };
 
 enum bridge_profile_flags {
@@ -459,6 +456,8 @@ void conf_ended(struct confbridge_conference *conference);
  * \brief Update the actual mute status of the user and set it on the bridge.
  *
  * \param user User to update the mute status.
+ *
+ * \return Nothing
  */
 void conf_update_user_mute(struct confbridge_user *user);
 
@@ -466,6 +465,8 @@ void conf_update_user_mute(struct confbridge_user *user);
  * \brief Stop MOH for the conference user.
  *
  * \param user Conference user to stop MOH on.
+ *
+ * \return Nothing
  */
 void conf_moh_stop(struct confbridge_user *user);
 
@@ -473,6 +474,8 @@ void conf_moh_stop(struct confbridge_user *user);
  * \brief Start MOH for the conference user.
  *
  * \param user Conference user to start MOH on.
+ *
+ * \return Nothing
  */
 void conf_moh_start(struct confbridge_user *user);
 
@@ -483,6 +486,8 @@ void conf_mute_only_active(struct confbridge_conference *conference);
 
 /*! \brief Callback to execute any time we transition from zero to one active users
  * \param conference The conference bridge with a single active user joined
+ * \retval 0 success
+ * \retval -1 failure
  */
 void conf_handle_first_join(struct confbridge_conference *conference);
 
@@ -696,7 +701,7 @@ int conf_announce_channel_push(struct ast_channel *ast);
  * \since 13.22.0
  * \since 15.5.0
  *
- * \param conference_name The name to search for
+ * \param confbridge_name The name to search for
  *
  * \return ConfBridge (which must be unreffed) or NULL.
  */

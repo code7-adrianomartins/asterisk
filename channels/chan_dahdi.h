@@ -146,7 +146,6 @@ struct dahdi_pvt {
 	 * \note Set to a couple of nonzero values but it is only tested like a boolean.
 	 */
 	int radio;
-	int dialmode;					/*!< Dialing Modes Allowed (Pulse/Tone) */
 	int outsigmod;					/*!< Outbound Signalling style (modifier) */
 	int oprmode;					/*!< "Operator Services" mode */
 	struct dahdi_pvt *oprpeer;				/*!< "Operator Services" peer tech_pvt ptr */
@@ -183,34 +182,11 @@ struct dahdi_pvt {
 	 */
 	unsigned int answeronpolarityswitch:1;
 	/*!
-	 * \brief INTEGER, number of ANI INFO digits on a CAMA trunk.
-	 * older switches use 1 INFO digit, newer switches use 2 INFO digits
-	 * \note Set from the "ani_info_digits" value read in from chan_dahdi.conf
-	 */
-	unsigned int ani_info_digits:8;
-	/*!
-	 * \brief INTEGER, length of ANI failure timeout in ms.
-	 * \note Set from the "ani_timeout" value read in from chan_dahdi.conf
-	 */
-	unsigned int ani_timeout:16;
-	/*!
-	 * \brief INTEGER, length of time to wait before sending ANI wink in ms.
-	 * \note Set from the "ani_wink_time" value read in from chan_dahdi.conf
-	 */
-	unsigned int ani_wink_time:16;
-	/*!
 	 * \brief TRUE if busy detection is enabled.
 	 * (Listens for the beep-beep busy pattern.)
 	 * \note Set from the "busydetect" value read in from chan_dahdi.conf
 	 */
 	unsigned int busydetect:1;
-	/*!
-	 * \brief TRUE if Called Subscriber held is enabled.
-	 * This allows a single incoming call to hold a DAHDI channel up,
-	 * allowing a recipient to hang up an extension and pick up another
-	 * phone on the same line without disconnecting the call.
-	 */
-	unsigned int calledsubscriberheld:1;
 	/*!
 	 * \brief TRUE if call return is enabled.
 	 * (*69, if your dialplan doesn't catch this first)
@@ -283,14 +259,6 @@ struct dahdi_pvt {
 	 * \note Set from the "hanguponpolarityswitch" value read in from chan_dahdi.conf
 	 */
 	unsigned int hanguponpolarityswitch:1;
-	/*!
-	 * \brief TRUE if FXS (FXO-signalled) channel should reoriginate for user to make a new call.
-	 */
-	unsigned int reoriginate:1;
-	/*!
-	 * \brief Internal flag for if we should actually process a reorigination.
-	 */
-	unsigned int doreoriginate:1;
 	/*! \brief TRUE if DTMF detection needs to be done by hardware. */
 	unsigned int hardwaredtmf:1;
 	/*!
@@ -314,12 +282,6 @@ struct dahdi_pvt {
 	 * \note Set from the "immediate" value read in from chan_dahdi.conf
 	 */
 	unsigned int immediate:1;
-	/*!
-	 * \brief TRUE if audible ringback should be provided
-	 * when immediate = yes.
-	 * \note Set from the "immediatering" value read in from chan_dahdi.conf
-	 */
-	unsigned int immediatering:1;
 	/*! \brief TRUE if in an alarm condition. */
 	unsigned int inalarm:1;
 	/*! \brief TRUE if TDD in MATE mode */
@@ -366,11 +328,6 @@ struct dahdi_pvt {
 	 * \note Set from the "threewaycalling" value read in from chan_dahdi.conf
 	 */
 	unsigned int threewaycalling:1;
-	/*!
-	 * \brief TRUE if a three way dial tone should time out to silence
-	 * \note Set from the "threewaysilenthold" value read in from chan_dahdi.conf
-	 */
-	unsigned int threewaysilenthold:1;
 	/*!
 	 * \brief TRUE if call transfer is enabled
 	 * \note For FXS ports (either direct analog or over T1/E1):
@@ -431,10 +388,6 @@ struct dahdi_pvt {
 	unsigned int mwimonitoractive:1;
 	/*! \brief TRUE if a MWI message sending thread is active */
 	unsigned int mwisendactive:1;
-	/*! \brief TRUE if a manual MWI override is active for a channel */
-	unsigned int mwioverride_active:1;
-	/*! \brief Manual MWI disposition (on/off) */
-	unsigned int mwioverride_disposition:1;
 	/*!
 	 * \brief TRUE if channel is out of reset and ready
 	 * \note Used by SS7.  Otherwise set but not used.

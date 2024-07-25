@@ -33,16 +33,7 @@
 #include <unistd.h>
 #endif
 
-#include <math.h>
-
 #include "asterisk/inline_api.h"
-
-/* A time_t can be represented as an unsigned long long (or uint64_t).
- * Formatted in base 10, UINT64_MAX is 20 digits long, plus one for NUL.
- * This should be the size of the receiving char buffer for calls to
- * ast_time_t_to_string().
- */
-#define AST_TIME_T_LEN		21
 
 /* We have to let the compiler learn what types to use for the elements of a
    struct timeval since on linux, it's time_t and suseconds_t, but on *BSD,
@@ -117,7 +108,7 @@ int ast_tvzero(const struct timeval t),
 )
 
 /*!
- * \brief Compress two \c struct \c timeval instances returning
+ * \brief Compres two \c struct \c timeval instances returning
  * -1, 0, 1 if the first arg is smaller, equal or greater to the second.
  */
 AST_INLINE_API(
@@ -235,41 +226,6 @@ struct timeval ast_tv(ast_time_t sec, ast_suseconds_t usec),
 )
 
 /*!
- * \brief Returns a timeval structure corresponding to the
- * number of seconds in the double _td.
- *
- * \param _td The number of seconds.
- * \returns A timeval structure containing the number of seconds.
- *
- * This is the inverse of ast_tv2double().
- */
-AST_INLINE_API(
-struct timeval ast_double2tv(double _td),
-{
-	struct timeval t;
-	t.tv_sec = (typeof(t.tv_sec))floor(_td);
-	t.tv_usec = (typeof(t.tv_usec)) ((_td - t.tv_sec) * 1000000.0);
-	return t;
-}
-)
-
-/*!
- * \brief Returns a double corresponding to the number of seconds
- * in the timeval \c tv.
- *
- * \param tv A pointer to a timeval structure.
- * \returns A double containing the number of seconds.
- *
- * This is the inverse of ast_double2tv().
- */
-AST_INLINE_API(
-double ast_tv2double(const struct timeval *tv),
-{
-	return (((double)tv->tv_sec) + (((double)tv->tv_usec) / 1000000.0));
-}
-)
-
-/*!
  * \brief Returns a timeval corresponding to the duration of n samples at rate r.
  * Useful to convert samples to timevals, or even milliseconds to timevals
  * in the form ast_samp2tv(milliseconds, 1000)
@@ -280,148 +236,5 @@ struct timeval ast_samp2tv(unsigned int _nsamp, unsigned int _rate),
 	return ast_tv(_nsamp / _rate, (_nsamp % _rate) * (1000000 / (float) _rate));
 }
 )
-
-/*!
- * \brief Returns the number of samples at rate _rate in the
- * duration specified by _tv.
- *
- * \param _tv A pointer to a timeval structure.
- * \param _rate The sample rate in Hz.
- * \returns A time_t containing the number of samples.
- *
- * This is the inverse of ast_samp2tv().
- */
-AST_INLINE_API(
-time_t ast_tv2samp(const struct timeval *_tv, int _rate),
-{
-	return (time_t)(ast_tv2double(_tv) * (double)_rate);
-}
-)
-
-/*!
- * \brief Returns the duration in seconds of _nsamp samples
- * at rate _rate.
- *
- * \param _nsamp The number of samples
- * \param _rate The sample rate in Hz.
- * \returns A double containing the number of seconds.
- *
- * This is the inverse of ast_sec2samp().
- */
-AST_INLINE_API(
-double ast_samp2sec(unsigned int _nsamp, unsigned int _rate),
-{
-	return ((double)_nsamp) / ((double)_rate);
-}
-)
-
-/*!
- * \brief Returns the number of samples at _rate in the duration
- * in _seconds.
- *
- * \param _seconds The time interval in seconds.
- * \param _rate The sample rate in Hz.
- * \returns The number of samples.
- *
- * This is the inverse of ast_samp2sec().
- */
-AST_INLINE_API(
-unsigned int ast_sec2samp(double _seconds, int _rate),
-{
-	return (unsigned int)(_seconds * _rate);
-}
-)
-
-/*!
- * \brief Time units enumeration.
- */
-enum TIME_UNIT {
-	TIME_UNIT_ERROR = -1,
-	TIME_UNIT_NANOSECOND,
-	TIME_UNIT_MICROSECOND,
-	TIME_UNIT_MILLISECOND,
-	TIME_UNIT_SECOND,
-	TIME_UNIT_MINUTE,
-	TIME_UNIT_HOUR,
-	TIME_UNIT_DAY,
-	TIME_UNIT_WEEK,
-	TIME_UNIT_MONTH,
-	TIME_UNIT_YEAR,
-};
-
-/*!
- * \brief Convert a string to a time unit enumeration value.
- *
- * This method attempts to be as flexible, and forgiving as possible when
- * converting. In most cases the algorithm will match on the beginning of
- * up to three strings (short, medium, long form). So that means if the
- * given string at least starts with one of the form values it will match.
- *
- * For example: us, usec, microsecond will all map to TIME_UNIT_MICROSECOND.
- * So will uss, usecs, microseconds, or even microsecondvals
- *
- * Matching is also not case sensitive.
- *
- * \param unit The string to map to an enumeration
- *
- * \return A time unit enumeration
- */
-enum TIME_UNIT ast_time_str_to_unit(const char *unit);
-
-/*!
- * \brief Convert a timeval structure to microseconds
- *
- * \param tv The timeval to convert
- *
- * \return The time in microseconds
- */
-ast_suseconds_t ast_time_tv_to_usec(const struct timeval *tv);
-
-/*!
- * \brief Create a timeval object initialized to given values.
- *
- * \param sec The timeval seconds value
- * \param usec The timeval microseconds value
- *
- * \return A timeval object
- */
-struct timeval ast_time_create(ast_time_t sec, ast_suseconds_t usec);
-
-/*!
- * \brief Convert the given unit value, and create a timeval object from it.
- *
- * \param val The value to convert to a timeval
- * \param unit The time unit type of val
- *
- * \return A timeval object
- */
-struct timeval ast_time_create_by_unit(unsigned long val, enum TIME_UNIT unit);
-
-/*!
- * \brief Convert the given unit value, and create a timeval object from it.
- *
- * This will first attempt to convert the unit from a string to a TIME_UNIT
- * enumeration. If that conversion fails then a zeroed out timeval object
- * is returned.
- *
- * \param val The value to convert to a timeval
- * \param unit The time unit type of val
- *
- * \return A timeval object
- */
-struct timeval ast_time_create_by_unit_str(unsigned long val, const char *unit);
-
-/*!
- * \brief Converts to a string representation of a time_t as decimal
- * seconds since the epoch. Returns -1 on failure, zero otherwise.
- *
- * The buffer should be at least 22 bytes long.
- */
-int ast_time_t_to_string(time_t time, char *buf, size_t length);
-
-/*!
- * \brief Returns a time_t from a string containing seconds since the epoch.
- */
-time_t ast_string_to_time_t(const char *str);
 
 #endif /* _ASTERISK_TIME_H */

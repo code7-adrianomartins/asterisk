@@ -34,12 +34,12 @@
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
+#include "asterisk/linkedlists.h"
 #include "asterisk/audiohook.h"
 #include "asterisk/slinfactory.h"
 #include "asterisk/frame.h"
 #include "asterisk/translate.h"
 #include "asterisk/format_cache.h"
-#include "asterisk/test.h"
 
 #define AST_AUDIOHOOK_SYNC_TOLERANCE 100 /*!< Tolerance in milliseconds for audiohooks synchronization */
 #define AST_AUDIOHOOK_SMALL_QUEUE_TOLERANCE 100 /*!< When small queue is enabled, this is the maximum amount of audio that can remain queued at a time. */
@@ -97,6 +97,14 @@ static int audiohook_set_internal_rate(struct ast_audiohook *audiohook, int rate
 	return 0;
 }
 
+/*! \brief Initialize an audiohook structure
+ *
+ * \param audiohook Audiohook structure
+ * \param type
+ * \param source, init_flags
+ *
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_init(struct ast_audiohook *audiohook, enum ast_audiohook_type type, const char *source, enum ast_audiohook_init_flags init_flags)
 {
 	/* Need to keep the type and source */
@@ -109,9 +117,6 @@ int ast_audiohook_init(struct ast_audiohook *audiohook, enum ast_audiohook_type 
 
 	audiohook->init_flags = init_flags;
 
-	/* Set direction to BOTH so that we feed frames in both directions */
-	audiohook->direction = AST_AUDIOHOOK_DIRECTION_BOTH;
-
 	/* initialize internal rate at 8khz, this will adjust if necessary */
 	audiohook_set_internal_rate(audiohook, DEFAULT_INTERNAL_SAMPLE_RATE, 0);
 
@@ -121,6 +126,10 @@ int ast_audiohook_init(struct ast_audiohook *audiohook, enum ast_audiohook_type 
 	return 0;
 }
 
+/*! \brief Destroys an audiohook structure
+ * \param audiohook Audiohook structure
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_destroy(struct ast_audiohook *audiohook)
 {
 	/* Drop the factories used by this audiohook type */
@@ -147,23 +156,17 @@ int ast_audiohook_destroy(struct ast_audiohook *audiohook)
 	return 0;
 }
 
-int ast_audiohook_set_frame_feed_direction(struct ast_audiohook *audiohook, enum ast_audiohook_direction direction)
-{
-	/* Only set the direction on new audiohooks */
-	if (audiohook->status != AST_AUDIOHOOK_STATUS_NEW) {
-		ast_debug(3, "Can not set direction on attached Audiohook %p\n", audiohook);
-		return -1;
-	}
-
-	audiohook->direction = direction;
-	return 0;
-}
-
 #define SHOULD_MUTE(hook, dir) \
 	((ast_test_flag(hook, AST_AUDIOHOOK_MUTE_READ) && (dir == AST_AUDIOHOOK_DIRECTION_READ)) || \
 	(ast_test_flag(hook, AST_AUDIOHOOK_MUTE_WRITE) && (dir == AST_AUDIOHOOK_DIRECTION_WRITE)) || \
 	(ast_test_flag(hook, AST_AUDIOHOOK_MUTE_READ | AST_AUDIOHOOK_MUTE_WRITE) == (AST_AUDIOHOOK_MUTE_READ | AST_AUDIOHOOK_MUTE_WRITE)))
 
+/*! \brief Writes a frame into the audiohook structure
+ * \param audiohook Audiohook structure
+ * \param direction Direction the audio frame came from
+ * \param frame Frame to write in
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_write_frame(struct ast_audiohook *audiohook, enum ast_audiohook_direction direction, struct ast_frame *frame)
 {
 	struct ast_slinfactory *factory = (direction == AST_AUDIOHOOK_DIRECTION_READ ? &audiohook->read_factory : &audiohook->write_factory);
@@ -174,13 +177,6 @@ int ast_audiohook_write_frame(struct ast_audiohook *audiohook, enum ast_audiohoo
 	int other_factory_samples;
 	int other_factory_ms;
 
-	/* Don't feed the frame if we are set to read and this is a write frame or if set to
-	   write and this is a read frame as we don't want it. Plus, it can cause mis-resampling
-	   if the READ and WRITE frames have different bitrates */
-	if (audiohook->direction != AST_AUDIOHOOK_DIRECTION_BOTH && audiohook->direction != direction) {
-		return 0;
-	}
-
 	/* Update last feeding time to be current */
 	*rwtime = ast_tvnow();
 
@@ -190,17 +186,17 @@ int ast_audiohook_write_frame(struct ast_audiohook *audiohook, enum ast_audiohoo
 	other_factory_ms = other_factory_samples / (audiohook->hook_internal_samp_rate / 1000);
 
 	if (ast_test_flag(audiohook, AST_AUDIOHOOK_TRIGGER_SYNC) && (our_factory_ms - other_factory_ms > AST_AUDIOHOOK_SYNC_TOLERANCE)) {
-		ast_debug(4, "Flushing audiohook %p so it remains in sync\n", audiohook);
+		ast_debug(1, "Flushing audiohook %p so it remains in sync\n", audiohook);
 		ast_slinfactory_flush(factory);
 		ast_slinfactory_flush(other_factory);
 	}
 
 	if (ast_test_flag(audiohook, AST_AUDIOHOOK_SMALL_QUEUE) && ((our_factory_ms > AST_AUDIOHOOK_SMALL_QUEUE_TOLERANCE) || (other_factory_ms > AST_AUDIOHOOK_SMALL_QUEUE_TOLERANCE))) {
-		ast_debug(4, "Audiohook %p has stale audio in its factories. Flushing them both\n", audiohook);
+		ast_debug(1, "Audiohook %p has stale audio in its factories. Flushing them both\n", audiohook);
 		ast_slinfactory_flush(factory);
 		ast_slinfactory_flush(other_factory);
 	} else if ((our_factory_ms > AST_AUDIOHOOK_LONG_QUEUE_TOLERANCE) || (other_factory_ms > AST_AUDIOHOOK_LONG_QUEUE_TOLERANCE)) {
-		ast_debug(4, "Audiohook %p has stale audio in its factories. Flushing them both\n", audiohook);
+		ast_debug(1, "Audiohook %p has stale audio in its factories. Flushing them both\n", audiohook);
 		ast_slinfactory_flush(factory);
 		ast_slinfactory_flush(other_factory);
 	}
@@ -276,7 +272,7 @@ static struct ast_frame *audiohook_read_frame_both(struct ast_audiohook *audioho
 
 	if (!usable_read && !usable_write) {
 		/* If both factories are unusable bail out */
-		ast_debug(3, "Read factory %p and write factory %p both fail to provide %zu samples\n", &audiohook->read_factory, &audiohook->write_factory, samples);
+		ast_debug(1, "Read factory %p and write factory %p both fail to provide %zu samples\n", &audiohook->read_factory, &audiohook->write_factory, samples);
 		return NULL;
 	}
 
@@ -337,7 +333,7 @@ static struct ast_frame *audiohook_read_frame_both(struct ast_audiohook *audioho
 			}
 		}
 	} else {
-		ast_debug(3, "Failed to get %d samples from write factory %p\n", (int)samples, &audiohook->write_factory);
+		ast_debug(1, "Failed to get %d samples from write factory %p\n", (int)samples, &audiohook->write_factory);
 	}
 
 	frame.subclass.format = ast_format_cache_get_slin_by_rate(audiohook->hook_internal_samp_rate);
@@ -443,11 +439,27 @@ static struct ast_frame *audiohook_read_frame_helper(struct ast_audiohook *audio
 	return final_frame;
 }
 
+/*! \brief Reads a frame in from the audiohook structure
+ * \param audiohook Audiohook structure
+ * \param samples Number of samples wanted in requested output format
+ * \param direction Direction the audio frame came from
+ * \param format Format of frame remote side wants back
+ * \return Returns frame on success, NULL on failure
+ */
 struct ast_frame *ast_audiohook_read_frame(struct ast_audiohook *audiohook, size_t samples, enum ast_audiohook_direction direction, struct ast_format *format)
 {
 	return audiohook_read_frame_helper(audiohook, samples, direction, format, NULL, NULL);
 }
 
+/*! \brief Reads a frame in from the audiohook structure
+ * \param audiohook Audiohook structure
+ * \param samples Number of samples wanted
+ * \param direction Direction the audio frame came from
+ * \param format Format of frame remote side wants back
+ * \param read_frame frame pointer for copying read frame data
+ * \param write_frame frame pointer for copying write frame data
+ * \return Returns frame on success, NULL on failure
+ */
 struct ast_frame *ast_audiohook_read_frame_all(struct ast_audiohook *audiohook, size_t samples, struct ast_format *format, struct ast_frame **read_frame, struct ast_frame **write_frame)
 {
 	return audiohook_read_frame_helper(audiohook, samples, AST_AUDIOHOOK_DIRECTION_BOTH, format, read_frame, write_frame);
@@ -481,6 +493,11 @@ static void audiohook_list_set_samplerate_compatibility(struct ast_audiohook_lis
 	}
 }
 
+/*! \brief Attach audiohook to channel
+ * \param chan Channel
+ * \param audiohook Audiohook structure
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_attach(struct ast_channel *chan, struct ast_audiohook *audiohook)
 {
 	ast_channel_lock(chan);
@@ -537,6 +554,14 @@ int ast_audiohook_attach(struct ast_channel *chan, struct ast_audiohook *audioho
 	return 0;
 }
 
+/*! \brief Update audiohook's status
+ * \param audiohook Audiohook structure
+ * \param status Audiohook status enum
+ *
+ * \note once status is updated to DONE, this function can not be used to set the
+ * status back to any other setting.  Setting DONE effectively locks the status as such.
+ */
+
 void ast_audiohook_update_status(struct ast_audiohook *audiohook, enum ast_audiohook_status status)
 {
 	ast_audiohook_lock(audiohook);
@@ -547,6 +572,10 @@ void ast_audiohook_update_status(struct ast_audiohook *audiohook, enum ast_audio
 	ast_audiohook_unlock(audiohook);
 }
 
+/*! \brief Detach audiohook from channel
+ * \param audiohook Audiohook structure
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_detach(struct ast_audiohook *audiohook)
 {
 	if (audiohook->status == AST_AUDIOHOOK_STATUS_NEW || audiohook->status == AST_AUDIOHOOK_STATUS_DONE) {
@@ -581,7 +610,7 @@ void ast_audiohook_detach_list(struct ast_audiohook_list *audiohook_list)
 		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
 	}
 
-	/* Drop any manipulators */
+	/* Drop any manipulaters */
 	while ((audiohook = AST_LIST_REMOVE_HEAD(&audiohook_list->manipulate_list, list))) {
 		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
 		audiohook->manipulate_callback(audiohook, NULL, NULL, 0);
@@ -606,8 +635,7 @@ void ast_audiohook_detach_list(struct ast_audiohook_list *audiohook_list)
 /*! \brief find an audiohook based on its source
  * \param audiohook_list The list of audiohooks to search in
  * \param source The source of the audiohook we wish to find
- * \return corresponding audiohook
- * \retval NULL if it cannot be found
+ * \return Return the corresponding audiohook or NULL if it cannot be found.
  */
 static struct ast_audiohook *find_audiohook_by_source(struct ast_audiohook_list *audiohook_list, const char *source)
 {
@@ -695,6 +723,11 @@ void ast_audiohook_move_all(struct ast_channel *old_chan, struct ast_channel *ne
 	AST_LIST_TRAVERSE_SAFE_END;
 }
 
+/*! \brief Detach specified source audiohook from channel
+ * \param chan Channel to detach from
+ * \param source Name of source to detach
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_detach_source(struct ast_channel *chan, const char *source)
 {
 	struct ast_audiohook *audiohook = NULL;
@@ -718,6 +751,16 @@ int ast_audiohook_detach_source(struct ast_channel *chan, const char *source)
 	return (audiohook ? 0 : -1);
 }
 
+/*!
+ * \brief Remove an audiohook from a specified channel
+ *
+ * \param chan Channel to remove from
+ * \param audiohook Audiohook to remove
+ *
+ * \return Returns 0 on success, -1 on failure
+ *
+ * \note The channel does not need to be locked before calling this function
+ */
 int ast_audiohook_remove(struct ast_channel *chan, struct ast_audiohook *audiohook)
 {
 	ast_channel_lock(chan);
@@ -752,8 +795,7 @@ int ast_audiohook_remove(struct ast_channel *chan, struct ast_audiohook *audioho
  * \param audiohook_list List of audiohooks
  * \param direction Direction frame is coming in from
  * \param frame The frame itself
- * \return frame on success
- * \retval NULL on failure
+ * \return Return frame on success, NULL on failure
  */
 static struct ast_frame *dtmf_audiohook_write_list(struct ast_channel *chan, struct ast_audiohook_list *audiohook_list, enum ast_audiohook_direction direction, struct ast_frame *frame)
 {
@@ -908,8 +950,7 @@ static void audiohook_list_set_hook_rate(struct ast_audiohook_list *audiohook_li
  * \param audiohook_list List of audiohooks
  * \param direction Direction frame is coming in from
  * \param frame The frame itself
- * \return frame on success
- * \retval NULL on failure
+ * \return Return frame on success, NULL on failure
  */
 static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, struct ast_audiohook_list *audiohook_list, enum ast_audiohook_direction direction, struct ast_frame *frame)
 {
@@ -1076,6 +1117,13 @@ int ast_audiohook_write_list_empty(struct ast_audiohook_list *audiohook_list)
 			&& AST_LIST_EMPTY(&audiohook_list->manipulate_list));
 }
 
+/*! \brief Pass a frame off to be handled by the audiohook core
+ * \param chan Channel that the list is coming off of
+ * \param audiohook_list List of audiohooks
+ * \param direction Direction frame is coming in from
+ * \param frame The frame itself
+ * \return Return frame on success, NULL on failure
+ */
 struct ast_frame *ast_audiohook_write_list(struct ast_channel *chan, struct ast_audiohook_list *audiohook_list, enum ast_audiohook_direction direction, struct ast_frame *frame)
 {
 	/* Pass off frame to it's respective list write function */
@@ -1188,6 +1236,7 @@ struct audiohook_volume {
 
 /*! \brief Callback used to destroy the audiohook volume datastore
  * \param data Volume information structure
+ * \return Returns nothing
  */
 static void audiohook_volume_destroy(void *data)
 {
@@ -1213,8 +1262,7 @@ static const struct ast_datastore_info audiohook_volume_datastore = {
  * \param chan Channel we are attached to
  * \param frame Frame of audio we want to manipulate
  * \param direction Direction the audio came in from
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  */
 static int audiohook_volume_callback(struct ast_audiohook *audiohook, struct ast_channel *chan, struct ast_frame *frame, enum ast_audiohook_direction direction)
 {
@@ -1252,8 +1300,7 @@ static int audiohook_volume_callback(struct ast_audiohook *audiohook, struct ast
 /*! \brief Helper function which finds and optionally creates an audiohook_volume_datastore datastore on a channel
  * \param chan Channel to look on
  * \param create Whether to create the datastore if not found
- * \return audiohook_volume structure on success
- * \retval NULL on failure
+ * \return Returns audiohook_volume structure on success, NULL on failure
  */
 static struct audiohook_volume *audiohook_volume_get(struct ast_channel *chan, int create)
 {
@@ -1290,6 +1337,12 @@ static struct audiohook_volume *audiohook_volume_get(struct ast_channel *chan, i
 	return audiohook_volume;
 }
 
+/*! \brief Adjust the volume on frames read from or written to a channel
+ * \param chan Channel to muck with
+ * \param direction Direction to set on
+ * \param volume Value to adjust the volume by
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_volume_set(struct ast_channel *chan, enum ast_audiohook_direction direction, int volume)
 {
 	struct audiohook_volume *audiohook_volume = NULL;
@@ -1310,6 +1363,11 @@ int ast_audiohook_volume_set(struct ast_channel *chan, enum ast_audiohook_direct
 	return 0;
 }
 
+/*! \brief Retrieve the volume adjustment value on frames read from or written to a channel
+ * \param chan Channel to retrieve volume adjustment from
+ * \param direction Direction to retrieve
+ * \return Returns adjustment value
+ */
 int ast_audiohook_volume_get(struct ast_channel *chan, enum ast_audiohook_direction direction)
 {
 	struct audiohook_volume *audiohook_volume = NULL;
@@ -1330,6 +1388,12 @@ int ast_audiohook_volume_get(struct ast_channel *chan, enum ast_audiohook_direct
 	return adjustment;
 }
 
+/*! \brief Adjust the volume on frames read from or written to a channel
+ * \param chan Channel to muck with
+ * \param direction Direction to increase
+ * \param volume Value to adjust the adjustment by
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_volume_adjust(struct ast_channel *chan, enum ast_audiohook_direction direction, int volume)
 {
 	struct audiohook_volume *audiohook_volume = NULL;
@@ -1350,6 +1414,13 @@ int ast_audiohook_volume_adjust(struct ast_channel *chan, enum ast_audiohook_dir
 	return 0;
 }
 
+/*! \brief Mute frames read from or written to a channel
+ * \param chan Channel to muck with
+ * \param source Type of audiohook
+ * \param flag which flag to set / clear
+ * \param clear set or clear
+ * \return Returns 0 on success, -1 on failure
+ */
 int ast_audiohook_set_mute(struct ast_channel *chan, const char *source, enum ast_audiohook_flags flag, int clear)
 {
 	struct ast_audiohook *audiohook = NULL;
@@ -1375,35 +1446,4 @@ int ast_audiohook_set_mute(struct ast_channel *chan, const char *source, enum as
 	ast_channel_unlock(chan);
 
 	return (audiohook ? 0 : -1);
-}
-
-int ast_audiohook_set_mute_all(struct ast_channel *chan, const char *source, enum ast_audiohook_flags flag, int clearmute)
-{
-	struct ast_audiohook *audiohook = NULL;
-	int count = 0;
-
-	ast_channel_lock(chan);
-
-	if (!ast_channel_audiohooks(chan)) {
-		ast_channel_unlock(chan);
-		return -1;
-	}
-
-	AST_LIST_TRAVERSE(&ast_channel_audiohooks(chan)->spy_list, audiohook, list) {
-		if (!strcasecmp(audiohook->source, source)) {
-			count++;
-			if (clearmute) {
-				ast_clear_flag(audiohook, flag);
-			} else {
-				ast_set_flag(audiohook, flag);
-			}
-		}
-	}
-
-	ast_test_suite_event_notify("AUDIOHOOK_GROUP_MUTE_TOGGLE", "Channel: %s\r\nSource: %s\r\nCount: %d\r\n",
-									ast_channel_name(chan), source, count);
-
-	ast_channel_unlock(chan);
-
-	return count;
 }

@@ -55,7 +55,6 @@
 #define CID_UNKNOWN_NUMBER		(1 << 3)
 #define CID_MSGWAITING			(1 << 4)
 #define CID_NOMSGWAITING		(1 << 5)
-#define CID_QUALIFIER			(1 << 6)
 
 #define CID_SIG_BELL	1
 #define CID_SIG_V23	2
@@ -67,12 +66,6 @@
 #define CID_START_POLARITY 		2
 #define CID_START_POLARITY_IN 	3
 #define CID_START_DTMF_NOALERT	4
-
-/* Caller ID message formats */
-/*! SDMF - number only */
-#define CID_TYPE_SDMF			0x00
-/*! MDMF - name, number, etc. */
-#define CID_TYPE_MDMF			0x01
 
 /* defines dealing with message waiting indication generation */
 /*! MWI SDMF format */
@@ -108,46 +101,7 @@ void callerid_init(void);
  * \return It returns the size
  * (in bytes) of the data (if it returns a size of 0, there is probably an error)
  */
-int callerid_generate(unsigned char *buf, const char *number, const char *name,	int flags, int callwaiting, struct ast_format *codec);
-
-/*! \brief Generates a CallerID FSK stream in ulaw format suitable for transmission.
- * \param buf Buffer to use. If "buf" is supplied, it will use that buffer instead of allocating its own.
- *   "buf" must be at least 32000 bytes in size of you want to be sure you don't have an overrun.
- * \param number Use NULL for no number or "P" for "private"
- * \param name name to be used
- * \param ddn Dialable Directory Number (or NULL)
- * \param redirecting Redirecting reason
- * \param flags passed flags
- * \param format Message format
- * \param callwaiting callwaiting flag
- * \param codec -- either AST_FORMAT_ULAW or AST_FORMAT_ALAW
- * \details
- * This function creates a stream of callerid (a callerid spill) data in ulaw format.
- * \return It returns the size
- * (in bytes) of the data (if it returns a size of 0, there is probably an error)
- */
-int callerid_full_generate(unsigned char *buf, const char *number, const char *name, const char *ddn, int redirecting,
-	int flags, int format, int callwaiting, struct ast_format *codec);
-
-/*! \brief Generates a CallerID FSK stream in ulaw format suitable for transmission.
- * \param buf Buffer to use. If "buf" is supplied, it will use that buffer instead of allocating its own.
- *   "buf" must be at least 32000 bytes in size of you want to be sure you don't have an overrun.
- * \param number Use NULL for no number or "P" for "private"
- * \param name name to be used
- * \param ddn Dialable Directory Number (or NULL)
- * \param redirecting Redirecting reason
- * \param flags passed flags
- * \param format Message format
- * \param callwaiting callwaiting flag
- * \param codec -- either AST_FORMAT_ULAW or AST_FORMAT_ALAW
- * \param tz TZ-format time zone to use for date/time (NULL for system default)
- * \details
- * This function creates a stream of callerid (a callerid spill) data in ulaw format.
- * \return It returns the size
- * (in bytes) of the data (if it returns a size of 0, there is probably an error)
- */
-int callerid_full_tz_generate(unsigned char *buf, const char *number, const char *name, const char *ddn, int redirecting,
-	int flags, int format, int callwaiting, struct ast_format *codec, const char *tz);
+int callerid_generate(unsigned char *buf, const char *number, const char *name, int flags, int callwaiting, struct ast_format *codec);
 
 /*! \brief Create a callerID state machine
  * \param cid_signalling Type of signalling in use
@@ -196,6 +150,8 @@ int callerid_feed_jp(struct callerid_state *cid, unsigned char *ubuf, int sample
  * This function extracts a callerid string out of a callerid_state state machine.
  * If no number is found, *number will be set to NULL.  Likewise for the name.
  * Flags can contain any of the following:
+ *
+ * \return Returns nothing.
  */
 void callerid_get(struct callerid_state *cid, char **number, char **name, int *flags);
 
@@ -223,41 +179,6 @@ void callerid_free(struct callerid_state *cid);
  */
 int ast_callerid_generate(unsigned char *buf, const char *name, const char *number, struct ast_format *codec);
 
-/*! \brief Generate Caller-ID spill from the "callerid" field of asterisk (in e-mail address like format)
- * \param buf buffer for output samples. See callerid_generate() for details regarding buffer.
- * \param name Caller-ID Name
- * \param number Caller-ID Number
- * \param ddn Dialable Directory Number (or NULL)
- * \param redirecting Redirecting Reason (-1 if N/A)
- * \param pres Presentation (0 for default)
- * \param qualifier Call Qualifier (0 for no, 1 for yes)
- * \param format Message Format
- * \param codec Asterisk codec (either AST_FORMAT_ALAW or AST_FORMAT_ULAW)
- *
- * \details
- * Like ast_callerid_generate but with additional parameters.
- */
-int ast_callerid_full_generate(unsigned char *buf, const char *name, const char *number,
-	const char *ddn, int redirecting, int pres, int qualifier, int format, struct ast_format *codec);
-
-/*! \brief Generate Caller-ID spill from the "callerid" field of asterisk (in e-mail address like format)
- * \param buf buffer for output samples. See callerid_generate() for details regarding buffer.
- * \param name Caller-ID Name
- * \param number Caller-ID Number
- * \param ddn Dialable Directory Number (or NULL)
- * \param redirecting Redirecting Reason (-1 if N/A)
- * \param pres Presentation (0 for default)
- * \param qualifier Call Qualifier (0 for no, 1 for yes)
- * \param format Message Format
- * \param codec Asterisk codec (either AST_FORMAT_ALAW or AST_FORMAT_ULAW)
- * \param tz TZ-format time zone name to use for date/time (NULL for system default)
- *
- * \details
- * Like ast_callerid_generate but with additional parameters.
- */
-int ast_callerid_full_tz_generate(unsigned char *buf, const char *name, const char *number,
-	const char *ddn, int redirecting, int pres, int qualifier, int format, struct ast_format *codec, const char *tz);
-
 /*!
  * \brief Generate message waiting indicator
  * \param buf
@@ -279,22 +200,9 @@ int ast_callerid_vmwi_generate(unsigned char *buf, int active, int type, struct 
  */
 int ast_callerid_callwaiting_generate(unsigned char *buf, const char *name, const char *number, struct ast_format *codec);
 
-/*! \brief Generate Caller-ID spill but in a format suitable for Call Waiting(tm)'s Caller*ID(tm)
- * \see ast_callerid_generate() for other details
- */
-int ast_callerid_callwaiting_full_generate(unsigned char *buf, const char *name, const char *number,
-	const char *ddn, int redirecting, int pres, int qualifier, struct ast_format *codec);
-
-/*! \brief Generate Caller-ID spill but in a format suitable for Call Waiting(tm)'s Caller*ID(tm)
- * \param tz TZ-format time zone for date/time (NULL for system default)
- * \see ast_callerid_generate() for other details
- */
-int ast_callerid_callwaiting_full_tz_generate(unsigned char *buf, const char *name, const char *number,
-	const char *ddn, int redirecting, int pres, int qualifier, struct ast_format *codec, const char *tz);
-
 /*! \brief Destructively parse inbuf into name and location (or number)
  * \details
- * Parses callerid stream from inbuf and changes into useable form, outputted in name and location.
+ * Parses callerid stream from inbuf and changes into useable form, outputed in name and location.
  * \param instr buffer of callerid stream (in audio form) to be parsed. Warning, data in buffer is changed.
  * \param name address of a pointer-to-char for the name value of the stream.
  * \param location address of a pointer-to-char for the phone number value of the stream.
@@ -303,8 +211,7 @@ int ast_callerid_callwaiting_full_tz_generate(unsigned char *buf, const char *na
  * " foo bar " <123>       123             ' foo bar ' (with spaces around)
  * " foo bar "             NULL            'foo bar' (without spaces around)
  * The parsing of leading and trailing space/quotes should be more consistent.
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure.
  */
 int ast_callerid_parse(char *instr, char **name, char **location);
 
@@ -314,22 +221,21 @@ int ast_callerid_parse(char *instr, char **name, char **location);
  * \param sas Non-zero if CAS should be preceeded by SAS
  * \param len How many samples to generate.
  * \param codec Which codec (AST_FORMAT_ALAW or AST_FORMAT_ULAW)
- * \retval -1 on error (if len is less than 2400)
- * \retval 0 on success
+ * \return Returns -1 on error (if len is less than 2400), 0 on success.
  */
 int ast_gen_cas(unsigned char *outbuf, int sas, int len, struct ast_format *codec);
 
 /*!
  * \brief Shrink a phone number in place to just digits (more accurately it just removes ()'s, .'s, and -'s...
  * \param n The number to be stripped/shrunk
+ * \return Returns nothing important
  */
 void ast_shrink_phone_number(char *n);
 
 /*!
  * \brief Check if a string consists only of digits and + \#
  * \param n number to be checked.
- * \retval 0 if \p n is a number
- * \retval 1 if not
+ * \return Returns 0 if n is a number, 1 if it's not.
  */
 int ast_isphonenumber(const char *n);
 
@@ -337,7 +243,7 @@ int ast_isphonenumber(const char *n);
  * \brief Check if a string consists only of digits and + \# ( ) - .
  * (meaning it can be cleaned with ast_shrink_phone_number)
  * \param exten The extension (or URI) to be checked.
- * \retval 1 if \p exten is valid AST shrinkable phone number
+ * \retval 1 if string is valid AST shrinkable phone number
  * \retval 0 if not
  */
 int ast_is_shrinkable_phonenumber(const char *exten);

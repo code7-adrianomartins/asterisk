@@ -48,7 +48,7 @@ static void cleanup(char *element)
 }
 
 #define STRING_CMP(a, b) ({ \
-	((void *)(a) == (void *)NULL || (void *)(b) == (void *)NULL) ? -1 : (strcmp((a), (b)) == 0); \
+	((a) == NULL || (b) == NULL) ? -1 : (strcmp((a), (b)) == 0); \
 })
 
 AST_TEST_DEFINE(basic_ops)

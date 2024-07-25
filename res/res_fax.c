@@ -35,6 +35,7 @@
  */
 
 /*** MODULEINFO
+	<conflict>app_fax</conflict>
 	<support_level>core</support_level>
 ***/
 
@@ -1450,8 +1451,8 @@ static void set_channel_variables(struct ast_channel *chan, struct ast_fax_sessi
 	pbx_builtin_setvar_helper(chan, "FAXSTATUS", S_OR(details->result, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXERROR", S_OR(details->error, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXSTATUSSTRING", S_OR(details->resultstr, NULL));
-	pbx_builtin_setvar_helper(chan, "REMOTESTATIONID", AST_JSON_UTF8_VALIDATE(details->remotestationid));
-	pbx_builtin_setvar_helper(chan, "LOCALSTATIONID", AST_JSON_UTF8_VALIDATE(details->localstationid));
+	pbx_builtin_setvar_helper(chan, "REMOTESTATIONID", S_OR(details->remotestationid, NULL));
+	pbx_builtin_setvar_helper(chan, "LOCALSTATIONID", S_OR(details->localstationid, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXBITRATE", S_OR(details->transfer_rate, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXRESOLUTION", S_OR(details->resolution, NULL));
 
@@ -2035,11 +2036,11 @@ static int report_receive_fax_status(struct ast_channel *chan, const char *filen
 		const char *fax_bitrate;
 		SCOPED_CHANNELLOCK(lock, chan);
 
-		remote_station_id = AST_JSON_UTF8_VALIDATE(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"));
+		remote_station_id = S_OR(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"), "");
 		if (!ast_strlen_zero(remote_station_id)) {
 			remote_station_id = ast_strdupa(remote_station_id);
 		}
-		local_station_id = AST_JSON_UTF8_VALIDATE(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"));
+		local_station_id = S_OR(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"), "");
 		if (!ast_strlen_zero(local_station_id)) {
 			local_station_id = ast_strdupa(local_station_id);
 		}
@@ -2542,11 +2543,11 @@ static int report_send_fax_status(struct ast_channel *chan, struct ast_fax_sessi
 		const char *fax_bitrate;
 		SCOPED_CHANNELLOCK(lock, chan);
 
-		remote_station_id = AST_JSON_UTF8_VALIDATE(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"));
+		remote_station_id = S_OR(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"), "");
 		if (!ast_strlen_zero(remote_station_id)) {
 			remote_station_id = ast_strdupa(remote_station_id);
 		}
-		local_station_id = AST_JSON_UTF8_VALIDATE(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"));
+		local_station_id = S_OR(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"), "");
 		if (!ast_strlen_zero(local_station_id)) {
 			local_station_id = ast_strdupa(local_station_id);
 		}
@@ -3848,7 +3849,7 @@ static struct ast_frame *fax_detect_framehook(struct ast_channel *chan, struct a
 		switch (result) {
 		case 'f':
 		case 't':
-			target_context = ast_channel_context(chan);
+			target_context = S_OR(ast_channel_macrocontext(chan), ast_channel_context(chan));
 
 			ast_channel_unlock(chan);
 			ast_frfree(f);
@@ -4738,7 +4739,7 @@ static int acf_faxopt_write(struct ast_channel *chan, const char *cmd, char *dat
 }
 
 /*! \brief FAXOPT dialplan function */
-static struct ast_custom_function acf_faxopt = {
+struct ast_custom_function acf_faxopt = {
 	.name = "FAXOPT",
 	.read = acf_faxopt_read,
 	.write = acf_faxopt_write,

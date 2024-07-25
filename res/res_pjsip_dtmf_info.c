@@ -87,7 +87,7 @@ static int dtmf_info_incoming_request(struct ast_sip_session *session, struct pj
 	char *line;
 	char event = '\0';
 	unsigned int duration = 100;
-	char is_dtmf, is_dtmf_relay, is_flash;
+	char is_dtmf;
 	int res;
 
 	if (!session->channel) {
@@ -95,10 +95,8 @@ static int dtmf_info_incoming_request(struct ast_sip_session *session, struct pj
 	}
 
 	is_dtmf = is_media_type(rdata, "dtmf");
-	is_dtmf_relay = is_media_type(rdata, "dtmf-relay");
-	is_flash = is_media_type(rdata, "hook-flash");
 
-	if (!is_flash && !is_dtmf && !is_dtmf_relay) {
+	if (!is_dtmf && !is_media_type(rdata, "dtmf-relay")) {
 		return 0;
 	}
 
@@ -118,7 +116,7 @@ static int dtmf_info_incoming_request(struct ast_sip_session *session, struct pj
 	if (is_dtmf) {
 		/* directly use what is in the message body */
 		event = get_event(cur);
-	} else if (is_dtmf_relay) { /* content type = application/dtmf-relay */
+	} else { /* content type = application/dtmf-relay */
 		while ((line = strsep(&cur, "\r\n"))) {
 			char *c;
 
@@ -139,7 +137,7 @@ static int dtmf_info_incoming_request(struct ast_sip_session *session, struct pj
 		}
 	}
 
-	if (event == '!' || is_flash) {
+	if (event == '!') {
 		struct ast_frame f = { AST_FRAME_CONTROL, { AST_CONTROL_FLASH, } };
 		ast_queue_frame(session->channel, &f);
 	} else if (event != '\0') {
@@ -163,13 +161,6 @@ static struct ast_sip_session_supplement dtmf_info_supplement = {
 
 static int load_module(void)
 {
-	static const pj_str_t STR_INFO = { "INFO", 4 };
-
-	if (pjsip_endpt_add_capability(ast_sip_get_pjsip_endpoint(),
-			NULL, PJSIP_H_ALLOW, NULL, 1, &STR_INFO) != PJ_SUCCESS) {
-		return AST_MODULE_LOAD_DECLINE;
-	}
-
 	ast_sip_session_register_supplement(&dtmf_info_supplement);
 	return AST_MODULE_LOAD_SUCCESS;
 }

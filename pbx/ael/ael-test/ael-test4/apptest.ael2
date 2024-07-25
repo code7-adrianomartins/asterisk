@@ -65,6 +65,7 @@
 	MeetMeCount(5555,var);
 	Milliwatt();
 	MixMonitor(filename,abv()V()W(),command);
+	Monitor(file.fmt,base,mb);
 	MP3Player(location);
 	MusicOnHold(class);
 	NBScat();
@@ -127,7 +128,7 @@
 	TrySystem(command);
 	TxFAX(filename,caller,debug);
 	UnpauseQueueMember(queuename,iface,j);
-	UserEvent(eventname,body);
+	UserEvent(eventanme,body);
 	Verbose(5,message);
 	VMAuthenticate(mailbox@cont,s);
 	VoiceMail(mailbox@cont,bg()suj);

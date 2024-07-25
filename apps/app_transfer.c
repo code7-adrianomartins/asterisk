@@ -69,14 +69,6 @@
 						Transfer unsupported by channel driver.
 					</value>
 				</variable>
-				<variable name="TRANSFERSTATUSPROTOCOL">
-					<value name="0">
-						No error.
-					</value>
-					<value name="3xx-6xx">
-						SIP example - Error result code.
-					</value>
-				</variable>
 			</variablelist>
 		</description>
 	</application>
@@ -93,8 +85,6 @@ static int transfer_exec(struct ast_channel *chan, const char *data)
 	char *dest = NULL;
 	char *status;
 	char *parse;
-	int protocol = 0;
-	char status_protocol[20];
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(dest);
 	);
@@ -102,8 +92,6 @@ static int transfer_exec(struct ast_channel *chan, const char *data)
 	if (ast_strlen_zero((char *)data)) {
 		ast_log(LOG_WARNING, "Transfer requires an argument ([Tech/]destination)\n");
 		pbx_builtin_setvar_helper(chan, "TRANSFERSTATUS", "FAILURE");
-		snprintf(status_protocol, sizeof(status_protocol), "%d", protocol);
-		pbx_builtin_setvar_helper(chan, "TRANSFERSTATUSPROTOCOL", status_protocol);
 		return 0;
 	} else
 		parse = ast_strdupa(data);
@@ -118,8 +106,6 @@ static int transfer_exec(struct ast_channel *chan, const char *data)
 		/* Allow execution only if the Tech/destination agrees with the type of the channel */
 		if (strncasecmp(ast_channel_tech(chan)->type, tech, len)) {
 			pbx_builtin_setvar_helper(chan, "TRANSFERSTATUS", "FAILURE");
-			snprintf(status_protocol, sizeof(status_protocol), "%d", protocol);
-			pbx_builtin_setvar_helper(chan, "TRANSFERSTATUSPROTOCOL", status_protocol);
 			return 0;
 		}
 	}
@@ -127,14 +113,10 @@ static int transfer_exec(struct ast_channel *chan, const char *data)
 	/* Check if the channel supports transfer before we try it */
 	if (!ast_channel_tech(chan)->transfer) {
 		pbx_builtin_setvar_helper(chan, "TRANSFERSTATUS", "UNSUPPORTED");
-		snprintf(status_protocol, sizeof(status_protocol), "%d", protocol);
-		pbx_builtin_setvar_helper(chan, "TRANSFERSTATUSPROTOCOL", status_protocol);
 		return 0;
 	}
 
-	/* New transfer API returns a protocol code
-	   SIP example, 0 = success, 3xx-6xx are sip error codes for the REFER */
-	res = ast_transfer_protocol(chan, dest, &protocol);
+	res = ast_transfer(chan, dest);
 
 	if (res < 0) {
 		status = "FAILURE";
@@ -144,11 +126,7 @@ static int transfer_exec(struct ast_channel *chan, const char *data)
 		res = 0;
 	}
 
-	snprintf(status_protocol, sizeof(status_protocol), "%d", protocol);
-	ast_debug(1, "ast_transfer channel %s TRANSFERSTATUS=%s, TRANSFERSTATUSPROTOCOL=%s\n",
-		  ast_channel_name(chan), status, status_protocol);
 	pbx_builtin_setvar_helper(chan, "TRANSFERSTATUS", status);
-	pbx_builtin_setvar_helper(chan, "TRANSFERSTATUSPROTOCOL", status_protocol);
 
 	return res;
 }

@@ -28,7 +28,6 @@
 #include "asterisk.h"
 
 #include <sys/stat.h>   /* stat(2) */
-#include <libgen.h>     /* dirname and basename */
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -49,55 +48,6 @@
 		</syntax>
 		<description>
 			<para>Variables starting with <literal>AST_</literal> are reserved to the system and may not be set.</para>
-			<para>Additionally, the following system variables are available as special built-in dialplan variables.
-			These variables cannot be set or modified and are read-only.</para>
-			<variablelist>
-				<variable name="EPOCH">
-					<para>Current unix style epoch</para>
-				</variable>
-				<variable name="SYSTEMNAME">
-					<para>value of the <literal>systemname</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTCACHEDIR">
-					<para>value of the <literal>astcachedir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTETCDIR">
-					<para>value of the <literal>astetcdir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTMODDIR">
-					<para>value of the <literal>astmoddir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTVARLIBDIR">
-					<para>value of the <literal>astvarlib</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTDBDIR">
-					<para>value of the <literal>astdbdir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTKEYDIR">
-					<para>value of the <literal>astkeydir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTDATADIR">
-					<para>value of the <literal>astdatadir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTAGIDIR">
-					<para>value of the <literal>astagidir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTSPOOLDIR">
-					<para>value of the <literal>astspooldir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTRUNDIR">
-					<para>value of the <literal>astrundir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTLOGDIR">
-					<para>value of the <literal>astlogdir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ASTSBINDIR">
-					<para>value of the <literal>astsbindir</literal> option from <literal>asterisk.conf</literal></para>
-				</variable>
-				<variable name="ENTITYID">
-					<para>Global Entity ID set automatically, or from <literal>asterisk.conf</literal></para>
-				</variable>
-			</variablelist>
 		</description>
 	</function>
 	<function name="STAT" language="en_US">
@@ -178,61 +128,48 @@
 		<description>
 			<para>Read and write text file in character and line mode.</para>
 			<para>Examples:</para>
+			<para/>
 			<para>Read mode (byte):</para>
-			<example title="Reads the entire content of the file">
-			same => n,Set(foo=${FILE(/tmp/test.txt)})
-			</example>
-			<example title="Reads from the 11th byte to the end of the file (i.e. skips the first 10)">
-			same => n,Set(foo=${FILE(/tmp/test.txt,10)})
-			</example>
-			<example title="Reads from the 11th to 20th byte in the file (i.e. skip the first 10, then read 10 bytes)">
-			same => n,Set(foo=${FILE(/tmp/test.txt,10,10)})
-			</example>
+			<para>    ;reads the entire content of the file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt)})</para>
+			<para>    ;reads from the 11th byte to the end of the file (i.e. skips the first 10).</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,10)})</para>
+			<para>    ;reads from the 11th to 20th byte in the file (i.e. skip the first 10, then read 10 bytes).</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,10,10)})</para>
+			<para/>
 			<para>Read mode (line):</para>
-			<example title="Reads the 3rd line of the file">
-			same => n,Set(foo=${FILE(/tmp/test.txt,3,1,l)})
-			</example>
-			<example title="Reads the 3rd and 4th lines of the file">
-			same => n,Set(foo=${FILE(/tmp/test.txt,3,2,l)})
-			</example>
-			<example title="Reads from the third line to the end of the file">
-			same => n,Set(foo=${FILE(/tmp/test.txt,3,,l)})
-			</example>
-			<example title="Reads the last three lines of the file">
-			same => n,Set(foo=${FILE(/tmp/test.txt,-3,,l)})
-			</example>
-			<example title="Reads the 3rd line of a DOS-formatted file">
-			same => n,Set(foo=${FILE(/tmp/test.txt,3,1,l,d)})
-			</example>
+			<para>    ; reads the 3rd line of the file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,3,1,l)})</para>
+			<para>    ; reads the 3rd and 4th lines of the file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,3,2,l)})</para>
+			<para>    ; reads from the third line to the end of the file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,3,,l)})</para>
+			<para>    ; reads the last three lines of the file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,-3,,l)})</para>
+			<para>    ; reads the 3rd line of a DOS-formatted file.</para>
+			<para>    Set(foo=${FILE(/tmp/test.txt,3,1,l,d)})</para>
+			<para/>
 			<para>Write mode (byte):</para>
-			<example title="Truncate the file and write bar">
-			same => n,Set(FILE(/tmp/test.txt)=bar)
-			</example>
-			<example title="Append bar">
-			same => n,Set(FILE(/tmp/test.txt,,,a)=bar)
-			</example>
-			<example title="Replace the first byte with bar (replaces 1 character with 3)">
-			same => n,Set(FILE(/tmp/test.txt,0,1)=bar)
-			</example>
-			<example title="Replace 10 bytes beginning at the 21st byte of the file with bar">
-			same => n,Set(FILE(/tmp/test.txt,20,10)=bar)
-			</example>
-			<example title="Replace all bytes from the 21st with bar">
-			same => n,Set(FILE(/tmp/test.txt,20)=bar)
-			</example>
-			<example title="Insert bar after the 4th character">
-			same => n,Set(FILE(/tmp/test.txt,4,0)=bar)
-			</example>
+			<para>    ; truncate the file and write "bar"</para>
+			<para>    Set(FILE(/tmp/test.txt)=bar)</para>
+			<para>    ; Append "bar"</para>
+			<para>    Set(FILE(/tmp/test.txt,,,a)=bar)</para>
+			<para>    ; Replace the first byte with "bar" (replaces 1 character with 3)</para>
+			<para>    Set(FILE(/tmp/test.txt,0,1)=bar)</para>
+			<para>    ; Replace 10 bytes beginning at the 21st byte of the file with "bar"</para>
+			<para>    Set(FILE(/tmp/test.txt,20,10)=bar)</para>
+			<para>    ; Replace all bytes from the 21st with "bar"</para>
+			<para>    Set(FILE(/tmp/test.txt,20)=bar)</para>
+			<para>    ; Insert "bar" after the 4th character</para>
+			<para>    Set(FILE(/tmp/test.txt,4,0)=bar)</para>
+			<para/>
 			<para>Write mode (line):</para>
-			<example title="Replace the first line of the file with bar">
-			same => n,Set(FILE(/tmp/foo.txt,0,1,l)=bar)
-			</example>
-			<example title="Replace the last line of the file with bar">
-			same => n,Set(FILE(/tmp/foo.txt,-1,,l)=bar)
-			</example>
-			<example title="Append bar to the file with a newline">
-			same => n,Set(FILE(/tmp/foo.txt,,,al)=bar)
-			</example>
+			<para>    ; Replace the first line of the file with "bar"</para>
+			<para>    Set(FILE(/tmp/foo.txt,0,1,l)=bar)</para>
+			<para>    ; Replace the last line of the file with "bar"</para>
+			<para>    Set(FILE(/tmp/foo.txt,-1,,l)=bar)</para>
+			<para>    ; Append "bar" to the file with a newline</para>
+			<para>    Set(FILE(/tmp/foo.txt,,,al)=bar)</para>
 			<note>
 				<para>If <literal>live_dangerously</literal> in <literal>asterisk.conf</literal>
 				is set to <literal>no</literal>, this function can only be executed from the
@@ -301,52 +238,6 @@
 		<see-also>
 			<ref type="function">FILE</ref>
 			<ref type="function">FILE_COUNT_LINE</ref>
-		</see-also>
-	</function>
-	<function name="BASENAME" language="en_US">
-		<since>
-			<version>16.21.0</version>
-			<version>18.7.0</version>
-			<version>19.0.0</version>
-		</since>
-		<synopsis>
-			Return the name of a file.
-		</synopsis>
-		<syntax>
-			<parameter name="filename" required="true" />
-		</syntax>
-		<description>
-			<para>Return the base file name, given a full file path.</para>
-			<example title="Directory name">
-			same => n,Set(basename=${BASENAME(/etc/asterisk/extensions.conf)})
-			same => n,NoOp(${basename}) ; outputs extensions.conf
-			</example>
-		</description>
-		<see-also>
-			<ref type="function">DIRNAME</ref>
-		</see-also>
-	</function>
-	<function name="DIRNAME" language="en_US">
-		<since>
-			<version>16.21.0</version>
-			<version>18.7.0</version>
-			<version>19.0.0</version>
-		</since>
-		<synopsis>
-			Return the directory of a file.
-		</synopsis>
-		<syntax>
-			<parameter name="filename" required="true" />
-		</syntax>
-		<description>
-			<para>Return the directory of a file, given a full file path.</para>
-			<example title="Directory name">
-			same => n,Set(dirname=${DIRNAME(/etc/asterisk/extensions.conf)})
-			same => n,NoOp(${dirname}) ; outputs /etc/asterisk
-			</example>
-		</description>
-		<see-also>
-			<ref type="function">BASENAME</ref>
 		</see-also>
 	</function>
  ***/
@@ -589,40 +480,6 @@ static int file_format(struct ast_channel *chan, const char *cmd, char *data, st
 {
 	enum file_format newline_format = file2format(data);
 	ast_str_set(buf, len, "%c", newline_format == FF_UNIX ? 'u' : newline_format == FF_DOS ? 'd' : newline_format == FF_MAC ? 'm' : 'x');
-	return 0;
-}
-
-static int file_dirname(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	char *ret = NULL;
-
-	*buf = '\0';
-
-	if (data) {
-		ret = dirname(data);
-	}
-
-	if (ret) {
-		ast_copy_string(buf, ret, len);
-	}
-
-	return 0;
-}
-
-static int file_basename(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	char *ret = NULL;
-
-	*buf = '\0';
-
-	if (data) {
-		ret = basename(data);
-	}
-
-	if (ret) {
-		ast_copy_string(buf, ret, len);
-	}
-
 	return 0;
 }
 
@@ -1403,18 +1260,6 @@ static struct ast_custom_function file_format_function = {
 	.read_max = 2,
 };
 
-static struct ast_custom_function file_dirname_function = {
-	.name = "DIRNAME",
-	.read = file_dirname,
-	.read_max = 12,
-};
-
-static struct ast_custom_function file_basename_function = {
-	.name = "BASENAME",
-	.read = file_basename,
-	.read_max = 12,
-};
-
 static int unload_module(void)
 {
 	int res = 0;
@@ -1424,8 +1269,6 @@ static int unload_module(void)
 	res |= ast_custom_function_unregister(&file_function);
 	res |= ast_custom_function_unregister(&file_count_line_function);
 	res |= ast_custom_function_unregister(&file_format_function);
-	res |= ast_custom_function_unregister(&file_dirname_function);
-	res |= ast_custom_function_unregister(&file_basename_function);
 
 	return res;
 }
@@ -1439,8 +1282,6 @@ static int load_module(void)
 	res |= ast_custom_function_register_escalating(&file_function, AST_CFE_BOTH);
 	res |= ast_custom_function_register_escalating(&file_count_line_function, AST_CFE_READ);
 	res |= ast_custom_function_register_escalating(&file_format_function, AST_CFE_READ);
-	res |= ast_custom_function_register(&file_dirname_function);
-	res |= ast_custom_function_register(&file_basename_function);
 
 	return res;
 }

@@ -241,7 +241,6 @@
 enum park_args {
 	OPT_ARG_COMEBACK,
 	OPT_ARG_TIMEOUT,
-	OPT_ARG_MUSICONHOLD,
 	OPT_ARG_ARRAY_SIZE /* Always the last element of the enum */
 };
 
@@ -251,7 +250,6 @@ enum park_flags {
 	MUXFLAG_NOANNOUNCE = (1 << 2),
 	MUXFLAG_COMEBACK_OVERRIDE = (1 << 3),
 	MUXFLAG_TIMEOUT_OVERRIDE = (1 << 4),
-	MUXFLAG_MUSICONHOLD = (1 << 5),
 };
 
 AST_APP_OPTIONS(park_opts, {
@@ -260,7 +258,6 @@ AST_APP_OPTIONS(park_opts, {
 	AST_APP_OPTION('s', MUXFLAG_NOANNOUNCE),
 	AST_APP_OPTION_ARG('c', MUXFLAG_COMEBACK_OVERRIDE, OPT_ARG_COMEBACK),
 	AST_APP_OPTION_ARG('t', MUXFLAG_TIMEOUT_OVERRIDE, OPT_ARG_TIMEOUT),
-	AST_APP_OPTION_ARG('m', MUXFLAG_MUSICONHOLD, OPT_ARG_MUSICONHOLD),
 });
 
 static int apply_option_timeout (int *var, char *timeout_arg)
@@ -278,8 +275,7 @@ static int apply_option_timeout (int *var, char *timeout_arg)
 	return 0;
 }
 
-static int park_app_parse_data(const char *data, int *disable_announce, int *use_ringing, int *randomize, int *time_limit,
-	char **comeback_override, char **lot_name, char **musicclass)
+static int park_app_parse_data(const char *data, int *disable_announce, int *use_ringing, int *randomize, int *time_limit, char **comeback_override, char **lot_name)
 {
 	char *parse;
 	struct ast_flags flags = { 0 };
@@ -310,10 +306,6 @@ static int park_app_parse_data(const char *data, int *disable_announce, int *use
 			if (disable_announce) {
 				*disable_announce = 1;
 			}
-		}
-
-		if (ast_test_flag(&flags, MUXFLAG_MUSICONHOLD)) {
-			*musicclass = ast_strdup(opts[OPT_ARG_MUSICONHOLD]);
 		}
 
 		if (ast_test_flag(&flags, MUXFLAG_RINGING)) {
@@ -489,8 +481,8 @@ struct park_common_datastore *get_park_common_datastore_copy(struct ast_channel 
 	return data_copy;
 }
 
-static struct ast_bridge *park_common_setup2(struct ast_channel *parkee, struct ast_channel *parker,
-		const char *lot_name, const char *comeback_override, const char *musicclass,
+struct ast_bridge *park_common_setup(struct ast_channel *parkee, struct ast_channel *parker,
+		const char *lot_name, const char *comeback_override,
 		int use_ringing, int randomize, int time_limit, int silence_announcements)
 {
 	struct ast_bridge *parking_bridge;
@@ -526,20 +518,9 @@ static struct ast_bridge *park_common_setup2(struct ast_channel *parkee, struct 
 
 	/* Apply relevant bridge roles and such to the parking channel */
 	parking_channel_set_roles(parkee, lot, use_ringing);
-	/* If requested, override the MOH class */
-	if (!ast_strlen_zero(musicclass)) {
-		ast_channel_set_bridge_role_option(parkee, "holding_participant", "moh_class", musicclass);
-	}
 	setup_park_common_datastore(parkee, ast_channel_uniqueid(parker), comeback_override, randomize, time_limit,
 		silence_announcements);
 	return parking_bridge;
-}
-
-struct ast_bridge *park_common_setup(struct ast_channel *parkee, struct ast_channel *parker,
-		const char *lot_name, const char *comeback_override,
-		int use_ringing, int randomize, int time_limit, int silence_announcements)
-{
-	return park_common_setup2(parkee, parker, lot_name, comeback_override, NULL, use_ringing, randomize, time_limit, silence_announcements);
 }
 
 struct ast_bridge *park_application_setup(struct ast_channel *parkee, struct ast_channel *parker, const char *app_data,
@@ -551,13 +532,12 @@ struct ast_bridge *park_application_setup(struct ast_channel *parkee, struct ast
 
 	RAII_VAR(char *, comeback_override, NULL, ast_free);
 	RAII_VAR(char *, lot_name_app_arg, NULL, ast_free);
-	RAII_VAR(char *, musicclass, NULL, ast_free);
 
 	if (app_data) {
-		park_app_parse_data(app_data, silence_announcements, &use_ringing, &randomize, &time_limit, &comeback_override, &lot_name_app_arg, &musicclass);
+		park_app_parse_data(app_data, silence_announcements, &use_ringing, &randomize, &time_limit, &comeback_override, &lot_name_app_arg);
 	}
 
-	return park_common_setup2(parkee, parker, lot_name_app_arg, comeback_override, musicclass, use_ringing,
+	return park_common_setup(parkee, parker, lot_name_app_arg, comeback_override, use_ringing,
 		randomize, time_limit, silence_announcements ? *silence_announcements : 0);
 
 }
@@ -760,6 +740,8 @@ static struct park_announce_subscription_data *park_announce_subscription_data_c
  *
  * \param oh outgoing helper struct we are bestowing inheritable variables to
  * \param channel_id name or uniqueID of the channel to inherit variables from
+ *
+ * \return Nothing
  */
 static void inherit_channel_vars_from_id(struct outgoing_helper *oh, const char *channel_id)
 {

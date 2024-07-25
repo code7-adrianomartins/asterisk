@@ -93,24 +93,7 @@
 		<description>
 			<para>Used in SQL templates to escape data which may contain single ticks
 			<literal>'</literal> which are otherwise used to delimit data.</para>
-			<example title="Escape example">
-			 SELECT foo FROM bar WHERE baz='${SQL_ESC(${ARG1})}'
-			</example>
-		</description>
-	</function>
-	<function name="SQL_ESC_BACKSLASHES" language="en_US">
-		<synopsis>
-			Escapes backslashes for use in SQL statements.
-		</synopsis>
-		<syntax>
-			<parameter name="string" required="true" />
-		</syntax>
-		<description>
-			<para>Used in SQL templates to escape data which may contain backslashes
-			<literal>\</literal> which are otherwise used to escape data.</para>
-			<example title="Escape with backslashes example">
-			SELECT foo FROM bar WHERE baz='${SQL_ESC(${SQL_ESC_BACKSLASHES(${ARG1})})}'
-			</example>
+			<para>Example: SELECT foo FROM bar WHERE baz='${SQL_ESC(${ARG1})}'</para>
 		</description>
 	</function>
  ***/
@@ -137,7 +120,6 @@ struct acf_odbc_query {
 	char *sql_insert;
 	unsigned int flags;
 	int rowlimit;
-	int minargs;
 	struct ast_custom_function *acf;
 };
 
@@ -160,7 +142,7 @@ struct odbc_datastore {
 	char names[0];
 };
 
-/*! \brief Data source name
+/* \brief Data source name
  *
  * This holds data that pertains to a DSN
  */
@@ -313,7 +295,7 @@ static int connection_dead(struct odbc_obj *connection)
  * to callers in most cases.
  *
  * When finished with the returned structure, the caller must call
- * \ref release_obj_or_dsn
+ * \ref release_dsn
  *
  * \param name Name of the DSN as found in res_odbc.conf
  * \retval NULL Unable to retrieve or create the DSN
@@ -563,14 +545,6 @@ static int acf_odbc_write(struct ast_channel *chan, const char *cmd, char *s, co
 		return -1;
 	}
 
-	AST_STANDARD_APP_ARGS(args, s);
-	if (args.argc < query->minargs) {
-		ast_log(LOG_ERROR, "%d arguments supplied to '%s' requiring minimum %d\n",
-				args.argc, cmd, query->minargs);
-		AST_RWLIST_UNLOCK(&queries);
-		return -1;
-	}
-
 	if (!chan) {
 		if (!(chan = ast_dummy_channel_alloc())) {
 			AST_RWLIST_UNLOCK(&queries);
@@ -604,8 +578,7 @@ static int acf_odbc_write(struct ast_channel *chan, const char *cmd, char *s, co
 		return -1;
 	}
 
-	snprintf(varname, sizeof(varname), "%u", args.argc);
-	pbx_builtin_pushvar_helper(chan, "ARGC", varname);
+	AST_STANDARD_APP_ARGS(args, s);
 	for (i = 0; i < args.argc; i++) {
 		snprintf(varname, sizeof(varname), "ARG%d", i + 1);
 		pbx_builtin_pushvar_helper(chan, varname, args.field[i]);
@@ -630,8 +603,6 @@ static int acf_odbc_write(struct ast_channel *chan, const char *cmd, char *s, co
 		chan = ast_channel_unref(chan);
 	} else {
 		/* Restore prior values */
-		pbx_builtin_setvar_helper(chan, "ARGC", NULL);
-
 		for (i = 0; i < args.argc; i++) {
 			snprintf(varname, sizeof(varname), "ARG%d", i + 1);
 			pbx_builtin_setvar_helper(chan, varname, NULL);
@@ -785,14 +756,6 @@ static int acf_odbc_read(struct ast_channel *chan, const char *cmd, char *s, cha
 		return -1;
 	}
 
-	AST_STANDARD_APP_ARGS(args, s);
-	if (args.argc < query->minargs) {
-		ast_log(LOG_ERROR, "%d arguments supplied to '%s' requiring minimum %d\n",
-				args.argc, cmd, query->minargs);
-		AST_RWLIST_UNLOCK(&queries);
-		return -1;
-	}
-
 	if (!chan) {
 		if (!(chan = ast_dummy_channel_alloc())) {
 			AST_RWLIST_UNLOCK(&queries);
@@ -805,8 +768,7 @@ static int acf_odbc_read(struct ast_channel *chan, const char *cmd, char *s, cha
 		ast_autoservice_start(chan);
 	}
 
-	snprintf(varname, sizeof(varname), "%u", args.argc);
-	pbx_builtin_pushvar_helper(chan, "ARGC", varname);
+	AST_STANDARD_APP_ARGS(args, s);
 	for (x = 0; x < args.argc; x++) {
 		snprintf(varname, sizeof(varname), "ARG%d", x + 1);
 		pbx_builtin_pushvar_helper(chan, varname, args.field[x]);
@@ -818,8 +780,6 @@ static int acf_odbc_read(struct ast_channel *chan, const char *cmd, char *s, cha
 		chan = ast_channel_unref(chan);
 	} else {
 		/* Restore prior values */
-		pbx_builtin_setvar_helper(chan, "ARGC", NULL);
-
 		for (x = 0; x < args.argc; x++) {
 			snprintf(varname, sizeof(varname), "ARG%d", x + 1);
 			pbx_builtin_setvar_helper(chan, varname, NULL);
@@ -1119,13 +1079,13 @@ end_acf_read:
 	return 0;
 }
 
-static int acf_escape(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len, char character)
+static int acf_escape(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
 {
 	char *out = buf;
 
 	for (; *data && out - buf < len; data++) {
-		if (*data == character) {
-			*out = character;
+		if (*data == '\'') {
+			*out = '\'';
 			out++;
 		}
 		*out++ = *data;
@@ -1135,25 +1095,9 @@ static int acf_escape(struct ast_channel *chan, const char *cmd, char *data, cha
 	return 0;
 }
 
-static int acf_escape_ticks(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	return acf_escape(chan, cmd, data, buf, len, '\'');
-}
-
 static struct ast_custom_function escape_function = {
 	.name = "SQL_ESC",
-	.read = acf_escape_ticks,
-	.write = NULL,
-};
-
-static int acf_escape_backslashes(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	return acf_escape(chan, cmd, data, buf, len, '\\');
-}
-
-static struct ast_custom_function escape_backslashes_function = {
-	.name = "SQL_ESC_BACKSLASHES",
-	.read = acf_escape_backslashes,
+	.read = acf_escape,
 	.write = NULL,
 };
 
@@ -1344,10 +1288,6 @@ static int init_acf_query(struct ast_config *cfg, char *catg, struct acf_odbc_qu
 			ast_set_flag((*query), OPT_MULTIROW);
 		if ((tmp = ast_variable_retrieve(cfg, catg, "rowlimit")))
 			sscanf(tmp, "%30d", &((*query)->rowlimit));
-	}
-
-	if ((tmp = ast_variable_retrieve(cfg, catg, "minargs"))) {
-		sscanf(tmp, "%30d", &((*query)->minargs));
 	}
 
 	(*query)->acf = ast_calloc(1, sizeof(struct ast_custom_function));
@@ -1891,7 +1831,6 @@ static int load_module(void)
 
 	ast_config_destroy(cfg);
 	res |= ast_custom_function_register(&escape_function);
-	res |= ast_custom_function_register(&escape_backslashes_function);
 	ast_cli_register_multiple(cli_func_odbc, ARRAY_LEN(cli_func_odbc));
 
 	AST_RWLIST_UNLOCK(&queries);
@@ -1911,7 +1850,6 @@ static int unload_module(void)
 	}
 
 	res |= ast_custom_function_unregister(&escape_function);
-	res |= ast_custom_function_unregister(&escape_backslashes_function);
 	res |= ast_custom_function_unregister(&fetch_function);
 	res |= ast_unregister_application(app_odbcfinish);
 	ast_cli_unregister_multiple(cli_func_odbc, ARRAY_LEN(cli_func_odbc));

@@ -59,6 +59,8 @@ int ast_pjproject_get_buildopt(char *option, char *format_string, ...) __attribu
  * \note ast_pjproject_log_intercept_begin() and
  * ast_pjproject_log_intercept_end() must always be called
  * in pairs.
+ *
+ * \return Nothing
  */
 void ast_pjproject_log_intercept_begin(int fd);
 
@@ -69,6 +71,8 @@ void ast_pjproject_log_intercept_begin(int fd);
  * \note ast_pjproject_log_intercept_begin() and
  * ast_pjproject_log_intercept_end() must always be called
  * in pairs.
+ *
+ * \return Nothing
  */
 void ast_pjproject_log_intercept_end(void);
 
@@ -79,6 +83,8 @@ void ast_pjproject_log_intercept_end(void);
  * \param cp Caching pool factory to initialize
  * \param policy Pool factory policy
  * \param max_capacity Total capacity to be retained in the cache.  Zero disables caching.
+ *
+ * \return Nothing
  */
 void ast_pjproject_caching_pool_init(pj_caching_pool *cp,
 	const pj_pool_factory_policy *policy, pj_size_t max_capacity);
@@ -88,6 +94,8 @@ void ast_pjproject_caching_pool_init(pj_caching_pool *cp,
  * \since 13.21.0
  *
  * \param cp Caching pool factory to destroy
+ *
+ * \return Nothing
  */
 void ast_pjproject_caching_pool_destroy(pj_caching_pool *cp);
 
@@ -114,18 +122,5 @@ int ast_sockaddr_to_pj_sockaddr(const struct ast_sockaddr *addr, pj_sockaddr *pj
  * \retval -1 Failure
  */
 int ast_sockaddr_from_pj_sockaddr(struct ast_sockaddr *addr, const pj_sockaddr *pjaddr);
-
-/*!
- * \brief Compare an ast_sockaddr to a pj_sockaddr
- *
- * \param addr pointer to ast_sockaddr structure
- * \param pjaddr pointer to pj_sockaddr structure
- *
- * \retval -1 \a addr is lexicographically smaller than \a pjaddr
- * \retval 0 \a addr is equal to \a pjaddr
- * \retval 1 \a pjaddr is lexicographically smaller than \a addr
-*/
-int ast_sockaddr_pj_sockaddr_cmp(const struct ast_sockaddr *addr,
-	const pj_sockaddr *pjaddr);
 
 #endif /* _RES_PJPROJECT_H */

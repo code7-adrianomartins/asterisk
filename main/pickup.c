@@ -191,6 +191,7 @@ struct ast_channel *ast_pickup_find_by_group(struct ast_channel *chan)
 
 /*!
  * \brief Pickup a call
+ * \param chan channel that initiated pickup.
  *
  * Walk list of channels, checking it is not itself, channel is pbx one,
  * check that the callgroup for both channels are the same and the channel is ringing.
@@ -328,7 +329,8 @@ int ast_do_pickup(struct ast_channel *chan, struct ast_channel *target)
 	ast_party_id_reset(&connected_caller.priv);
 
 	connected_caller.source = AST_CONNECTED_LINE_UPDATE_SOURCE_ANSWER;
-	if (ast_channel_connected_line_sub(NULL, chan, &connected_caller, 0)) {
+	if (ast_channel_connected_line_sub(NULL, chan, &connected_caller, 0) &&
+		ast_channel_connected_line_macro(NULL, chan, &connected_caller, 0, 0)) {
 		ast_channel_update_connected_line(chan, &connected_caller, NULL);
 	}
 	ast_party_connected_line_free(&connected_caller);

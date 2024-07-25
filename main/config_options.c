@@ -1037,45 +1037,6 @@ static char *complete_config_option(const char *module, const char *option, cons
 	return NULL;
 }
 
-/*! \internal
- * \brief Generate a category match string suitable for display in 'config show help'
- */
-static struct ast_str *derive_category_text(enum aco_category_op category_match, const char *category)
-{
-	struct ast_str *s = ast_str_create(128);
-
-	if (!s) {
-		return NULL;
-	}
-
-	switch (category_match) {
-	case ACO_WHITELIST_ARRAY:
-	case ACO_BLACKLIST_ARRAY: {
-		size_t i;
-		const char **matches = (const char **) category;
-		ast_str_append(&s, 0, "^(");
-		for (i = 0; matches[i]; i++) {
-			ast_str_append(&s, 0, "%s%s",
-				i ? "|" : "",
-				matches[i]);
-		}
-		ast_str_append(&s, 0, ")$");
-		break;
-	}
-	case ACO_WHITELIST_EXACT:
-	case ACO_BLACKLIST_EXACT:
-		ast_str_set(&s, 0, "^%s$", category);
-		break;
-	case ACO_WHITELIST:
-	case ACO_BLACKLIST:
-	default:
-		ast_str_set(&s, 0, "%s", category);
-		break;
-	}
-
-	return s;
-}
-
 /* Define as 0 if we want to allow configurations to be registered without
  * documentation
  */
@@ -1090,7 +1051,6 @@ static int xmldoc_update_config_type(const char *module, const char *name, const
 	RAII_VAR(struct ast_xml_doc_item *, config_info, ao2_find(xmldocs, module, OBJ_KEY), ao2_cleanup);
 	struct ast_xml_doc_item *config_type;
 	struct ast_xml_node *type, *syntax, *matchinfo, *tmp;
-	struct ast_str *derived_category = NULL;
 
 	/* If we already have a syntax element, bail. This isn't an error, since we may unload a module which
 	 * has updated the docs and then load it again. */
@@ -1099,9 +1059,7 @@ static int xmldoc_update_config_type(const char *module, const char *name, const
 	}
 
 	if (!(results = ast_xmldoc_query("/docs/configInfo[@name='%s']/configFile/configObject[@name='%s']", module, name))) {
-		ast_log(LOG_WARNING, "Cannot update type '%s' in module '%s' because it has no existing documentation!"
-			" If this module was recently built, run 'xmldoc reload' to refresh documentation, then load the module again\n",
-			name, module);
+		ast_log(LOG_WARNING, "Cannot update type '%s' in module '%s' because it has no existing documentation!\n", name, module);
 		return XMLDOC_STRICT ? -1 : 0;
 	}
 
@@ -1125,12 +1083,7 @@ static int xmldoc_update_config_type(const char *module, const char *name, const
 		return XMLDOC_STRICT ? -1 : 0;
 	}
 
-	derived_category = derive_category_text(category_match, category);
-	if (derived_category) {
-		ast_xml_set_text(tmp, ast_str_buffer(derived_category));
-		ast_free(derived_category);
-	}
-
+	ast_xml_set_text(tmp, category);
 	switch (category_match) {
 	case ACO_WHITELIST:
 	case ACO_WHITELIST_EXACT:
@@ -1144,14 +1097,13 @@ static int xmldoc_update_config_type(const char *module, const char *name, const
 		break;
 	}
 
-	if (!ast_strlen_zero(matchfield)) {
-		if (!(tmp = ast_xml_new_child(matchinfo, "field"))) {
-			ast_log(LOG_WARNING, "Could not add %s attribute for type '%s' in module '%s'\n", matchfield, name, module);
-			return XMLDOC_STRICT ? -1 : 0;
-		}
-		ast_xml_set_attribute(tmp, "name", matchfield);
-		ast_xml_set_text(tmp, matchvalue);
+	if (!ast_strlen_zero(matchfield) && !(tmp = ast_xml_new_child(matchinfo, "field"))) {
+		ast_log(LOG_WARNING, "Could not add %s attribute for type '%s' in module '%s'\n", matchfield, name, module);
+		return XMLDOC_STRICT ? -1 : 0;
 	}
+
+	ast_xml_set_attribute(tmp, "name", matchfield);
+	ast_xml_set_text(tmp, matchvalue);
 
 	if (!config_info || !(config_type = find_xmldoc_type(config_info, name))) {
 		ast_log(LOG_WARNING, "Could not obtain XML documentation item for config type %s\n", name);
@@ -1306,7 +1258,7 @@ static void cli_show_module_type(struct ast_cli_args *a)
 	tmp = item;
 	while ((tmp = AST_LIST_NEXT(tmp, next))) {
 		if (!strcasecmp(tmp->type, "configOption") && !strcasecmp(tmp->ref, a->argv[4])) {
-			ast_cli(a->fd, "%-25s -- %-120.120s\n", tmp->name,
+			ast_cli(a->fd, "%-25s -- %-65.65s\n", tmp->name,
 					ast_str_buffer(tmp->synopsis));
 		}
 	}

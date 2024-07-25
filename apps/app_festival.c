@@ -281,6 +281,8 @@ static int festival_exec(struct ast_channel *chan, const char *vdata)
 	int usecache;
 	int res = 0;
 	struct sockaddr_in serv_addr;
+	struct hostent *serverhost;
+	struct ast_hostent ahp;
 	int fd;
 	FILE *fs;
 	const char *host;
@@ -396,17 +398,15 @@ static int festival_exec(struct ast_channel *chan, const char *vdata)
 
 	if ((serv_addr.sin_addr.s_addr = inet_addr(host)) == -1) {
 		/* its a name rather than an ipnum */
-		struct ast_sockaddr addr = { {0,} };
+		serverhost = ast_gethostbyname(host, &ahp);
 
-		if (ast_sockaddr_resolve_first_af(&addr, host, PARSE_PORT_FORBID, AF_INET)) {
-			ast_log(LOG_WARNING, "festival_client: ast_sockaddr_resolve_first_af() failed\n");
+		if (serverhost == NULL) {
+			ast_log(LOG_WARNING, "festival_client: gethostbyname failed\n");
 			ast_config_destroy(cfg);
 			close(fd);
 			return -1;
 		}
-
-		/* We'll overwrite port and family in a sec */
-		ast_sockaddr_to_sin(&addr, &serv_addr);
+		memmove(&serv_addr.sin_addr, serverhost->h_addr, serverhost->h_length);
 	}
 
 	serv_addr.sin_family = AF_INET;
@@ -433,7 +433,7 @@ static int festival_exec(struct ast_channel *chan, const char *vdata)
 	}
 	readcache = 0;
 	writecache = 0;
-	if (strlen(cachedir) + sizeof(MD5Hex) + 1 <= MAXFESTLEN && (usecache == -1)) {
+	if (strlen(cachedir) + strlen(MD5Hex) + 1 <= MAXFESTLEN && (usecache == -1)) {
 		snprintf(cachefile, sizeof(cachefile), "%s/%s", cachedir, MD5Hex);
 		fdesc = open(cachefile, O_RDWR);
 		if (fdesc == -1) {

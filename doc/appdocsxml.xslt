@@ -162,7 +162,9 @@
             <para>The video source mode for the bridge.</para>
         </xsl:element>
         <xsl:element name="parameter">
-            <xsl:attribute name="required">false</xsl:attribute>
+            <xsl:attribute name="required">
+                false
+            </xsl:attribute>
             <xsl:attribute name="name">
                 <xsl:value-of select="concat(@prefix, 'BridgeVideoSource')" />
             </xsl:attribute>

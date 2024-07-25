@@ -65,7 +65,7 @@ struct translator_path {
 /*!
  * \brief a matrix that, for any pair of supported formats,
  * indicates the total cost of translation and the first step.
- * The full path can be reconstructed iterating on the matrix
+ * The full path can be reconstricted iterating on the matrix
  * until step->dstfmt == desired_format.
  *
  * Array indexes are 'src' and 'dest', in that order.
@@ -141,8 +141,8 @@ static int format2index(struct ast_format *format)
  *
  * \note it is perfectly safe to call this on codecs already indexed.
  *
- * \retval 0 success
- * \retval -1 matrix and index table need to be resized
+ * \retval 0, success
+ * \retval -1, matrix and index table need to be resized
  */
 static int add_codec2index(struct ast_codec *codec)
 {
@@ -188,8 +188,8 @@ static struct ast_codec *index2codec(int index)
  *
  * \note _NO_ locks can be held prior to calling this function
  *
- * \retval 0 success
- * \retval -1 failure.  Old matrix and index table can still be used though
+ * \retval 0, success
+ * \retval -1, failure.  Old matrix and index table can still be used though
  */
 static int matrix_resize(int init)
 {
@@ -408,18 +408,12 @@ static int framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		}
 	}
 	if (pvt->t->buffer_samples) {	/* do not pass empty frames to callback */
-		int src_srate = pvt->t->src_codec.sample_rate;
-		int dst_srate = pvt->t->dst_codec.sample_rate;
-
-		ast_assert(src_srate > 0);
-
 		if (f->datalen == 0) { /* perform native PLC if available */
 			/* If the codec has native PLC, then do that */
 			if (!pvt->t->native_plc)
 				return 0;
 		}
-
-		if (pvt->samples + (f->samples * dst_srate / src_srate) > pvt->t->buffer_samples) {
+		if (pvt->samples + f->samples > pvt->t->buffer_samples) {
 			ast_log(LOG_WARNING, "Out of buffer space\n");
 			return -1;
 		}
@@ -762,7 +756,7 @@ static void generate_computational_cost(struct ast_translator *t, int seconds)
  * \note This function is safe to use on any audio formats that used to be defined in the
  * first 64 bits of the old bit field codec representation.
  *
- * \return Table Cost value greater than 0.
+ * \retval Table Cost value greater than 0.
  * \retval 0 on error.
  */
 static int generate_table_cost(struct ast_codec *src, struct ast_codec *dst)
@@ -1465,39 +1459,11 @@ int ast_translator_best_choice(struct ast_format_cap *dst_cap,
 				beststeps = matrix_get(x, y)->multistep;
 			} else if (matrix_get(x, y)->table_cost == besttablecost
 					&& matrix_get(x, y)->multistep == beststeps) {
-				int replace = 0;
 				unsigned int gap_selected = format_sample_rate_absdiff(best, bestdst);
 				unsigned int gap_current = format_sample_rate_absdiff(src, dst);
 
 				if (gap_current < gap_selected) {
 					/* better than what we have so far */
-					replace = 1;
-				} else if (gap_current == gap_selected) {
-					int src_quality, best_quality;
-					struct ast_codec *src_codec, *best_codec;
-
-					src_codec = ast_format_get_codec(src);
-					best_codec = ast_format_get_codec(best);
-					src_quality = src_codec->quality;
-					best_quality = best_codec->quality;
-
-					ao2_cleanup(src_codec);
-					ao2_cleanup(best_codec);
-
-					/* We have a tie, so choose the format with the higher quality, if they differ. */
-					if (src_quality > best_quality) {
-						/* Better than what we had before. */
-						replace = 1;
-						ast_debug(2, "Tiebreaker: preferring format %s (%d) to %s (%d)\n", ast_format_get_name(src), src_quality,
-							ast_format_get_name(best), best_quality);
-					} else {
-						/* This isn't necessarily indicative of a problem, but in reality this shouldn't really happen, unless
-						 * there are 2 formats that are basically the same. */
-						ast_debug(1, "Completely ambiguous tie between formats %s and %s (quality %d): sticking with %s, but this is arbitrary\n",
-							ast_format_get_name(src), ast_format_get_name(best), best_quality, ast_format_get_name(best));
-					}
-				}
-				if (replace) {
 					ao2_replace(best, src);
 					ao2_replace(bestdst, dst);
 					besttablecost = matrix_get(x, y)->table_cost;
@@ -1543,19 +1509,16 @@ static void check_translation_path(
 	struct ast_format_cap *result, struct ast_format *src_fmt,
 	enum ast_media_type type)
 {
-	int i;
-
-	if (ast_format_get_type(src_fmt) != type) {
-		return;
-	}
-
+	int index, src_index = format2index(src_fmt);
 	/* For a given source format, traverse the list of
 	   known formats to determine whether there exists
 	   a translation path from the source format to the
 	   destination format. */
-	for (i = ast_format_cap_count(result) - 1; 0 <= i; i--) {
-		int index, src_index;
-		RAII_VAR(struct ast_format *, fmt, ast_format_cap_get_format(result, i), ao2_cleanup);
+	for (index = 0; (src_index >= 0) && index < cur_max_index; index++) {
+		struct ast_codec *codec = index2codec(index);
+		RAII_VAR(struct ast_format *, fmt, ast_format_create(codec), ao2_cleanup);
+
+		ao2_ref(codec, -1);
 
 		if (ast_format_get_type(fmt) != type) {
 			continue;
@@ -1569,15 +1532,6 @@ static void check_translation_path(
 		/* if the source is supplying this format, then
 		   we can leave it in the result */
 		if (ast_format_cap_iscompatible_format(src, fmt) == AST_FORMAT_CMP_EQUAL) {
-			continue;
-		}
-
-		/* if this is a pass-through format, not in the source,
-		   we cannot transcode. Therefore, remove it from the result */
-		src_index = format2index(src_fmt);
-		index = format2index(fmt);
-		if (src_index < 0 || index < 0) {
-			ast_format_cap_remove(result, fmt);
 			continue;
 		}
 

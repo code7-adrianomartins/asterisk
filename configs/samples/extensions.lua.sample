@@ -4,6 +4,9 @@ CONSOLE = "Console/dsp" -- Console interface for demo
 --CONSOLE = "DAHDI/1"
 --CONSOLE = "Phone/phone0"
 
+IAXINFO = "guest"       -- IAXtel username/password
+--IAXINFO = "myuser:mypass"
+
 TRUNK = "DAHDI/G2"
 TRUNKMSD = 1
 -- TRUNK = "IAX2/user:pass@provider"
@@ -52,7 +55,7 @@ TRUNKMSD = 1
 --
 --   include = {"a", "b", "c"};
 --
--- Channel variables can be accessed through the global 'channel' table.
+-- Channel variables can be accessed thorugh the global 'channel' table.
 --
 --   v = channel.var_name
 --   v = channel["var_name"]
@@ -101,7 +104,7 @@ TRUNKMSD = 1
 -- reserved word.  In the 'goto' example, with Lua 5.1 or earlier, 'goto' is
 -- not a reserved word so you'd be calling the Asterisk dialplan application
 -- 'goto'.  Lua 5.2 however, introduced the 'goto' control statement which
--- makes 'goto' a reserved word.  This causes the interpreter to fail parsing
+-- makes 'goto' a reserved word.  This casues the interpreter to fail parsing
 -- the file and pbx_lua.so will fail to load.  The same applies to any use of
 -- Lua tables including extensions, channels and any tables you create.
 --
@@ -212,7 +215,9 @@ extensions = {
 	};
 
 	public = {
-		-- ATTENTION: If your Asterisk is connected to the internet
+		-- ATTENTION: If your Asterisk is connected to the internet and you do
+		-- not have allowguest=no in sip.conf, everybody out there may use your
+		-- public context without authentication.  In that case you want to
 		-- double check which services you offer to the world.
 		--
 		include = {"demo"};

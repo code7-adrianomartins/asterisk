@@ -21,7 +21,7 @@
 #      on a single object just for that object
 # SOLINK - linker flags used only for creating dynamically loadable modules
 #          as .so files
-# DYLINK - linker flags used only for creating shared libraries
+# DYLINK - linker flags used only for creating shared libaries
 #          (.so files on Unix-type platforms, .dylib on Darwin)
 #
 # Values for ASTCFLAGS and ASTLDFLAGS can be specified in the
@@ -101,11 +101,6 @@ export TAR
 export PATCH
 export SED
 export NM
-export FIND
-export BASENAME
-export DIRNAME
-export XMLLINT
-export XMLSTARLET
 
 # makeopts is required unless the goal is just {dist{-}}clean
 ifeq ($(MAKECMDGOALS),clean)
@@ -140,7 +135,7 @@ empty:=
 space:=$(empty) $(empty)
 ASTTOPDIR:=$(subst $(space),\$(space),$(CURDIR))
 
-# Overwrite config files on "make samples" or other config installation targets
+# Overwite config files on "make samples" or other config installation targets
 OVERWRITE=y
 
 # Include debug and macro symbols in the executables (-g) and profiling info (-pg)
@@ -327,9 +322,6 @@ else
 SUBMAKE:=$(MAKE) --quiet --no-print-directory
 endif
 
-mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
-mkfile_dir := $(dir $(mkfile_path))
-
 # $(MAKE) is printed in several places, and we want it to be a
 # fixed size string. Define a variable whose name has also the
 # same size, so we can easily align text.
@@ -377,7 +369,7 @@ $(MOD_SUBDIRS_MENUSELECT_TREE):
 	+@$(SUBMAKE) -C $(@:-menuselect-tree=) SUBDIR=$(@:-menuselect-tree=) moduleinfo
 	+@$(SUBMAKE) -C $(@:-menuselect-tree=) SUBDIR=$(@:-menuselect-tree=) makeopts
 
-$(SUBDIRS): makeopts .lastclean main/version.c include/asterisk/build.h defaults.h
+$(SUBDIRS): makeopts .lastclean main/version.c include/asterisk/build.h include/asterisk/buildopts.h defaults.h
 
 ifeq ($(findstring $(OSARCH), mingw32 cygwin ),)
 main: third-party
@@ -403,7 +395,7 @@ defaults.h: makeopts .lastclean build_tools/make_defaults_h
 	@cmp -s $@.tmp $@ || mv $@.tmp $@
 	@rm -f $@.tmp
 
-main/version.c: FORCE include/asterisk/buildopts.h menuselect.makeopts .lastclean
+main/version.c: FORCE menuselect.makeopts .lastclean
 	@build_tools/make_version_c > $@.tmp
 	@cmp -s $@.tmp $@ || mv $@.tmp $@
 	@rm -f $@.tmp
@@ -450,7 +442,7 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
 	rm -f include/asterisk/autoconfig.h
 	rm -f include/asterisk/buildopts.h
 	rm -rf doc/api
-	rm -f doc/Doxyfile
+	rm -f doc/asterisk-ng-doxygen
 	rm -f build_tools/menuselect-deps
 
 datafiles: _all $(CORE_XMLDOC)
@@ -483,24 +475,53 @@ endif
 		$(INSTALL) -m 644 $$x "$(DESTDIR)$(ASTDATADIR)/rest-api" ; \
 	done
 
-DOC_MOD_SUBDIRS := $(filter-out third-party,$(MOD_SUBDIRS))
-XML_core_en_US := $(shell build_tools/make_xml_documentation --command=print_dependencies --source-tree=. --mod-subdirs="$(DOC_MOD_SUBDIRS)")
-# core-en_US.xml is the normal documentation created with asterisk builds.
-doc/core-en_US.xml: makeopts .lastclean $(XML_core_en_US)
-	@build_tools/make_xml_documentation --command=create_xml --source-tree=. --mod-subdirs="$(DOC_MOD_SUBDIRS)" \
-		--with-moduleinfo --output-file=$@
+ifeq ($(GREP),)
+else ifeq ($(GREP),:)
+else
+  XML_core_en_US = $(foreach dir,$(MOD_SUBDIRS),$(shell $(GREP) -l "language=\"en_US\"" $(dir)/*.c $(dir)/*.cc 2>/dev/null))
+endif
 
-# The full-en_US.xml target is only called by the wiki documentation generation process
-# and does special post-processing in preparation for uploading to the wiki.
-# It creates full-en_US.xml but then re-creates core-en_US.xml as well.
-doc/full-en_US.xml: makeopts .lastclean $(XML_core_en_US)
+doc/core-en_US.xml: makeopts .lastclean $(XML_core_en_US)
+	@printf "Building Documentation For: "
+	@echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > $@
+	@echo "<!DOCTYPE docs SYSTEM \"appdocsxml.dtd\">" >> $@
+	@echo "<?xml-stylesheet type=\"text/xsl\" href=\"appdocsxml.xslt\"?>" >> $@
+	@echo "<docs xmlns:xi=\"http://www.w3.org/2001/XInclude\">" >> $@
+	@for x in $(MOD_SUBDIRS); do \
+		printf "$$x " ; \
+		for i in `find $$x -name '*.c'`; do \
+			$(AWK) -f build_tools/get_documentation $$i >> $@ ; \
+		done ; \
+	done
+	@echo
+	@echo "</docs>" >> $@
+
+ifeq ($(GREP),)
+else ifeq ($(GREP),:)
+else
+  XML_full_en_US = $(foreach dir,$(MOD_SUBDIRS),$(shell $(GREP) -l "language=\"en_US\"" $(dir)/*.c $(dir)/*.cc 2>/dev/null))
+endif
+
+doc/full-en_US.xml: makeopts .lastclean $(XML_full_en_US)
 ifeq ($(PYTHON),:)
 	@echo "--------------------------------------------------------------------------"
 	@echo "---        Please install python to build full documentation           ---"
 	@echo "--------------------------------------------------------------------------"
 else
-	@build_tools/make_xml_documentation --command=create_xml --source-tree=. --mod-subdirs="$(DOC_MOD_SUBDIRS)" \
-		--for-wiki --output-file=$@ --core-output-file=./doc/core-en_US.xml
+	@printf "Building Documentation For: "
+	@echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > $@
+	@echo "<!DOCTYPE docs SYSTEM \"appdocsxml.dtd\">" >> $@
+	@echo "<?xml-stylesheet type=\"text/xsl\" href=\"appdocsxml.xslt\"?>" >> $@
+	@echo "<docs xmlns:xi=\"http://www.w3.org/2001/XInclude\">" >> $@
+	@for x in $(filter-out third-party,$(MOD_SUBDIRS)); do \
+		printf "$$x " ; \
+		for i in `find $$x -name '*.c'`; do \
+			$(PYTHON) build_tools/get_documentation.py < $$i >> $@ ; \
+		done ; \
+	done
+	@echo
+	@echo "</docs>" >> $@
+	@$(PYTHON) build_tools/post_process_documentation.py -i $@ -o "doc/core-en_US.xml"
 endif
 
 validate-docs: doc/core-en_US.xml
@@ -561,9 +582,9 @@ bininstall: _all installdirs $(SUBDIRS_INSTALL) main-bininstall
 	$(INSTALL) -m 755 contrib/scripts/astversion "$(DESTDIR)$(ASTSBINDIR)/"
 	$(INSTALL) -m 755 contrib/scripts/astgenkey "$(DESTDIR)$(ASTSBINDIR)/"
 	$(INSTALL) -m 755 contrib/scripts/autosupport "$(DESTDIR)$(ASTSBINDIR)/"
-ifneq ($(HAVE_SBIN_LAUNCHD),1)
-	./build_tools/install_subst contrib/scripts/safe_asterisk "$(DESTDIR)$(ASTSBINDIR)/safe_asterisk";
-endif
+	if [ ! -f /sbin/launchd ]; then \
+		./build_tools/install_subst contrib/scripts/safe_asterisk "$(DESTDIR)$(ASTSBINDIR)/safe_asterisk"; \
+	fi
 
 ifneq ($(DISABLE_XMLDOC),yes)
 	$(INSTALL) -m 644 doc/core-*.xml "$(DESTDIR)$(ASTDATADIR)/documentation"
@@ -696,17 +717,7 @@ ifneq ($(filter ~%,$(DESTDIR)),)
 	@exit 1
 endif
 
-versioncheck:
-ifeq ($(ASTERISKVERSION),UNKNOWN__git_check_fail)
-	@echo "Asterisk Version is unknown due to a git error. If you are running make"
-	@echo "as a different user than the project owner, this can be resolved by"
-	@echo "running the following command as the user currently executing make: "$$USER
-	@echo "git config --global --add safe.directory "$(mkfile_dir:/=)
-	@exit 1
-endif
-
-
-install: badshell versioncheck bininstall datafiles
+install: badshell bininstall datafiles
 	@if [ -x /usr/sbin/asterisk-post-install ]; then \
 		/usr/sbin/asterisk-post-install "$(DESTDIR)" . ; \
 	fi
@@ -873,36 +884,29 @@ webvmail:
 	@echo " +-------------------------------------------+"
 
 progdocs:
+# Note, Makefile conditionals must not be tabbed out. Wasted hours with that.
+	@cp doc/asterisk-ng-doxygen.in doc/asterisk-ng-doxygen
 ifeq ($(DOXYGEN),:)
 	@echo "Doxygen is not installed.  Please install and re-run the configuration script."
 else
-	@cp doc/Doxyfile.in doc/Doxyfile
 ifeq ($(DOT),:)
 	@echo "DOT is not installed. Doxygen will not produce any diagrams. Please install and re-run the configuration script."
 else
-	@echo "HAVE_DOT = YES" >> doc/Doxyfile
+	# Enable DOT
+	@echo "HAVE_DOT = YES" >> doc/asterisk-ng-doxygen
 endif
-ifneq ($(NOISY_BUILD),yes)
-	@echo "EXTRACT_ALL = YES" >> doc/Doxyfile
-endif
-ifeq ($(AST_DEVMODE),yes)
-	@echo "INTERNAL_DOCS = YES" >> doc/Doxyfile
-	@echo "WARN_NO_PARAMDOC = YES" >> doc/Doxyfile
-endif
-ifeq ($(ASTERISKVERSION),UNKNOWN__and_probably_unsupported)
-	@echo "Asterisk Version is unknown, not configuring Doxygen PROJECT_NUMBER."
-else ifeq ($(ASTERISKVERSION),UNKNOWN__git_check_fail)
-	@echo "Asterisk Version is unknown due to a git error. If you are running make"
-	@echo "as a different user than the project owner, this can be resolved by"
-	@echo "running the following command as the user currently executing make: "$$USER
-	@echo "git config --global --add safe.directory "$(mkfile_dir:/=)
-	@echo "not configuring Doxygen PROJECT_NUMBER."
+	# Set Doxygen PROJECT_NUMBER variable
+ifneq ($(ASTERISKVERSION),UNKNOWN__and_probably_unsupported)
+	@echo "PROJECT_NUMBER = $(ASTERISKVERSION)" >> doc/asterisk-ng-doxygen
 else
-	@echo "PROJECT_NUMBER = $(ASTERISKVERSION)" >> doc/Doxyfile
+	echo "Asterisk Version is unknown, not configuring Doxygen PROJECT_NUMBER."
 endif
-	@echo "Generating C-API documentation. This will take a while."
-	@doxygen doc/Doxyfile
-	@echo "Generation complete. Any warnings are in ./doxygen.log."
+	# Validate and auto-update local copy
+	@doxygen -u doc/asterisk-ng-doxygen
+	# Run Doxygen
+	@doxygen doc/asterisk-ng-doxygen
+	# Remove configuration backup file
+	@rm -f doc/asterisk-ng-doxygen.bak
 endif
 
 install-logrotate:
@@ -987,7 +991,6 @@ sounds:
 	@$(MAKE) clean
 	@[ -f "$(DESTDIR)$(ASTDBDIR)/astdb.sqlite3" ] || [ ! -f "$(DESTDIR)$(ASTDBDIR)/astdb" ] || [ ! -f menuselect.makeopts ] || grep -q MENUSELECT_UTILS=.*astdb2sqlite3 menuselect.makeopts || (sed -i.orig -e's/MENUSELECT_UTILS=\(.*\)/MENUSELECT_UTILS=\1 astdb2sqlite3/' menuselect.makeopts && echo "Updating menuselect.makeopts to include astdb2sqlite3" && echo "Original version backed up to menuselect.makeopts.orig")
 
-
 $(SUBDIRS_UNINSTALL):
 	+@DESTDIR="$(DESTDIR)" ASTSBINDIR="$(ASTSBINDIR)" ASTDATADIR="$(ASTDATADIR)" $(SUBMAKE) -C $(@:-uninstall=) uninstall
 
@@ -1040,7 +1043,6 @@ uninstall-all: _uninstall uninstall-headers
 	rm -rf "$(DESTDIR)$(ASTSPOOLDIR)"
 	rm -rf "$(DESTDIR)$(ASTETCDIR)"
 	rm -rf "$(DESTDIR)$(ASTLOGDIR)"
-	rm -rf "$(DESTDIR)$(ASTCACHEDIR)"
 
 menuconfig: menuselect
 
@@ -1119,8 +1121,7 @@ ifeq ($(PYTHON),:)
 else
 	@$(INSTALL) -d doc/rest-api
 	$(PYTHON) rest-api-templates/make_ari_stubs.py \
-		--resources rest-api/resources.json --source-dir $(ASTTOPDIR) \
-		--dest-dir $(ASTTOPDIR)/doc/rest-api --docs-prefix ../
+		rest-api/resources.json .
 endif
 
 check-alembic: makeopts
@@ -1145,7 +1146,6 @@ check-alembic: makeopts
 .PHONY: uninstall-headers
 .PHONY: badshell
 .PHONY: installdirs
-.PHONY: progdocs
 .PHONY: validate-docs
 .PHONY: _clean
 .PHONY: ari-stubs

@@ -85,7 +85,7 @@ struct ast_sem {
 	int waiters;
 	/*! Mutual exclusion */
 	ast_mutex_t mutex;
-	/*! Condition for signaling waiters */
+	/*! Condition for singalling waiters */
 	ast_cond_t cond;
 };
 
@@ -101,8 +101,8 @@ struct ast_sem {
  *                in case we need to add support in the future.
  * \param value Initial value of the semaphore.
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_init(struct ast_sem *sem, int pshared, unsigned int value);
 
@@ -114,8 +114,8 @@ int ast_sem_init(struct ast_sem *sem, int pshared, unsigned int value);
  *
  * \param sem Semaphore to destroy.
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_destroy(struct ast_sem *sem);
 
@@ -124,8 +124,8 @@ int ast_sem_destroy(struct ast_sem *sem);
  *
  * \param sem Semaphore to increment.
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_post(struct ast_sem *sem);
 
@@ -138,8 +138,8 @@ int ast_sem_post(struct ast_sem *sem);
  *
  * \param sem Semaphore to decrement.
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_wait(struct ast_sem *sem);
 
@@ -151,10 +151,9 @@ int ast_sem_wait(struct ast_sem *sem);
  * handler, which sets errno to EINTR).
  *
  * \param sem Semaphore to decrement.
- * \param abs_timeout
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_timedwait(struct ast_sem *sem, const struct timespec *abs_timeout);
 
@@ -169,8 +168,8 @@ int ast_sem_timedwait(struct ast_sem *sem, const struct timespec *abs_timeout);
  * \param sem Semaphore to query.
  * \param[out] sval Output value.
  *
- * \retval 0 on success.
- * \retval -1 on error, errno set to indicate error.
+ * \return 0 on success.
+ * \return -1 on error, errno set to indicate error.
  */
 int ast_sem_getvalue(struct ast_sem *sem, int *sval);
 

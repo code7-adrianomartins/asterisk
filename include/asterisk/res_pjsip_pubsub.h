@@ -232,8 +232,6 @@ enum ast_sip_subscription_notify_reason {
 #define AST_SIP_EXTEN_STATE_DATA "ast_sip_exten_state_data"
 /*! Type used for conveying mailbox state */
 #define AST_SIP_MESSAGE_ACCUMULATOR "ast_sip_message_accumulator"
-/*! Type used for device feature synchronization */
-#define AST_SIP_DEVICE_FEATURE_SYNC_DATA "ast_sip_device_feature_sync_data"
 
 /*!
  * \brief Data used to create bodies for NOTIFY/PUBLISH requests.
@@ -271,18 +269,6 @@ struct ast_sip_notifier {
 	 */
 	int (*new_subscribe)(struct ast_sip_endpoint *endpoint, const char *resource);
 	/*!
-	 * \brief Same as new_subscribe, but also pass a handle to the pjsip_rx_data
-	 *
-	 * \note If this callback exists, it will be executed, otherwise new_subscribe will be.
-	 *       Only use this if you need the rdata. Otherwise, use new_subscribe.
-	 *
-	 * \param endpoint The endpoint from which we received the SUBSCRIBE
-	 * \param resource The name of the resource to which the subscription is being made
-	 * \param rdata The pjsip_rx_data for incoming subscription
-	 * \return The response code to send to the SUBSCRIBE.
-	 */
-	int (*new_subscribe_with_rdata)(struct ast_sip_endpoint *endpoint, const char *resource, pjsip_rx_data *rdata);
-	/*!
 	 * \brief Called when an inbound subscription has been accepted.
 	 *
 	 * This is a prime opportunity for notifiers to add any notifier-specific
@@ -297,25 +283,6 @@ struct ast_sip_notifier {
 	 */
 	int (*subscription_established)(struct ast_sip_subscription *sub);
 	/*!
-	 * \brief Called when a SUBSCRIBE arrives for an already active subscription.
-	 *
-	 * \param sub The existing subscription
-	 * \retval 0 Success
-	 * \retval -1 Failure
-	 */
-	int (*refresh_subscribe)(struct ast_sip_subscription *sub, pjsip_rx_data *rdata);
-	/*!
-	 * \brief Optional callback to execute before sending outgoing NOTIFY requests.
-	 *        Because res_pjsip_pubsub creates the tdata internally, this allows modules
-	 *        to access the tdata if needed, e.g. to add custom headers.
-	 *
-	 * \param sub The existing subscription
-	 * \param tdata The pjsip_tx_data to use for the outgoing NOTIFY
-	 * \retval 0 Success
-	 * \retval -1 Failure
-	 */
-	int (*notify_created)(struct ast_sip_subscription *sub, pjsip_tx_data *tdata);
-	/*!
 	 * \brief Supply data needed to create a NOTIFY body.
 	 *
 	 * The returned data must be an ao2 object. The caller of this function
@@ -325,17 +292,6 @@ struct ast_sip_notifier {
 	 * \return An ao2 object that can be used to create a NOTIFY body.
 	 */
 	void *(*get_notify_data)(struct ast_sip_subscription *sub);
-	/*!
-	 * \brief Supply Display Name for resource
-	 *
-	 * \param endpoint The endpoint from which we received the SUBSCRIBE
-	 * \param resource The name of the resource to which the subscription is being made
-	 * \param display_name buffer for Display Name
-	 * \param display_name_size size of display_name buffer
-	 * \retval 0 Success
-	 * \retval -1 Failure
-	 */
-	int (*get_resource_display_name)(struct ast_sip_endpoint *endpoint, const char *resource, char *display_name, int display_name_size);
 };
 
 struct ast_sip_subscriber {
@@ -390,7 +346,7 @@ struct ast_sip_subscription_handler {
  * When a subscriber wishes to create a subscription, it may call this function
  * to allocate resources and to send the initial SUBSCRIBE out.
  *
- * \param handler The subscriber that is making the request.
+ * \param subscriber The subscriber that is making the request.
  * \param endpoint The endpoint to whome the SUBSCRIBE will be sent.
  * \param resource The resource to place in the SUBSCRIBE's Request-URI.
  */
@@ -786,7 +742,7 @@ void ast_sip_pubsub_unregister_body_generator(struct ast_sip_pubsub_body_generat
  * for a given content type if a primary body supplement for that content type
  * has already been registered.
  *
- * \param supplement Body generator to register
+ * \param generator Body generator to register
  * \retval 0 Success
  * \retval -1 Failure
  */
@@ -796,7 +752,7 @@ int ast_sip_pubsub_register_body_supplement(struct ast_sip_pubsub_body_supplemen
  * \since 13.0.0
  * \brief Unregister a body generator with the pubsub core.
  *
- * \param supplement Body generator to unregister
+ * \param generator Body generator to unregister
  */
 void ast_sip_pubsub_unregister_body_supplement(struct ast_sip_pubsub_body_supplement *supplement);
 
@@ -817,6 +773,7 @@ const char *ast_sip_subscription_get_body_subtype(struct ast_sip_subscription *s
  * \brief Alert the pubsub core that the subscription is ready for destruction
  *
  * \param sub The subscription that is complete
+ * \return Nothing
  */
 void ast_sip_subscription_destroy(struct ast_sip_subscription *sub);
 

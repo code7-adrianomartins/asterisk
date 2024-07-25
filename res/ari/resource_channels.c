@@ -147,7 +147,7 @@ static int channel_state_invalid(struct stasis_app_control *control,
  * \param[out] response Response to fill with an error if control is not found.
  * \param channel_id ID of the channel to lookup.
  * \return Channel control object.
- * \retval NULL if control object does not exist.
+ * \return \c NULL if control object does not exist.
  */
 static struct stasis_app_control *find_control(
 	struct ast_ari_response *response,
@@ -1726,8 +1726,8 @@ struct ast_datastore_info dialstring_info = {
  *
  * \param chan The channel on which to save the dialstring
  * \param dialstring The dialstring to save
- * \retval 0 on success.
- * \retval -1 on error.
+ * \retval 0 SUCCESS!
+ * \reval -1 Failure :(
  */
 static int save_dialstring(struct ast_channel *chan, const char *dialstring)
 {
@@ -1779,7 +1779,7 @@ void ast_ari_channels_create(struct ast_variable *headers,
 	struct ast_ari_channels_create_args *args,
 	struct ast_ari_response *response)
 {
-	RAII_VAR(struct ast_variable *, variables, NULL, ast_variables_destroy);
+	struct ast_variable *variables = NULL;
 	struct ast_assigned_ids assignedids;
 	struct ari_channel_thread_data *chan_data;
 	struct ast_channel_snapshot *snapshot;
@@ -2081,19 +2081,18 @@ void ast_ari_channels_rtpstatistics(struct ast_variable *headers,
 	return;
 }
 
-static int external_media_rtp_udp(struct ast_ari_channels_external_media_args *args,
+static void external_media_rtp_udp(struct ast_ari_channels_external_media_args *args,
 	struct ast_variable *variables,
 	struct ast_ari_response *response)
 {
+	size_t endpoint_len;
 	char *endpoint;
 	struct ast_channel *chan;
 	struct varshead *vars;
 
-	if (ast_asprintf(&endpoint, "UnicastRTP/%s/c(%s)",
-			args->external_host,
-			args->format) == -1) {
-		return 1;
-	}
+	endpoint_len = strlen("UnicastRTP/") + strlen(args->external_host) + 1;
+	endpoint = ast_alloca(endpoint_len);
+	snprintf(endpoint, endpoint_len, "UnicastRTP/%s", args->external_host);
 
 	chan = ari_channels_handle_originate_with_id(
 		endpoint,
@@ -2102,7 +2101,7 @@ static int external_media_rtp_udp(struct ast_ari_channels_external_media_args *a
 		0,
 		NULL,
 		args->app,
-		args->data,
+		NULL,
 		NULL,
 		0,
 		variables,
@@ -2113,10 +2112,8 @@ static int external_media_rtp_udp(struct ast_ari_channels_external_media_args *a
 		response);
 	ast_variables_destroy(variables);
 
-	ast_free(endpoint);
-
 	if (!chan) {
-		return 1;
+		return;
 	}
 
 	ast_channel_lock(chan);
@@ -2126,7 +2123,6 @@ static int external_media_rtp_udp(struct ast_ari_channels_external_media_args *a
 	}
 	ast_channel_unlock(chan);
 	ast_channel_unref(chan);
-	return 0;
 }
 
 static void external_media_audiosocket_tcp(struct ast_ari_channels_external_media_args *args,
@@ -2137,11 +2133,6 @@ static void external_media_audiosocket_tcp(struct ast_ari_channels_external_medi
 	char *endpoint;
 	struct ast_channel *chan;
 	struct varshead *vars;
-
-	if (ast_strlen_zero(args->data)) {
-		ast_ari_response_error(response, 400, "Bad Request", "data can not be empty");
-		return;
-	}
 
 	endpoint_len = strlen("AudioSocket/") + strlen(args->external_host) + 1 + strlen(args->data) + 1;
 	endpoint = ast_alloca(endpoint_len);
@@ -2155,7 +2146,7 @@ static void external_media_audiosocket_tcp(struct ast_ari_channels_external_medi
 		0,
 		NULL,
 		args->app,
-		args->data,
+		NULL,
 		NULL,
 		0,
 		variables,
@@ -2192,18 +2183,6 @@ void ast_ari_channels_external_media(struct ast_variable *headers,
 
 	ast_assert(response != NULL);
 
-	/* Parse any query parameters out of the body parameter */
-	if (args->variables) {
-		struct ast_json *json_variables;
-
-		ast_ari_channels_external_media_parse_body(args->variables, args);
-		json_variables = ast_json_object_get(args->variables, "variables");
-		if (json_variables
-			&& json_to_ast_variables(response, json_variables, &variables)) {
-			return;
-		}
-	}
-
 	if (ast_strlen_zero(args->app)) {
 		ast_ari_response_error(response, 400, "Bad Request", "app cannot be empty");
 		return;
@@ -2238,12 +2217,19 @@ void ast_ari_channels_external_media(struct ast_variable *headers,
 		args->direction = "both";
 	}
 
-	if (strcasecmp(args->encapsulation, "rtp") == 0 && strcasecmp(args->transport, "udp") == 0) {
-		if (external_media_rtp_udp(args, variables, response)) {
-			ast_ari_response_error(
-				response, 500, "Internal Server Error",
-				"An internal error prevented this request from being handled");
+	if (args->variables) {
+		struct ast_json *json_variables;
+
+		ast_ari_channels_external_media_parse_body(args->variables, args);
+		json_variables = ast_json_object_get(args->variables, "variables");
+		if (json_variables
+			&& json_to_ast_variables(response, json_variables, &variables)) {
+			return;
 		}
+	}
+
+	if (strcasecmp(args->encapsulation, "rtp") == 0 && strcasecmp(args->transport, "udp") == 0) {
+		external_media_rtp_udp(args, variables, response);
 	} else if (strcasecmp(args->encapsulation, "audiosocket") == 0 && strcasecmp(args->transport, "tcp") == 0) {
 		external_media_audiosocket_tcp(args, variables, response);
 	} else {

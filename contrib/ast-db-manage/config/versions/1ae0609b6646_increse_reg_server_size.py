@@ -1,4 +1,4 @@
-"""increase reg server size
+"""increse reg server size
 
 Revision ID: 1ae0609b6646
 Revises: 61797b9fced6

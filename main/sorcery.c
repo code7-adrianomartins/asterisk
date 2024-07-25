@@ -139,9 +139,6 @@ struct ast_sorcery_object {
 
 	/*! \brief Time that the object was created */
 	struct timeval created;
-
-	/*! \brief Whether this object has dynamic contents or not */
-	unsigned int has_dynamic_contents:1;
 };
 
 /*! \brief Structure for registered object type */
@@ -965,21 +962,21 @@ enum ast_sorcery_apply_result __ast_sorcery_object_type_insert_wizard(struct ast
 
 /*! \brief Internal function which creates an object type and inserts a wizard mapping */
 enum ast_sorcery_apply_result __ast_sorcery_insert_wizard_mapping(struct ast_sorcery *sorcery,
-		const char *type, const char *module, const char *name,
-		const char *data, unsigned int caching, int position)
+		const char *object_type_name, const char *module, const char *wizard_type_name,
+		const char *wizard_args, unsigned int caching, int position)
 {
-	return __ast_sorcery_object_type_insert_wizard(sorcery, type, module, name,
-		data, caching ? AST_SORCERY_WIZARD_APPLY_CACHING : AST_SORCERY_WIZARD_APPLY_NONE,
+	return __ast_sorcery_object_type_insert_wizard(sorcery, object_type_name, module, wizard_type_name,
+		wizard_args, caching ? AST_SORCERY_WIZARD_APPLY_CACHING : AST_SORCERY_WIZARD_APPLY_NONE,
 		position, NULL, NULL);
 }
 
 /*! \brief Internal function which creates an object type and adds a wizard mapping */
 enum ast_sorcery_apply_result __ast_sorcery_apply_wizard_mapping(struct ast_sorcery *sorcery,
-		const char *type, const char *module, const char *name,
-		const char *data, unsigned int caching)
+		const char *object_type_name, const char *module, const char *wizard_type_name,
+		const char *wizard_args, unsigned int caching)
 {
-	return __ast_sorcery_insert_wizard_mapping(sorcery, type, module, name,
-		data, caching, AST_SORCERY_WIZARD_POSITION_LAST);
+	return __ast_sorcery_insert_wizard_mapping(sorcery, object_type_name, module, wizard_type_name,
+		wizard_args, caching, AST_SORCERY_WIZARD_POSITION_LAST);
 }
 
 enum ast_sorcery_apply_result  __ast_sorcery_apply_config(struct ast_sorcery *sorcery, const char *name, const char *module)
@@ -2367,20 +2364,6 @@ int ast_sorcery_object_set_extended(const void *object, const char *name, const 
 	details->object->extended = extended;
 
 	return 0;
-}
-
-unsigned int ast_sorcery_object_has_dynamic_contents(const void *object)
-{
-	const struct ast_sorcery_object_details *details = object;
-
-	return details->object->has_dynamic_contents;
-}
-
-void ast_sorcery_object_set_has_dynamic_contents(const void *object)
-{
-	const struct ast_sorcery_object_details *details = object;
-
-	details->object->has_dynamic_contents = 1;
 }
 
 int ast_sorcery_observer_add(const struct ast_sorcery *sorcery, const char *type, const struct ast_sorcery_observer *callbacks)

@@ -33,7 +33,6 @@
 #include "asterisk/module.h"
 #include "asterisk/app.h"
 #include "asterisk/channel.h"
-#include "asterisk/logger.h"
 
 static char *app_verbose = "Verbose";
 static char *app_log = "Log";
@@ -62,8 +61,7 @@ static char *app_log = "Log";
 		<syntax>
 			<parameter name="level" required="true">
 				<para>Level must be one of <literal>ERROR</literal>, <literal>WARNING</literal>, <literal>NOTICE</literal>,
-				<literal>DEBUG</literal>, <literal>VERBOSE</literal>, <literal>DTMF</literal>, or
-				the name of a custom dynamic logging level.</para>
+				<literal>DEBUG</literal>, <literal>VERBOSE</literal> or <literal>DTMF</literal>.</para>
 			</parameter>
 			<parameter name="message" required="true">
 				<para>Output text message.</para>
@@ -137,7 +135,7 @@ static int log_exec(struct ast_channel *chan, const char *data)
 	} else if (!strcasecmp(args.level, "DTMF")) {
 		lnum = __LOG_DTMF;
 	} else {
-		lnum = ast_logger_get_dynamic_level(args.level);
+		ast_log(LOG_ERROR, "Unknown log level: '%s'\n", args.level);
 	}
 
 	if (lnum > -1) {
@@ -145,9 +143,6 @@ static int log_exec(struct ast_channel *chan, const char *data)
 		snprintf(extension, sizeof(extension), "Ext. %s", ast_channel_exten(chan));
 
 		ast_log(lnum, extension, ast_channel_priority(chan), context, "%s\n", args.msg);
-	} else {
-		ast_log(LOG_ERROR, "Unknown log level: '%s'\n", args.level);
-		return 0;
 	}
 
 	return 0;

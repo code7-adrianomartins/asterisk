@@ -99,26 +99,20 @@ if the formats are equivalent. This will save some unnecessary format
 conversion.
 
 
-In order to handle video you need to add the following to the endpoint in
-pjsip.conf
+In order to handle video you need to add to sip.conf (and presumably
+iax.conf too) the following:
 
+	[general](+)
+		videosupport=yes
 		allow=h263	; this or other video formats
 		allow=h263p	; this or other video formats
-
-(Presumably, iax.conf would require):
-
-       [general](+)
-               videosupport=yes
-                allow=h263      ; this or other video formats
-                allow=h263p     ; this or other video formats
-
 
  */
 
 /*
  * Codecs are absolutely necessary or we cannot do anything.
  * SDL is optional (used for rendering only), so that we can still
- * stream video without displaying it.
+ * stream video withouth displaying it.
  */
 #if !defined(HAVE_VIDEO_CONSOLE) || !defined(HAVE_FFMPEG)
 /* stubs if required pieces are missing */
@@ -168,7 +162,7 @@ static void my_scale(struct fbuf_t *in, AVPicture *p_in,
 
 /*
  * this structure will be an entry in the table containing
- * every device specified in the file oss.conf, it contains various information
+ * every device specified in the file oss.conf, it contains various infomation
  * about the device
  */
 struct video_device {
@@ -179,7 +173,7 @@ struct video_device {
 	struct fbuf_t		*dev_buf;	/* buffer for incoming data		*/
 	struct timeval		last_frame;	/* when we read the last frame ?	*/
 	int 			status_index;	/* what is the status of the device (source) */
-	/* status index is set using the IS_ON, IS_PRIMARY and IS_SECONDARY constants */
+	/* status index is set using the IS_ON, IS_PRIMARY and IS_SECONDARY costants */
 	/* status_index is the index of the status message in the src_msgs array in console_gui.c */
 };
 
@@ -785,7 +779,7 @@ int console_write_video(struct ast_channel *chan, struct ast_frame *f)
  * is returned as an argument.
  *
  * \param env = video environment descriptor
- * \param tail = tail ponter (practically a return value)
+ * \param tail = tail ponter (pratically a return value)
  */
 static struct ast_frame *get_video_frames(struct video_desc *env, struct ast_frame **tail)
 {
@@ -800,7 +794,7 @@ static struct ast_frame *get_video_frames(struct video_desc *env, struct ast_fra
 	updating the private device buffer in the device table */
 	for (i = 0; i < env->out.device_num; i++) {
 		p_read = grabber_read(&env->out.devices[i], env->out.fps);
-		/* it is used only if different from NULL, we maintain last good buffer otherwise */
+		/* it is used only if different from NULL, we mantain last good buffer otherwise */
 		if (p_read)
 			env->out.devices[i].dev_buf = p_read;
 	}

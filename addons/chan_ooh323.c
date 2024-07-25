@@ -2055,7 +2055,7 @@ int onOutgoingCall(ooCallData *call)
 			}
 			ooCallAddAliasDialedDigits(call, p->caller_dialedDigits);
 		} else if (!ast_strlen_zero(p->callerid_num)) {
-			if (ooIsDialedDigit(p->callerid_num)) {
+			if (ooIsDailedDigit(p->callerid_num)) {
 				if (gH323Debug) {
 					ast_verb(0, "setting callid number %s\n", p->callerid_num);
 				}
@@ -2136,7 +2136,7 @@ int onNewCallCreated(ooCallData *call)
 			}
 			ooCallAddAliasDialedDigits(call, p->caller_dialedDigits);
 		} else if (!ast_strlen_zero(p->callerid_num)) {
-			if (ooIsDialedDigit(p->callerid_num)) {
+			if (ooIsDailedDigit(p->callerid_num)) {
 				if (gH323Debug) {
 					ast_verb(0, "setting callid number %s\n", p->callerid_num);
 				}
@@ -2148,7 +2148,7 @@ int onNewCallCreated(ooCallData *call)
 
 
 		if (!ast_strlen_zero(p->exten))  {
-			if (ooIsDialedDigit(p->exten)) {
+			if (ooIsDailedDigit(p->exten)) {
 				ooCallSetCalledPartyNumber(call, p->exten);
 				ooCallAddRemoteAliasDialedDigits(call, p->exten);
 			} else {
@@ -3248,7 +3248,7 @@ static char *handle_cli_ooh323_show_peer(struct ast_cli_entry *e, int cmd, struc
 		if (peer->t38support == T38_DISABLED) {
 			ast_cli(a->fd, "%s\n", "disabled");
 		} else if (peer->t38support == T38_FAXGW) {
-			ast_cli(a->fd, "%s\n", "faxgw compatible");
+			ast_cli(a->fd, "%s\n", "faxgw/chan_sip compatible");
 		}
 		if (peer->faxdetect == (FAXDETECT_CNG | FAXDETECT_T38)) {
 			ast_cli(a->fd,"%-20s%s\n", "FAX Detect:", "Yes");
@@ -3386,7 +3386,7 @@ static char *handle_cli_ooh323_show_user(struct ast_cli_entry *e, int cmd, struc
 		if (user->t38support == T38_DISABLED) {
 			ast_cli(a->fd, "%s\n", "disabled");
 		} else if (user->t38support == T38_FAXGW) {
-			ast_cli(a->fd, "%s\n", "faxgw compatible");
+			ast_cli(a->fd, "%s\n", "faxgw/chan_sip compatible");
 		}
 		if (user->faxdetect == (FAXDETECT_CNG | FAXDETECT_T38)) {
 			ast_cli(a->fd,"%-20s%s\n", "FAX Detect:", "Yes");
@@ -3633,7 +3633,7 @@ static char *handle_cli_ooh323_show_config(struct ast_cli_entry *e, int cmd, str
 	if (gT38Support == T38_DISABLED) {
 		ast_cli(a->fd, "%s\n", "disabled");
 	} else if (gT38Support == T38_FAXGW) {
-		ast_cli(a->fd, "%s\n", "faxgw compatible");
+		ast_cli(a->fd, "%s\n", "faxgw/chan_sip compatible");
 	}
 	if (gFAXdetect == (FAXDETECT_CNG | FAXDETECT_T38)) {
 		ast_cli(a->fd,"%-20s%s\n", "FAX Detect:", "Yes");
@@ -5047,7 +5047,7 @@ struct ast_frame *ooh323_rtp_read(struct ast_channel *ast, struct ooh323_pvt *p)
 			p->faxdetected = 1;
 			ooRequestChangeMode(p->callToken, 1);
 		} else if ((dfr->subclass.integer == 'f') && !p->faxdetected) {
-			const char *target_context = ast_channel_context(p->owner);
+			const char *target_context = S_OR(ast_channel_macrocontext(p->owner), ast_channel_context(p->owner));
 			if ((strcmp(ast_channel_exten(p->owner), "fax")) &&
 			    (ast_exists_extension(p->owner, target_context, "fax", 1,
 		            S_COR(ast_channel_caller(p->owner)->id.number.valid, ast_channel_caller(p->owner)->id.number.str, NULL)))) {
@@ -5123,7 +5123,7 @@ void onModeChanged(ooCallData *call, int t38mode) {
 			if ((p->faxdetect & FAXDETECT_T38) && !p->faxdetected) {
                        		const char *target_context;
 				ast_debug(1, "* Detected T.38 Request\n");
-				target_context = ast_channel_context(p->owner);
+				target_context = S_OR(ast_channel_macrocontext(p->owner), ast_channel_context(p->owner));
                         	if ((strcmp(ast_channel_exten(p->owner), "fax")) &&
                             		(ast_exists_extension(p->owner, target_context, "fax", 1,
                             		S_COR(ast_channel_caller(p->owner)->id.number.valid, ast_channel_caller(p->owner)->id.number.str, NULL)))) {

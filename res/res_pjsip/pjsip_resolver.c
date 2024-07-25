@@ -92,6 +92,8 @@ static int sip_available_transports[] = {
  * \brief Destroy resolution data
  *
  * \param data The resolution data to destroy
+ *
+ * \return Nothing
  */
 static void sip_resolve_destroy(void *data)
 {
@@ -183,7 +185,7 @@ static int sip_resolve_add(struct sip_resolve *resolve, const char *name, int rr
  *
  * \param data The complete resolution
  *
- * \retval 0 Always
+ * \return Nothing
  */
 static int sip_resolve_invoke_user_callback(void *data)
 {
@@ -260,6 +262,8 @@ static int sip_resolve_handle_naptr(struct sip_resolve *resolve, const struct as
  * \brief Query set callback function, invoked when all queries have completed
  *
  * \param query_set The completed query set
+ *
+ * \return Nothing
  */
 static void sip_resolve_callback(const struct ast_dns_query_set *query_set)
 {
@@ -626,6 +630,8 @@ static void sip_resolve(pjsip_resolver_t *resolver, pj_pool_t *pool, const pjsip
  * \param pool A memory pool to allocate things from
  * \param transport The type of transport to check
  * \param name A friendly name to print in the verbose message
+ *
+ * \return Nothing
  */
 static void sip_check_transport(pj_pool_t *pool, pjsip_transport_type_e transport, const char *name)
 {

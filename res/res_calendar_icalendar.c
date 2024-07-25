@@ -155,10 +155,6 @@ static icalcomponent *fetch_icalendar(struct icalendar_pvt *pvt)
 
 	if (!ast_strlen_zero(ast_str_buffer(response))) {
 		comp = icalparser_parse_string(ast_str_buffer(response));
-		if (!comp) {
-			ast_debug(3, "iCalendar response data: %s\n", ast_str_buffer(response));
-			ast_log(LOG_WARNING, "Failed to parse iCalendar data: %s\n", icalerror_perror());
-		}
 	}
 	ast_free(response);
 
@@ -202,7 +198,7 @@ static void icalendar_add_event(icalcomponent *comp, struct icaltime_span *span,
 	struct icaltriggertype trigger;
 
 	if (!(pvt && pvt->owner)) {
-		ast_log(LOG_ERROR, "Require a private structure with an owner\n");
+		ast_log(LOG_ERROR, "Require a private structure with an ownenr\n");
 		return;
 	}
 
@@ -245,12 +241,12 @@ static void icalendar_add_event(icalcomponent *comp, struct icaltime_span *span,
 	if ((prop = icalcomponent_get_first_property(comp, ICAL_UID_PROPERTY))) {
 		ast_string_field_set(event, uid, icalproperty_get_value_as_string(prop));
 	} else {
-		ast_log(LOG_WARNING, "No UID found, but one is required. Generating, but updates may not be accurate\n");
+		ast_log(LOG_WARNING, "No UID found, but one is required. Generating, but updates may not be acurate\n");
 		if (!ast_strlen_zero(event->summary)) {
 			ast_string_field_set(event, uid, event->summary);
 		} else {
-			char tmp[AST_TIME_T_LEN];
-			ast_time_t_to_string(event->start, tmp, sizeof(tmp));
+			char tmp[100];
+			snprintf(tmp, sizeof(tmp), "%ld", event->start);
 			ast_string_field_set(event, uid, tmp);
 		}
 	}
@@ -469,7 +465,6 @@ static void *ical_load_calendar(void *void_data)
 	pvt->session = ne_session_create(pvt->uri.scheme, pvt->uri.host, pvt->uri.port);
 	ne_redirect_register(pvt->session);
 	ne_set_server_auth(pvt->session, auth_credentials, pvt);
-	ne_set_useragent(pvt->session, "Asterisk");
 	if (!strcasecmp(pvt->uri.scheme, "https")) {
 		ne_ssl_trust_default_ca(pvt->session);
 	}

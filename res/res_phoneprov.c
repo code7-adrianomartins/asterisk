@@ -29,7 +29,7 @@
  * \author George Joseph <george.joseph@fairview5.com>
   */
 
-/*! \li \ref res_phoneprov.c uses the configuration file \ref phoneprov.conf and \ref users.conf
+/*! \li \ref res_phoneprov.c uses the configuration file \ref phoneprov.conf and \ref users.conf and \ref sip.conf
  * \addtogroup configuration_file Configuration Files
  */
 
@@ -505,7 +505,6 @@ static void delete_routes(void)
 
 /*! \brief Build a route structure and add it to the list of available http routes
 	\param pp_file File to link to the route
-	\param profile
 	\param user User to link to the route (NULL means static route)
 	\param uri URI of the route
 */
@@ -874,8 +873,6 @@ static int phoneprov_callback(struct ast_tcptls_session_instance *ser, const str
 	char path[PATH_MAX];
 	char *file = NULL;
 	char *server;
-	char *newserver = NULL;
-	struct extension *exten_iter;
 	int len;
 	int fd;
 	struct ast_str *http_header;
@@ -957,7 +954,8 @@ static int phoneprov_callback(struct ast_tcptls_session_instance *ser, const str
 			if ((res = getsockname(ast_iostream_get_fd(ser->stream), &name.sa, &namelen))) {
 				ast_log(LOG_WARNING, "Could not get server IP, breakage likely.\n");
 			} else {
-				newserver = ast_strdupa(ast_inet_ntoa(name.sa_in.sin_addr));
+				struct extension *exten_iter;
+				const char *newserver = ast_inet_ntoa(name.sa_in.sin_addr);
 
 				AST_LIST_TRAVERSE(&route->user->extensions, exten_iter, entry) {
 					AST_VAR_LIST_INSERT_TAIL(exten_iter->headp,
@@ -967,21 +965,6 @@ static int phoneprov_callback(struct ast_tcptls_session_instance *ser, const str
 		}
 
 		ast_str_substitute_variables_varshead(&tmp, 0, AST_LIST_FIRST(&route->user->extensions)->headp, file);
-
-		/* Do not retain dynamic SERVER address because next request from the phone might arrive on
-		 * different interface IP address eg. if this is a multi-homed server on multiple subnets */
-		if (newserver) {
-			struct ast_var_t *varns;
-			AST_LIST_TRAVERSE(&route->user->extensions, exten_iter, entry) {
-				AST_LIST_TRAVERSE_SAFE_BEGIN(exten_iter->headp, varns, entries) {
-					if (!strcmp(variable_lookup[AST_PHONEPROV_STD_SERVER], ast_var_name(varns))) {
-						AST_LIST_REMOVE_CURRENT(entries);
-						ast_var_delete(varns);
-					}
-				}
-				AST_LIST_TRAVERSE_SAFE_END
-			}
-		}
 
 		ast_free(file);
 
@@ -1091,7 +1074,7 @@ static int pp_each_extension_helper(struct ast_channel *chan, const char *cmd, c
 	AST_STANDARD_APP_ARGS(args, data);
 
 	if (ast_strlen_zero(args.mac) || ast_strlen_zero(args.template)) {
-		ast_log(LOG_WARNING, "PP_EACH_EXTENSION requires both a macaddress and template filename.\n");
+		ast_log(LOG_WARNING, "PP_EACH_EXTENSION requries both a macaddress and template filename.\n");
 		return 0;
 	}
 
@@ -1250,6 +1233,11 @@ static struct varshead *get_defaults(void)
 	}
 
 	value = ast_variable_retrieve(phoneprov_cfg, "general", pp_general_lookup[AST_PHONEPROV_STD_SERVER_PORT]);
+	if (!value) {
+		if ((cfg = ast_config_load("sip.conf", config_flags)) && cfg != CONFIG_STATUS_FILEINVALID) {
+			value = ast_variable_retrieve(cfg, "general", "bindport");
+		}
+	}
 	var = ast_var_assign(variable_lookup[AST_PHONEPROV_STD_SERVER_PORT], S_OR(value, "5060"));
 	if (cfg && cfg != CONFIG_STATUS_FILEINVALID) {
 		ast_config_destroy(cfg);
@@ -1395,7 +1383,7 @@ static int unload_module(void)
 	ast_custom_function_unregister(&pp_each_extension_function);
 	ast_cli_unregister_multiple(pp_cli, ARRAY_LEN(pp_cli));
 
-	/* This cleans up the users.conf provider (called specifically for clarity) */
+	/* This cleans up the sip.conf/users.conf provider (called specifically for clarity) */
 	ast_phoneprov_provider_unregister(SIPUSERS_PROVIDER_NAME);
 
 	/* This cleans up the framework which also cleans up the providers. */
@@ -1460,9 +1448,9 @@ static int load_module(void)
 		goto error;
 	}
 
-	/* Register ourselves as the provider for users.conf */
+	/* Register ourselves as the provider for sip.conf/users.conf */
 	if (ast_phoneprov_provider_register(SIPUSERS_PROVIDER_NAME, load_users)) {
-		ast_log(LOG_WARNING, "Unable register users config provider.  Others may succeed.\n");
+		ast_log(LOG_WARNING, "Unable register sip/users config provider.  Others may succeed.\n");
 	}
 
 	ast_http_uri_link(&phoneprovuri);

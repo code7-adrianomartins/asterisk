@@ -23,7 +23,7 @@
  * \author Mark Spencer <markster@digium.com>
  *
  * Includes the Asterisk Realtime API - ARA
- * See https://docs.asterisk.org
+ * See http://wiki.asterisk.org
  */
 
 /*** MODULEINFO
@@ -318,6 +318,8 @@ struct ast_variable *_ast_variable_new(const char *name, const char *value, cons
  *
  * \param dst_var Destination variable node
  * \param src_var Source variable node
+ *
+ * \return Nothing
  */
 static void ast_variable_move(struct ast_variable *dst_var, struct ast_variable *src_var)
 {
@@ -586,13 +588,13 @@ struct ast_variable *ast_variables_reverse(struct ast_variable *var)
 	return var1;
 }
 
-void ast_variables_destroy(struct ast_variable *var)
+void ast_variables_destroy(struct ast_variable *v)
 {
 	struct ast_variable *vn;
 
-	while (var) {
-		vn = var;
-		var = var->next;
+	while (v) {
+		vn = v;
+		v = v->next;
 		ast_variable_destroy(vn);
 	}
 }
@@ -646,16 +648,15 @@ struct ast_variable *ast_variable_list_sort(struct ast_variable *start)
 struct ast_variable *ast_variable_list_append_hint(struct ast_variable **head, struct ast_variable *search_hint, struct ast_variable *newvar)
 {
 	struct ast_variable *curr;
-	struct ast_variable *sh = search_hint;
 	ast_assert(head != NULL);
 
 	if (!*head) {
 		*head = newvar;
 	} else {
-		if (sh == NULL) {
-			sh = *head;
+		if (search_hint == NULL) {
+			search_hint = *head;
 		}
-		for (curr = sh; curr->next; curr = curr->next);
+		for (curr = search_hint; curr->next; curr = curr->next);
 		curr->next = newvar;
 	}
 
@@ -678,96 +679,6 @@ int ast_variable_list_replace(struct ast_variable **head, struct ast_variable *r
 	}
 
 	return -1;
-}
-
-int ast_variable_list_replace_variable(struct ast_variable **head, struct ast_variable *old,
-	struct ast_variable *new)
-{
-	struct ast_variable *v, **prev = head;
-
-	for (v = *head; v; prev = &v->next, v = v->next) {
-		if (v == old) {
-			new->next = v->next;
-			*prev = new;
-			ast_free(v);
-			return 0;
-		}
-	}
-
-	return -1;
-}
-
-struct ast_str *ast_variable_list_join(const struct ast_variable *head, const char *item_separator,
-	const char *name_value_separator, const char *quote_char, struct ast_str **str)
-{
-	struct ast_variable *var = (struct ast_variable *)head;
-	struct ast_str *local_str = NULL;
-
-	if (str == NULL || *str == NULL) {
-		local_str = ast_str_create(AST_MAX_USER_FIELD);
-		if (!local_str) {
-			return NULL;
-		}
-	} else {
-		local_str = *str;
-	}
-
-	for (; var; var = var->next) {
-		ast_str_append(&local_str, 0, "%s%s%s%s%s%s", var->name, name_value_separator, S_OR(quote_char, ""),
-			var->value, S_OR(quote_char, ""), var->next ? item_separator : "");
-	}
-
-	if (str != NULL) {
-		*str = local_str;
-	}
-	return local_str;
-}
-
-struct ast_variable *ast_variable_list_from_quoted_string(const char *input, const char *item_separator,
-	const char *name_value_separator, const char *quote_str)
-{
-	char item_sep;
-	char nv_sep;
-	char quote;
-	struct ast_variable *new_list = NULL;
-	struct ast_variable *new_var = NULL;
-	char *item_string;
-	char *item;
-	char *item_name;
-	char *item_value;
-
-	if (ast_strlen_zero(input)) {
-		return NULL;
-	}
-
-	item_sep = ast_strlen_zero(item_separator) ? ',' : item_separator[0];
-	nv_sep = ast_strlen_zero(name_value_separator) ? '=' : name_value_separator[0];
-	quote = ast_strlen_zero(quote_str) ? '"' : quote_str[0];
-	item_string = ast_strip(ast_strdupa(input));
-
-	while ((item = ast_strsep_quoted(&item_string, item_sep, quote, AST_STRSEP_ALL))) {
-		item_name = ast_strsep_quoted(&item, nv_sep, quote, AST_STRSEP_ALL);
-		if (!item_name) {
-			ast_variables_destroy(new_list);
-			return NULL;
-		}
-
-		item_value = ast_strsep_quoted(&item, nv_sep, quote, AST_STRSEP_ALL);
-
-		new_var = ast_variable_new(item_name, item_value ?: "", "");
-		if (!new_var) {
-			ast_variables_destroy(new_list);
-			return NULL;
-		}
-		ast_variable_list_append(&new_list, new_var);
-	}
-	return new_list;
-}
-
-struct ast_variable *ast_variable_list_from_string(const char *input, const char *item_separator,
-	const char *name_value_separator)
-{
-	return ast_variable_list_from_quoted_string(input, item_separator, name_value_separator, NULL);
 }
 
 const char *ast_config_option(struct ast_config *cfg, const char *cat, const char *var)
@@ -1375,14 +1286,14 @@ void ast_config_sort_categories(struct ast_config *config, int descending,
 
 }
 
-char *ast_category_browse(struct ast_config *config, const char *prev_name)
+char *ast_category_browse(struct ast_config *config, const char *prev)
 {
 	struct ast_category *cat;
 
-	if (!prev_name) {
+	if (!prev) {
 		/* First time browse. */
 		cat = config->root;
-	} else if (config->last_browse && (config->last_browse->name == prev_name)) {
+	} else if (config->last_browse && (config->last_browse->name == prev)) {
 		/* Simple last browse found. */
 		cat = config->last_browse->next;
 	} else {
@@ -1393,7 +1304,7 @@ char *ast_category_browse(struct ast_config *config, const char *prev_name)
 		 * previous category?)
 		 */
 		for (cat = config->root; cat; cat = cat->next) {
-			if (cat->name == prev_name) {
+			if (cat->name == prev) {
 				/* Found it. */
 				cat = cat->next;
 				break;
@@ -1405,7 +1316,7 @@ char *ast_category_browse(struct ast_config *config, const char *prev_name)
 			 * re-added?)
 			 */
 			for (cat = config->root; cat; cat = cat->next) {
-				if (!strcasecmp(cat->name, prev_name)) {
+				if (!strcasecmp(cat->name, prev)) {
 					/* Found it. */
 					cat = cat->next;
 					break;
@@ -1677,6 +1588,8 @@ enum config_cache_attribute_enum {
  *
  * \param cfmtime Cached file modtime.
  * \param statbuf Buffer filled in by stat().
+ *
+ * \return Nothing
  */
 static void cfmstat_save(struct cache_file_mtime *cfmtime, struct stat *statbuf)
 {
@@ -1720,6 +1633,8 @@ static int cfmstat_cmp(struct cache_file_mtime *cfmtime, struct stat *statbuf)
  * \param cfmtime Cached file modtime.
  *
  * \note cfmtime_head is assumed already locked.
+ *
+ * \return Nothing
  */
 static void config_cache_flush_includes(struct cache_file_mtime *cfmtime)
 {
@@ -1737,6 +1652,8 @@ static void config_cache_flush_includes(struct cache_file_mtime *cfmtime)
  * \param cfmtime Cached file modtime.
  *
  * \note cfmtime_head is assumed already locked.
+ *
+ * \return Nothing
  */
 static void config_cache_destroy_entry(struct cache_file_mtime *cfmtime)
 {
@@ -1750,6 +1667,8 @@ static void config_cache_destroy_entry(struct cache_file_mtime *cfmtime)
  *
  * \param filename Config filename.
  * \param who_asked Which module asked.
+ *
+ * \return Nothing
  */
 static void config_cache_remove(const char *filename, const char *who_asked)
 {
@@ -1810,99 +1729,6 @@ static void config_cache_attribute(const char *configfile, enum config_cache_att
 		break;
 	}
 	AST_LIST_UNLOCK(&cfmtime_head);
-}
-
-/*!
- * \internal
- * \brief Process an #exec include, reporting errors.
- *
- * For backwards compatibility we return success in most cases because we
- * do not want to prevent the rest of the configuration (or the module
- * loading that configuration) from loading.
- *
- * \param command The command to execute
- * \param output_file The filename to write to
- *
- * \retval 0 on success
- * \retval -1 on failure
- */
-static int handle_include_exec(const char *command, const char *output_file)
-{
-	char buf[1024];
-	FILE *fp;
-	int status;
-	struct stat output_file_info;
-
-	/* stderr to stdout, stdout to file */
-	if (snprintf(buf, sizeof(buf), "%s 2>&1 > %s", command, output_file) >= sizeof(buf)) {
-		ast_log(LOG_ERROR, "Failed to construct command string to execute %s.\n", command);
-		return -1;
-	}
-
-	ast_replace_sigchld();
-
-	errno = 0;
-
-	fp = popen(buf, "r");
-	if (!fp) {
-		ast_log(LOG_ERROR, "#exec <%s>: Failed to execute: %s\n",
-			command,
-			strerror(errno));
-		ast_unreplace_sigchld();
-		return 0;
-	}
-
-	while (fgets(buf, sizeof(buf), fp)) {
-		/* Ensure we have a \n at the end */
-		if (strlen(buf) == sizeof(buf) - 1 && buf[sizeof(buf) - 2] != '\n') {
-			ast_log(LOG_ERROR, "#exec <%s>: %s... <truncated>\n",
-				command,
-				buf);
-
-			/* Consume the rest of the line */
-			while (fgets(buf, sizeof(buf), fp)) {
-				if (strlen(buf) != sizeof(buf) - 1 || buf[sizeof(buf) - 2] == '\n') {
-					break;
-				}
-			}
-
-			continue;
-		}
-
-		/* `buf` has the newline, so we don't need to print it ourselves */
-		ast_log(LOG_ERROR, "#exec <%s>: %s",
-			command,
-			buf);
-	}
-
-	status = pclose(fp);
-	if (status == -1) {
-		ast_log(LOG_ERROR, "#exec <%s>: Failed to retrieve exit status: %s\n",
-			command,
-			strerror(errno));
-	} else {
-		status = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-		if (status) {
-			ast_log(LOG_ERROR, "#exec <%s>: Exited with return value %d\n",
-				command,
-				status);
-		}
-	}
-
-	ast_unreplace_sigchld();
-
-	/* Check that the output file contains something */
-	if (stat(output_file, &output_file_info) == -1) {
-		ast_log(LOG_ERROR, "#exec <%s>: Unable to stat() temporary file `%s': %s\n",
-			command,
-			output_file,
-			strerror(errno));
-	} else if (output_file_info.st_size == 0) {
-		ast_log(LOG_WARNING, "#exec <%s>: The program generated no usable output.\n",
-			command);
-	}
-
-	return 0;
 }
 
 /*! \brief parse one line in the configuration.
@@ -2010,7 +1836,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat,
 						if (newcat) {
 							ast_category_destroy(newcat);
 						}
-						ast_log(LOG_ERROR, "Inheritance requested, but allocation failed\n");
+						ast_log(LOG_ERROR, "Inheritence requested, but allocation failed\n");
 						return -1;
 					}
 				}
@@ -2095,13 +1921,17 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat,
 		   We create a tmp file, then we #include it, then we delete it. */
 		if (!do_include) {
 			struct timeval now = ast_tvnow();
+			char cmd[1024];
 
 			if (!ast_test_flag(&flags, CONFIG_FLAG_NOCACHE))
 				config_cache_attribute(configfile, ATTRIBUTE_EXEC, NULL, who_asked);
 			snprintf(exec_file, sizeof(exec_file), "/var/tmp/exec.%d%d.%ld", (int)now.tv_sec, (int)now.tv_usec, (long)pthread_self());
-			if (handle_include_exec(cur, exec_file)) {
+			if (snprintf(cmd, sizeof(cmd), "%s > %s 2>&1", cur, exec_file) >= sizeof(cmd)) {
+				ast_log(LOG_ERROR, "Failed to construct command string to execute %s.\n", cur);
+
 				return -1;
 			}
+			ast_safe_system(cmd);
 			cur = exec_file;
 		} else {
 			if (!ast_test_flag(&flags, CONFIG_FLAG_NOCACHE))
@@ -3142,7 +2972,10 @@ static int reload_module(void)
 
 		if (!driver || !database)
 			continue;
-		if (!strcasecmp(v->name, "iaxfriends")) {
+		if (!strcasecmp(v->name, "sipfriends")) {
+			ast_log(LOG_WARNING, "The 'sipfriends' table is obsolete, update your config to use sippeers instead.\n");
+			ast_realtime_append_mapping("sippeers", driver, database, table ? table : "sipfriends", pri);
+		} else if (!strcasecmp(v->name, "iaxfriends")) {
 			ast_log(LOG_WARNING, "The 'iaxfriends' table is obsolete, update your config to use iaxusers and iaxpeers, though they can point to the same table.\n");
 			ast_realtime_append_mapping("iaxusers", driver, database, table ? table : "iaxfriends", pri);
 			ast_realtime_append_mapping("iaxpeers", driver, database, table ? table : "iaxfriends", pri);
@@ -3551,19 +3384,16 @@ int ast_realtime_require_field(const char *family, ...)
 	struct ast_config_engine *eng;
 	char db[256];
 	char table[256];
-	va_list ap, aq;
+	va_list ap;
 	int res = -1, i;
 
 	va_start(ap, family);
 	for (i = 1; ; i++) {
 		if ((eng = find_engine(family, i, db, sizeof(db), table, sizeof(table)))) {
-			va_copy(aq, ap);
 			/* If the require succeeds, it returns 0. */
-			if (eng->require_func && !(res = eng->require_func(db, table, aq))) {
-				va_end(aq);
+			if (eng->require_func && !(res = eng->require_func(db, table, ap))) {
 				break;
 			}
-			va_end(aq);
 		} else {
 			break;
 		}
@@ -3900,7 +3730,7 @@ int32_done:
 			error = 1;
 			goto uint32_done;
 		}
-		/* strtoul will happily and silently negate negative numbers */
+		/* strtoul will happilly and silently negate negative numbers */
 		arg = ast_skip_blanks(arg);
 		if (*arg == '-') {
 			error = 1;
@@ -4040,7 +3870,8 @@ double_done:
 		/* default is either the supplied value or the result itself */
 		struct sockaddr_in *def = (flags & PARSE_DEFAULT) ?
 			va_arg(ap, struct sockaddr_in *) : sa;
-		struct ast_sockaddr addr = { {0,} };
+		struct hostent *hp;
+		struct ast_hostent ahp;
 
 		memset(&_sa_buf, '\0', sizeof(_sa_buf)); /* clear buffer */
 		/* duplicate the string to strip away the :port */
@@ -4066,13 +3897,12 @@ double_done:
 				error = 1;
 		}
 		/* Now deal with host part, even if we have errors before. */
-		if (ast_sockaddr_resolve_first_af(&addr, buf, PARSE_PORT_FORBID, AF_INET)) {
+		hp = ast_gethostbyname(buf, &ahp);
+		if (hp)	/* resolved successfully */
+			memcpy(&sa->sin_addr, hp->h_addr, sizeof(sa->sin_addr));
+		else {
 			error = 1;
 			sa->sin_addr = def->sin_addr;
-		} else {
-			struct sockaddr_in tmp;
-			ast_sockaddr_to_sin(&addr, &tmp);
-			sa->sin_addr = tmp.sin_addr;
 		}
 		ast_debug(3,
 			"extract inaddr from [%s] gives [%s:%d](%d)\n",

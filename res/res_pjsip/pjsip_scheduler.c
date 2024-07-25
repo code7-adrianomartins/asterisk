@@ -55,7 +55,7 @@ struct ast_sip_sched_task {
 	struct timeval next_periodic;
 	/*! reschedule interval in milliseconds */
 	int interval;
-	/*! ast_sched scheduler id */
+	/*! ast_sched scheudler id */
 	int current_scheduler_id;
 	/*! task is currently running */
 	int is_running;
@@ -517,7 +517,7 @@ static char *cli_show_tasks(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 
 	if (a->argc == 5) {
 		int regrc;
-		if (strcasecmp(a->argv[3], "like")) {
+		if (!strcasecmp(a->argv[3], "like") == 0) {
 			return CLI_SHOWUSAGE;
 		}
 		regrc = regcomp(&regex, a->argv[4], REG_EXTENDED | REG_ICASE | REG_NOSUB);

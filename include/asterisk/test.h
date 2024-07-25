@@ -108,7 +108,7 @@
 \code
    'test show registered all'  will show every registered test.
    'test execute all'          will execute every registered test.
-   'test show results all'     will show detailed results for every executed test
+   'test show results all'     will show detailed results for ever executed test
    'test generate results xml' will generate a test report in xml format
    'test generate results txt' will generate a test report in txt format
 \endcode
@@ -172,17 +172,24 @@ struct ast_json *ast_test_suite_get_blob(struct ast_test_suite_message_payload *
 /*!
  * \brief Notifies the test suite of a change in application state
  *
+ * \details
  * Raises a TestEvent manager event with a subtype of StateChange.  Additional parameters
  * The fmt parameter allows additional parameters to be added to the manager event using
  * printf style statement formatting.
  *
- * \param s The state the application has changed to
- * \param f The message with format parameters to add to the manager event
+ * \param state		The state the application has changed to
+ * \param fmt		The message with format parameters to add to the manager event
+ *
+ * \return Nothing
+ */
+void __ast_test_suite_event_notify(const char *file, const char *func, int line, const char *state, const char *fmt, ...)
+	__attribute__((format(printf, 5, 6)));
+
+/*!
+ * \ref __ast_test_suite_event_notify()
  */
 #define ast_test_suite_event_notify(s, f, ...) \
 	__ast_test_suite_event_notify(__FILE__, __PRETTY_FUNCTION__, __LINE__, (s), (f), ## __VA_ARGS__)
-void __ast_test_suite_event_notify(const char *file, const char *func, int line, const char *state, const char *fmt, ...)
-	__attribute__((format(printf, 5, 6)));
 
 #else
 
@@ -207,27 +214,6 @@ enum ast_test_command {
  * This is an opaque type.
  */
 struct ast_test;
-
-/*!
- * \brief A capture of running an external process.
- *
- * This contains a buffer holding stdout, another containing stderr,
- * the process id of the child, and its exit code.
- */
-struct ast_test_capture {
-	/*! \brief buffer holding stdout */
-	char *outbuf;
-	/*! \brief length of buffer holding stdout */
-	size_t outlen;
-	/*! \brief buffer holding stderr */
-	char *errbuf;
-	/*! \brief length of buffer holding stderr */
-	size_t errlen;
-	/*! \brief process id of child */
-	pid_t pid;
-	/*! \brief exit code of child */
-	int exitcode;
-};
 
 /*!
  * \brief Contains all the initialization information required to store a new test definition
@@ -306,7 +292,7 @@ typedef int (ast_test_cleanup_cb_t)(struct ast_test_info *info, struct ast_test 
 /*!
  * \brief unregisters a test with the test framework
  *
- * \param cb callback function (required)
+ * \param test callback function (required)
  *
  * \retval 0 success
  * \retval -1 failure
@@ -316,7 +302,7 @@ int ast_test_unregister(ast_test_cb_t *cb);
 /*!
  * \brief registers a test with the test framework
  *
- * \param cb callback function (required)
+ * \param test callback function (required)
  *
  * \retval 0 success
  * \retval -1 failure
@@ -363,6 +349,8 @@ int ast_test_register_cleanup(const char *category, ast_test_cleanup_cb_t *cb);
  *
  * \param test Unit test control structure.
  * \param fmt printf type format string.
+ *
+ * \return Nothing
  */
 void ast_test_debug(struct ast_test *test, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
@@ -380,15 +368,18 @@ void ast_test_set_result(struct ast_test *test, enum ast_test_result_state state
 /*!
  * \brief update test's status during testing.
  *
- * \param t currently executing test
- * \param f printf type format string
+ * \param test currently executing test
  *
  * \retval 0 success
  * \retval -1 failure
  */
-#define ast_test_status_update(t, f, ...) __ast_test_status_update(__FILE__, __PRETTY_FUNCTION__, __LINE__, (t), (f), ## __VA_ARGS__)
 int __ast_test_status_update(const char *file, const char *func, int line, struct ast_test *test, const char *fmt, ...)
 	__attribute__((format(printf, 5, 6)));
+
+/*!
+ * \ref __ast_test_status_update()
+ */
+#define ast_test_status_update(t, f, ...) __ast_test_status_update(__FILE__, __PRETTY_FUNCTION__, __LINE__, (t), (f), ## __VA_ARGS__)
 
 /*!
  * \brief Check a test condition, failing the test if it's not true.
@@ -437,51 +428,6 @@ int __ast_test_status_update(const char *file, const char *func, int line, struc
 		goto cleanup_label; \
 	} \
 })
-
-/*!
- * \brief Initialize the capture structure.
- *
- * \since 16.30.0, 18.16.0, 19.8.0, 20.1.0
- *
- * \param capture The structure describing the child process and its
- * associated output.
- */
-void ast_test_capture_init(struct ast_test_capture *capture);
-
-/*!
- * \brief Release the storage (buffers) associated with capturing
- * the output of an external child process.
- *
- * \since 19.4.0
- *
- * \param capture The structure describing the child process and its
- * associated output.
- */
-void ast_test_capture_free(struct ast_test_capture *capture);
-
-/*!
- * \brief Run a child process and capture its output and exit code.
- *
- * \!since 19.4.0
- *
- * \param capture The structure describing the child process and its
- * associated output.
- *
- * \param file The name of the file to execute (uses $PATH to locate).
- *
- * \param argv The NULL-terminated array of arguments to pass to the
- * child process, starting with the command name itself.
- *
- * \param data The buffer of input to be sent to child process's stdin;
- * optional and may be NULL.
- *
- * \param datalen The length of the buffer, if not NULL, otherwise zero.
- *
- * \retval 1 for success
- * \retval other failure
- */
-
-int ast_test_capture_command(struct ast_test_capture *capture, const char *file, char *const argv[], const char *data, unsigned datalen);
 
 #endif /* TEST_FRAMEWORK */
 #endif /* _AST_TEST_H */

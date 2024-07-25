@@ -255,52 +255,11 @@ static struct t38_state *t38_state_get_or_alloc(struct ast_sip_session *session)
 /*! \brief Initializes UDPTL support on a session, only done when actually needed */
 static int t38_initialize_session(struct ast_sip_session *session, struct ast_sip_session_media *session_media)
 {
-	struct ast_sockaddr temp_media_address;
-	struct ast_sockaddr *media_address = &address;
-
 	if (session_media->udptl) {
 		return 0;
 	}
 
-	if (session->endpoint->media.t38.bind_udptl_to_media_address && !ast_strlen_zero(session->endpoint->media.address)) {
-		if (ast_sockaddr_parse(&temp_media_address, session->endpoint->media.address, 0)) {
-			ast_debug(5, "Endpoint %s: Binding UDPTL media to %s\n",
-				ast_sorcery_object_get_id(session->endpoint),
-				session->endpoint->media.address);
-			media_address = &temp_media_address;
-		} else {
-			ast_debug(5, "Endpoint %s: UDPTL media address invalid: %s\n",
-				ast_sorcery_object_get_id(session->endpoint),
-				session->endpoint->media.address);
-		}
-	} else {
-		struct ast_sip_transport *transport;
-
-		transport = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "transport",
-				session->endpoint->transport);
-		if (transport) {
-			struct ast_sip_transport_state *trans_state;
-
-			trans_state = ast_sip_get_transport_state(ast_sorcery_object_get_id(transport));
-			if (trans_state) {
-				char hoststr[PJ_INET6_ADDRSTRLEN];
-
-				pj_sockaddr_print(&trans_state->host, hoststr, sizeof(hoststr), 0);
-				if (ast_sockaddr_parse(&temp_media_address, hoststr, 0)) {
-					ast_debug(5, "Transport %s bound to %s: Using it for UDPTL media.\n",
-						session->endpoint->transport, hoststr);
-					media_address = &temp_media_address;
-				} else {
-					ast_debug(5, "Transport %s bound to %s: Invalid for UDPTL media.\n",
-						session->endpoint->transport, hoststr);
-				}
-				ao2_ref(trans_state, -1);
-			}
-			ao2_ref(transport, -1);
-		}
-	}
-
-	if (!(session_media->udptl = ast_udptl_new_with_bindaddr(NULL, NULL, 0, media_address))) {
+	if (!(session_media->udptl = ast_udptl_new_with_bindaddr(NULL, NULL, 0, &address))) {
 		return -1;
 	}
 
@@ -883,7 +842,7 @@ static int negotiate_incoming_sdp_stream(struct ast_sip_session *session,
 	ast_copy_pj_str(host, stream->conn ? &stream->conn->addr : &sdp->conn->addr, sizeof(host));
 
 	/* Ensure that the address provided is valid */
-	if (ast_sockaddr_resolve(&addrs, host, PARSE_PORT_FORBID, AST_AF_UNSPEC) <= 0) {
+	if (ast_sockaddr_resolve(&addrs, host, PARSE_PORT_FORBID, AST_AF_INET) <= 0) {
 		/* The provided host was actually invalid so we error out this negotiation */
 		ast_debug(3, "Declining; provided host is invalid\n");
 		return 0;
@@ -1097,8 +1056,8 @@ static void change_outgoing_sdp_stream_media_address(pjsip_tx_data *tdata, struc
 	if (ast_sip_transport_is_nonlocal(transport_state, &our_sdp_addr) && transport_state->localnet) {
 		return;
 	}
-	ast_debug(5, "Setting media address to %s\n", ast_sockaddr_stringify_addr_remote(&transport_state->external_media_address));
-	pj_strdup2(tdata->pool, &stream->conn->addr, ast_sockaddr_stringify_addr_remote(&transport_state->external_media_address));
+	ast_debug(5, "Setting media address to %s\n", ast_sockaddr_stringify_host(&transport_state->external_media_address));
+	pj_strdup2(tdata->pool, &stream->conn->addr, ast_sockaddr_stringify_host(&transport_state->external_media_address));
 }
 
 /*! \brief Function which destroys the UDPTL instance when session ends */

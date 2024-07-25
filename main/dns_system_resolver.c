@@ -20,7 +20,7 @@
  *
  * \brief The default DNS resolver for Asterisk.
  *
- * \arg See also \ref res_resolver_unbound.c
+ * \arg See also \ref res_resolver_unbound
  *
  * \author Ashley Sanders <asanders@digium.com>
  */
@@ -200,10 +200,9 @@ static int dns_system_resolver_resolve(struct ast_dns_query *query)
  *
  * \internal
  *
- * \param context A void pointer to the ast_dns_query being processed.
- * \param dns_response The full DNS response.
- * \param dns_response_len The length of the full DNS response.
- * \param rcode The DNS response code.
+ * \param dns_response  The full DNS response.
+ * \param dns_response  The length of the full DNS response.
+ * \param rcode         The DNS response code.
  *
  * \retval  0 on success
  * \retval -1 on failure

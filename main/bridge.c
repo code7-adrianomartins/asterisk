@@ -182,6 +182,8 @@ struct ao2_container *ast_bridges(void)
  * \since 12.0.0
  *
  * \param bridge Requesting service.
+ *
+ * \return Nothing
  */
 static void bridge_manager_service_req(struct ast_bridge *bridge)
 {
@@ -288,6 +290,8 @@ int ast_bridge_technology_unregister(struct ast_bridge_technology *technology)
  *
  * \param bridge What to queue the action on.
  * \param action What to do.
+ *
+ * \return Nothing
  */
 static void bridge_queue_action_nodup(struct ast_bridge *bridge, struct ast_frame *action)
 {
@@ -351,6 +355,8 @@ void bridge_dissolve(struct ast_bridge *bridge, int cause)
  * \param bridge_channel Stolen channel causing the check.  It is not in the bridge to check and may be in another bridge.
  *
  * \note On entry, bridge and bridge_channel->bridge are already locked.
+ *
+ * \return Nothing
  */
 static void bridge_dissolve_check_stolen(struct ast_bridge *bridge, struct ast_bridge_channel *bridge_channel)
 {
@@ -381,6 +387,8 @@ static void bridge_dissolve_check_stolen(struct ast_bridge *bridge, struct ast_b
  * \brief Update connected line information after a bridge has been reconfigured.
  *
  * \param bridge The bridge itself.
+ *
+ * \return Nothing
  */
 static void bridge_reconfigured_connected_line_update(struct ast_bridge *bridge)
 {
@@ -429,6 +437,8 @@ static void bridge_reconfigured_connected_line_update(struct ast_bridge *bridge)
  * \param bridge_channel What is joining the bridge technology.
  *
  * \note On entry, bridge is already locked.
+ *
+ * \return Nothing
  */
 static void bridge_channel_complete_join(struct ast_bridge *bridge, struct ast_bridge_channel *bridge_channel)
 {
@@ -470,6 +480,8 @@ static void bridge_channel_complete_join(struct ast_bridge *bridge, struct ast_b
  * \param bridge Check for new channels on this bridge.
  *
  * \note On entry, bridge is already locked.
+ *
+ * \return Nothing
  */
 static void bridge_complete_join(struct ast_bridge *bridge)
 {
@@ -556,6 +568,8 @@ struct tech_deferred_destroy {
  * \param action Deferred bridge tech destruction.
  *
  * \note On entry, bridge must not be locked.
+ *
+ * \return Nothing
  */
 static void bridge_tech_deferred_destroy(struct ast_bridge *bridge, struct ast_frame *action)
 {
@@ -583,7 +597,9 @@ static void bridge_tech_deferred_destroy(struct ast_bridge *bridge, struct ast_f
  * \param action What to do.
  *
  * \note On entry, bridge is already locked.
- * \note Can be called by the bridge destructor
+ * \note Can be called by the bridge destructor.
+ *
+ * \return Nothing
  */
 static void bridge_action_bridge(struct ast_bridge *bridge, struct ast_frame *action)
 {
@@ -618,6 +634,8 @@ static void bridge_action_bridge(struct ast_bridge *bridge, struct ast_frame *ac
  *
  * \note On entry, bridge is already locked.
  * \note Can be called by the bridge destructor.
+ *
+ * \return Nothing
  */
 static void bridge_handle_actions(struct ast_bridge *bridge)
 {
@@ -817,6 +835,8 @@ struct ast_bridge *bridge_base_init(struct ast_bridge *self, uint32_t capabiliti
  * \param self Bridge to operate upon.
  *
  * \note Stub because of nothing to do.
+ *
+ * \return Nothing
  */
 static void bridge_base_destroy(struct ast_bridge *self)
 {
@@ -828,6 +848,8 @@ static void bridge_base_destroy(struct ast_bridge *self)
  * \since 12.0.0
  *
  * \param self Bridge to operate upon.
+ *
+ * \return Nothing
  */
 static void bridge_base_dissolving(struct ast_bridge *self)
 {
@@ -863,6 +885,8 @@ static int bridge_base_push(struct ast_bridge *self, struct ast_bridge_channel *
  * \param bridge_channel Bridge channel to pull.
  *
  * \note On entry, self is already locked.
+ *
+ * \return Nothing
  */
 static void bridge_base_pull(struct ast_bridge *self, struct ast_bridge_channel *bridge_channel)
 {
@@ -878,6 +902,8 @@ static void bridge_base_pull(struct ast_bridge *self, struct ast_bridge_channel 
  * \param bridge_channel Bridge channel that was masqueraded.
  *
  * \note On entry, self is already locked.
+ *
+ * \return Nothing
  */
 static void bridge_base_notify_masquerade(struct ast_bridge *self, struct ast_bridge_channel *bridge_channel)
 {
@@ -1171,6 +1197,8 @@ static int smart_bridge_operation(struct ast_bridge *bridge)
  * \since 12.0.0
  *
  * \param bridge_channel What to check.
+ *
+ * \return Nothing
  */
 static void check_bridge_play_sound(struct ast_bridge_channel *bridge_channel)
 {
@@ -1199,6 +1227,8 @@ static void check_bridge_play_sound(struct ast_bridge_channel *bridge_channel)
  * \param bridge What to operate on.
  *
  * \note On entry, the bridge is already locked.
+ *
+ * \return Nothing
  */
 static void check_bridge_play_sounds(struct ast_bridge *bridge)
 {
@@ -1227,6 +1257,8 @@ void ast_bridge_vars_set(struct ast_channel *chan, const char *name, const char 
  *
  * \note On entry, the bridge is already locked.
  * \note The bridge is expected to have exactly two parties.
+ *
+ * \return Nothing
  */
 static void set_bridge_peer_vars_2party(struct ast_channel *c0, struct ast_channel *c1)
 {
@@ -1265,6 +1297,8 @@ static void set_bridge_peer_vars_2party(struct ast_channel *c0, struct ast_chann
  * \param cur_idx Which index into names[] to skip.
  * \param names Channel names to put in the buffer.
  * \param num_names Number of names in the array.
+ *
+ * \return Nothing
  */
 static void fill_bridgepeer_buf(char *buf, unsigned int cur_idx, const char *names[], unsigned int num_names)
 {
@@ -1302,6 +1336,8 @@ static void fill_bridgepeer_buf(char *buf, unsigned int cur_idx, const char *nam
  *
  * \note On entry, the bridge is already locked.
  * \note The bridge is expected to have more than two parties.
+ *
+ * \return Nothing
  */
 static void set_bridge_peer_vars_multiparty(struct ast_bridge *bridge)
 {
@@ -1362,6 +1398,8 @@ static void set_bridge_peer_vars_multiparty(struct ast_bridge *bridge)
  * \param bridge What to operate on.
  *
  * \note On entry, the bridge is already locked.
+ *
+ * \return Nothing
  */
 static void set_bridge_peer_vars_holding(struct ast_bridge *bridge)
 {
@@ -1382,6 +1420,8 @@ static void set_bridge_peer_vars_holding(struct ast_bridge *bridge)
  * \param bridge What to operate on.
  *
  * \note On entry, the bridge is already locked.
+ *
+ * \return Nothing
  */
 static void set_bridge_peer_vars(struct ast_bridge *bridge)
 {
@@ -1490,6 +1530,8 @@ AST_LIST_HEAD_NOLOCK(bridge_channel_impart_ds_head, bridge_channel_impart_cond);
  * \since 13.9.0
  *
  * \param ds_head List of imparting threads to wake up.
+ *
+ * \return Nothing
  */
 static void bridge_channel_impart_ds_head_signal(struct bridge_channel_impart_ds_head *ds_head)
 {
@@ -1519,6 +1561,8 @@ static void bridge_channel_impart_ds_head_dtor(void *doomed)
  * \param data Bridge impart datastore data to fixup from old_chan.
  * \param old_chan The datastore is moving from this channel.
  * \param new_chan The datastore is moving to this channel.
+ *
+ * \return Nothing
  */
 static void bridge_channel_impart_ds_head_fixup(void *data, struct ast_channel *old_chan, struct ast_channel *new_chan)
 {
@@ -1597,6 +1641,8 @@ void bridge_channel_impart_signal(struct ast_channel *chan)
  * \since 13.9.0
  *
  * \param cond Imparting conditional to wait for.
+ *
+ * \return Nothing
  */
 static void bridge_channel_impart_wait(struct bridge_channel_impart_cond *cond)
 {
@@ -2003,6 +2049,8 @@ int ast_bridge_kick(struct ast_bridge *bridge, struct ast_channel *chan)
  *
  * \param bridge_channel What is to point to a new bridge.
  * \param new_bridge Where the bridge channel should point.
+ *
+ * \return Nothing
  */
 static void bridge_channel_change_bridge(struct ast_bridge_channel *bridge_channel, struct ast_bridge *new_bridge)
 {
@@ -2525,7 +2573,7 @@ int ast_bridge_add_channel(struct ast_bridge *bridge, struct ast_channel *chan,
 		if (ast_bridge_impart(bridge, yanked_chan, NULL, features,
 			AST_BRIDGE_IMPART_CHAN_INDEPENDENT)) {
 			/* It is possible for us to yank a channel and have some other
-			 * thread start a PBX on the channel after we yanked it. In particular,
+			 * thread start a PBX on the channl after we yanked it. In particular,
 			 * this can theoretically happen on the ;2 of a Local channel if we
 			 * yank it prior to the ;1 being answered. Make sure that it isn't
 			 * executing a PBX before hanging it up.
@@ -2573,7 +2621,7 @@ static int bridge_allows_optimization(struct ast_bridge *bridge)
  *
  * \note It is assumed that chan is already locked.
  *
- * \return bridge on success with bridge and bridge_channel locked.
+ * \retval bridge on success with bridge and bridge_channel locked.
  * \retval NULL if cannot do optimization now.
  */
 static struct ast_bridge *optimize_lock_chan_stack(struct ast_channel *chan)
@@ -2618,7 +2666,7 @@ static struct ast_bridge *optimize_lock_chan_stack(struct ast_channel *chan)
  *
  * \param peer Other unreal channel in the pair.
  *
- * \return bridge on success with bridge, bridge_channel, and peer locked.
+ * \retval bridge on success with bridge, bridge_channel, and peer locked.
  * \retval NULL if cannot do optimization now.
  */
 static struct ast_bridge *optimize_lock_peer_stack(struct ast_channel *peer)
@@ -2988,6 +3036,19 @@ enum ast_bridge_optimization ast_bridges_allow_optimization(struct ast_bridge *c
 	}
 }
 
+/*!
+ * \internal
+ * \brief Adjust the bridge merge inhibit request count.
+ * \since 12.0.0
+ *
+ * \param bridge What to operate on.
+ * \param request Inhibit request increment.
+ *     (Positive to add requests.  Negative to remove requests.)
+ *
+ * \note This function assumes bridge is locked.
+ *
+ * \return Nothing
+ */
 void bridge_merge_inhibit_nolock(struct ast_bridge *bridge, int request)
 {
 	int new_request;
@@ -3007,7 +3068,7 @@ void ast_bridge_merge_inhibit(struct ast_bridge *bridge, int request)
 int ast_bridge_suspend(struct ast_bridge *bridge, struct ast_channel *chan)
 {
 	struct ast_bridge_channel *bridge_channel;
-/* XXX ASTERISK-21271 the case of a dissolved bridge while channel is suspended is not handled. */
+/* XXX ASTERISK-21271 the case of a disolved bridge while channel is suspended is not handled. */
 /* XXX ASTERISK-21271 suspend/unsuspend needs to be rethought. The caller must block until it has successfully suspended the channel for temporary control. */
 /* XXX ASTERISK-21271 external suspend/unsuspend needs to be eliminated. The channel may be playing a file at the time and stealing it then is not good. */
 
@@ -3028,7 +3089,7 @@ int ast_bridge_suspend(struct ast_bridge *bridge, struct ast_channel *chan)
 int ast_bridge_unsuspend(struct ast_bridge *bridge, struct ast_channel *chan)
 {
 	struct ast_bridge_channel *bridge_channel;
-/* XXX ASTERISK-21271 the case of a dissolved bridge while channel is suspended is not handled. */
+/* XXX ASTERISK-21271 the case of a disolved bridge while channel is suspended is not handled. */
 
 	ast_bridge_lock(bridge);
 
@@ -3135,6 +3196,8 @@ int ast_bridge_interval_unregister(enum ast_bridge_builtin_interval interval)
  * \since 12.0.0
  *
  * \param vhook Object to destroy.
+ *
+ * \return Nothing
  */
 static void bridge_hook_destroy(void *vhook)
 {
@@ -3156,7 +3219,7 @@ static void bridge_hook_destroy(void *vhook)
  * \param destructor Optional destructor callback for hook_pvt data
  * \param remove_flags Dictates what situations the hook should be removed.
  *
- * \return hook on success.
+ * \retval hook on success.
  * \retval NULL on error.
  */
 static struct ast_bridge_hook *bridge_hook_generic(size_t size,
@@ -3461,6 +3524,8 @@ static int hook_remove_match(void *obj, void *arg, int flags)
  *
  * \param hooks Hooks container to work on.
  * \param remove_flags Determinator for whether hook is removed
+ *
+ * \return Nothing
  */
 static void hooks_remove_container(struct ao2_container *hooks, enum ast_bridge_hook_remove_flags remove_flags)
 {
@@ -3475,6 +3540,8 @@ static void hooks_remove_container(struct ao2_container *hooks, enum ast_bridge_
  *
  * \param hooks Hooks heap to work on.
  * \param remove_flags Determinator for whether hook is removed
+ *
+ * \return Nothing
  */
 static void hooks_remove_heap(struct ast_heap *hooks, enum ast_bridge_hook_remove_flags remove_flags)
 {
@@ -4118,18 +4185,10 @@ static enum ast_transfer_result blind_transfer_bridge(int is_external,
 	struct ast_channel *local;
 	char chan_name[AST_MAX_EXTENSION + AST_MAX_CONTEXT + 2];
 	int cause;
-	struct ast_format_cap *caps;
-
-	ast_channel_lock(transferer);
-	caps = ao2_bump(ast_channel_nativeformats(transferer));
-	ast_channel_unlock(transferer);
 
 	snprintf(chan_name, sizeof(chan_name), "%s@%s", exten, context);
-	local = ast_request("Local", caps, NULL, transferer,
+	local = ast_request("Local", ast_channel_nativeformats(transferer), NULL, transferer,
 			chan_name, &cause);
-
-	ao2_cleanup(caps);
-
 	if (!local) {
 		return AST_BRIDGE_TRANSFER_FAIL;
 	}
@@ -4214,7 +4273,7 @@ static struct ast_channel *get_transferee(struct ao2_container *channels, struct
  * \param chan2 Other transferer channel. May or may not be bridged.
  * \param bridge1 Bridge that chan1 is in. Guaranteed to be non-NULL.
  * \param bridge2 Bridge that chan2 is in. If NULL, then chan2 is not bridged.
- * \param transfer_msg Data to publish for a stasis attended transfer message.
+ * \param publication Data to publish for a stasis attended transfer message.
  * \retval AST_BRIDGE_TRANSFER_FAIL Internal error occurred
  * \retval AST_BRIDGE_TRANSFER_SUCCESS Succesfully transferred the bridge
  */
@@ -4236,16 +4295,9 @@ static enum ast_transfer_result attended_transfer_bridge(struct ast_channel *cha
 	int cause;
 	int res;
 	const char *app = NULL;
-	struct ast_format_cap *caps;
 
-	ast_channel_lock(chan1);
-	caps = ao2_bump(ast_channel_nativeformats(chan1));
-	ast_channel_unlock(chan1);
-
-	local_chan = ast_request("Local", caps, NULL, chan1, dest, &cause);
-
-	ao2_cleanup(caps);
-
+	local_chan = ast_request("Local", ast_channel_nativeformats(chan1), NULL, chan1,
+			dest, &cause);
 	if (!local_chan) {
 		return AST_BRIDGE_TRANSFER_FAIL;
 	}
@@ -4561,7 +4613,7 @@ publish:
  * \note dest_bridge and source_bridge_channel's bridge MUST be locked before calling this function.
  *
  * \param dest_bridge The final bridge for the attended transfer
- * \param source_bridge_channel Channel who is bridged to the channel that will move
+ * \param source_channel Channel who is bridged to the channel that will move
  * \param swap_channel Channel to be swapped out of the dest_bridge
  * \return The success or failure of the swap attempt
  */
@@ -4605,7 +4657,7 @@ static enum ast_transfer_result bridge_swap_attended_transfer(struct ast_bridge 
  * \param to_target_bridge_channel to_transfer_target's bridge_channel
  * \param to_transferee_bridge The bridge between to_transferee and the transferee
  * \param to_target_bridge The bridge between to_transfer_target and the transfer_target
- * \param transfer_msg Data to publish for a stasis attended transfer message
+ * \param publication Data to publish for a stasis attended transfer message
  * \return The success or failure of the attended transfer
  */
 static enum ast_transfer_result two_bridge_attended_transfer(struct ast_channel *to_transferee,
@@ -4865,6 +4917,8 @@ end:
  * \since 12.0.0
  *
  * \param bridge requesting service.
+ *
+ * \return Nothing
  */
 static void bridge_manager_service(struct ast_bridge *bridge)
 {
@@ -4882,6 +4936,8 @@ static void bridge_manager_service(struct ast_bridge *bridge)
  * \internal
  * \brief Bridge manager service thread.
  * \since 12.0.0
+ *
+ * \return Nothing
  */
 static void *bridge_manager_thread(void *data)
 {
@@ -4915,6 +4971,8 @@ static void *bridge_manager_thread(void *data)
  * \since 12.0.0
  *
  * \param obj Bridge manager to destroy.
+ *
+ * \return Nothing
  */
 static void bridge_manager_destroy(void *obj)
 {
@@ -4945,7 +5003,7 @@ static void bridge_manager_destroy(void *obj)
  * \brief Create the bridge manager controller.
  * \since 12.0.0
  *
- * \return manager on success.
+ * \retval manager on success.
  * \retval NULL on error.
  */
 static struct bridge_manager_controller *bridge_manager_create(void)
@@ -5509,6 +5567,8 @@ static int manager_bridge_tech_list(struct mansession *s, const struct message *
  * \param v_obj A pointer to the object we want the key printed.
  * \param where User data needed by prnt to determine where to put output.
  * \param prnt Print output callback function to use.
+ *
+ * \return Nothing
  */
 static void bridge_prnt_obj(void *v_obj, void *where, ao2_prnt_fn *prnt)
 {
@@ -5525,6 +5585,8 @@ static void bridge_prnt_obj(void *v_obj, void *where, ao2_prnt_fn *prnt)
  * \internal
  * \brief Shutdown the bridging system.  Stuff to do on graceful shutdown.
  * \since 13.3.0
+ *
+ * \return Nothing
  */
 static void bridge_cleanup(void)
 {

@@ -97,30 +97,15 @@
 		</syntax>
 		<description>
 			<para>Examples:</para>
-			<example title="Raises pitch an octave">
-			exten => 1,1,Set(PITCH_SHIFT(tx)=highest)
-			</example>
-			<example title="Raises pitch more">
-			exten => 1,1,Set(PITCH_SHIFT(rx)=higher)
-			</example>
-			<example title="Raises pitch">
-			exten => 1,1,Set(PITCH_SHIFT(both)=high)
-			</example>
-			<example title="Lowers pitch">
-			exten => 1,1,Set(PITCH_SHIFT(rx)=low)
-			</example>
-			<example title="Lowers pitch more">
-			exten => 1,1,Set(PITCH_SHIFT(tx)=lower)
-			</example>
-			<example title="Lowers pitch an octave">
-			exten => 1,1,Set(PITCH_SHIFT(both)=lowest)
-			</example>
-			<example title="Lowers pitch">
-			exten => 1,1,Set(PITCH_SHIFT(rx)=0.8)
-			</example>
-			<example title="Raises pitch">
-			exten => 1,1,Set(PITCH_SHIFT(tx)=1.5)
-			</example>
+			<para>exten => 1,1,Set(PITCH_SHIFT(tx)=highest); raises pitch an octave </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(rx)=higher) ; raises pitch more </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(both)=high)   ; raises pitch </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(rx)=low)    ; lowers pitch </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(tx)=lower)  ; lowers pitch more </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(both)=lowest) ; lowers pitch an octave </para>
+
+			<para>exten => 1,1,Set(PITCH_SHIFT(rx)=0.8)    ; lowers pitch </para>
+			<para>exten => 1,1,Set(PITCH_SHIFT(tx)=1.5)    ; raises pitch </para>
 		</description>
 	</function>
  ***/
@@ -345,14 +330,14 @@ static void smb_pitch_shift(float pitchShift, long num_samps_to_process, long ff
 	float *sys_magn = fft_data->sys_magn;
 
 	double magn, phase, tmp, window, real, imag;
-	double freq_per_bin, expect;
+	double freq_per_bin, expct;
 	long i,k, qpd, index, in_fifo_latency, step_size, fft_frame_size2;
 
 	/* set up some handy variables */
 	fft_frame_size2 = fft_frame_size / 2;
 	step_size = fft_frame_size / osamp;
 	freq_per_bin = sample_rate / (double) fft_frame_size;
-	expect = 2. * M_PI * (double) step_size / (double) fft_frame_size;
+	expct = 2. * M_PI * (double) step_size / (double) fft_frame_size;
 	in_fifo_latency = fft_frame_size-step_size;
 
 	if (fft_data->gRover == 0) {
@@ -398,7 +383,7 @@ static void smb_pitch_shift(float pitchShift, long num_samps_to_process, long ff
 				last_phase[k] = phase;
 
 				/* subtract expected phase difference */
-				tmp -= (double) k * expect;
+				tmp -= (double) k * expct;
 
 				/* map delta phase into +/- Pi interval */
 				qpd = tmp / M_PI;
@@ -451,7 +436,7 @@ static void smb_pitch_shift(float pitchShift, long num_samps_to_process, long ff
 				tmp = 2. * M_PI * tmp / osamp;
 
 				/* add the overlap phase advance back in */
-				tmp += (double) k * expect;
+				tmp += (double) k * expct;
 
 				/* accumulate delta phase to get bin phase */
 				sum_phase[k] += tmp;

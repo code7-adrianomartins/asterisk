@@ -210,8 +210,6 @@ static void free_member(struct member *mem)
 		xmlFree((void *) mem->defaultenabled);
 		xmlFree((void *) mem->support_level);
 		xmlFree((void *) mem->replacement);
-		xmlFree((void *) mem->deprecated_in);
-		xmlFree((void *) mem->removed_in);
 	}
 
 	free(mem);
@@ -343,32 +341,6 @@ static int process_xml_replacement_node(xmlNode *node, struct member *mem)
 	return 0;
 }
 
-static int process_xml_deprecatedin_node(xmlNode *node, struct member *mem)
-{
-	const char *tmp = (const char *) xmlNodeGetContent(node);
-
-	if (tmp && !strlen_zero(tmp)) {
-		xmlFree((void *) mem->deprecated_in);
-		mem->deprecated_in = tmp;
-		print_debug("Set deprecated_in for %s to %s\n", mem->name, mem->deprecated_in);
-	}
-
-	return 0;
-}
-
-static int process_xml_removedin_node(xmlNode *node, struct member *mem)
-{
-	const char *tmp = (const char *) xmlNodeGetContent(node);
-
-	if (tmp && !strlen_zero(tmp)) {
-		xmlFree((void *) mem->removed_in);
-		mem->removed_in = tmp;
-		print_debug("Set removed_in for %s to %s\n", mem->name, mem->removed_in);
-	}
-
-	return 0;
-}
-
 static int process_xml_ref_node(xmlNode *node, struct member *mem, struct reference_list *refs)
 {
 	struct reference *ref;
@@ -444,8 +416,6 @@ static const struct {
 	{ "conflict",       process_xml_conflict_node       },
 	{ "use",            process_xml_use_node            },
 	{ "member_data",    process_xml_member_data_node    },
-	{ "deprecated_in",  process_xml_deprecatedin_node   },
-	{ "removed_in",     process_xml_removedin_node      },
 };
 
 static node_handler lookup_node_handler(xmlNode *node)
@@ -1130,7 +1100,8 @@ static int build_member_list(void)
 	return res;
 }
 
-static void mark_as_present_helper(const char *member, const char *category, int present)
+/*! \brief Given the string representation of a member and category, mark it as present in a given input file */
+static void mark_as_present(const char *member, const char *category)
 {
 	struct category *cat;
 	struct member *mem;
@@ -1141,43 +1112,30 @@ static void mark_as_present_helper(const char *member, const char *category, int
 		negate = 1;
 	}
 
-	print_debug("Marking %s of %s as %s\n", member, category, present ? "present" : "not present");
+	print_debug("Marking %s of %s as present\n", member, category);
 
 	AST_LIST_TRAVERSE(&categories, cat, list) {
-		if (strcmp(category, cat->name)) {
+		if (strcmp(category, cat->name))
 			continue;
-		}
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
 			if (mem->is_separator) {
 				continue;
 			}
 
 			if (!strcmp(member, mem->name)) {
-				if (present) {
-					mem->was_enabled = mem->enabled = (negate ? !cat->positive_output : cat->positive_output);
-				} else {
-					mem->was_enabled = mem->enabled = 0;
-				}
+				mem->was_enabled = mem->enabled = (negate ? !cat->positive_output : cat->positive_output);
 				print_debug("Just set %s enabled to %d\n", mem->name, mem->enabled);
 				break;
 			}
 		}
-		if (!mem) {
+		if (!mem)
 			fprintf(stderr, "member '%s' in category '%s' not found, ignoring.\n", member, category);
-		}
 		break;
 	}
 
-	if (!cat) {
+	if (!cat)
 		fprintf(stderr, "category '%s' not found! Can't mark '%s' as disabled.\n", category, member);
-	}
 }
-
-/*! \brief Given the string representation of a member and category, mark it as present in a given input file */
-#define mark_as_present(member, category) mark_as_present_helper(member, category, 1)
-
-/*! \brief Given the string representation of a member and category, mark it as not present in a given input file */
-#define mark_as_not_present(member, category) mark_as_present_helper(member, category, 0)
 
 unsigned int enable_member(struct member *mem)
 {
@@ -1392,9 +1350,6 @@ static int parse_existing_config(const char *infile)
 	}
 
 	while (fgets(buf, PARSE_BUF_SIZE, f)) {
-		struct category *cat;
-		struct member *mem;
-
 		lineno++;
 
 		if (strlen_zero(buf))
@@ -1429,44 +1384,11 @@ static int parse_existing_config(const char *infile)
 			continue;
 		}
 
-		AST_LIST_TRAVERSE(&categories, cat, list) {
-			if (strcmp(category, cat->name)) {
+		while ((member = strsep(&parse, " \n"))) {
+			member = skip_blanks(member);
+			if (strlen_zero(member))
 				continue;
-			}
-			if (!cat->positive_output) {
-				print_debug("Category %s is NOT positive output\n", cat->name);
-				/* if NOT positive_output, then if listed in makeopts, it's disabled! */
-				/* this means that what's listed in menuselect.makeopts is a list of modules
-				 * that are NOT selected, so we can't use that to mark things as present.
-				 * In fact, we need to mark everything as present, UNLESS it's listed
-				* in menuselect.makeopts */
-				AST_LIST_TRAVERSE(&cat->members, mem, list) {
-					if (mem->is_separator) {
-						continue;
-					}
-					mem->was_enabled = 1;
-					print_debug("Just set %s enabled to %d\n", mem->name, mem->enabled);
-				}	
-				/* okay, now go ahead, and mark anything listed in makeopts as NOT present */
-				while ((member = strsep(&parse, " \n"))) {
-					member = skip_blanks(member);
-					if (strlen_zero(member)) {
-						continue;
-					}
-					mark_as_not_present(member, category);
-				}
-			} else {
-				print_debug("Category %s is positive output\n", cat->name);
-				/* if present, it was enabled (e.g. MENUSELECT_CFLAGS, MENUSELECT_UTILS, MENUSELECT_MOH, etc. */
-				while ((member = strsep(&parse, " \n"))) {
-					member = skip_blanks(member);
-					if (strlen_zero(member)) {
-						continue;
-					}
-					mark_as_present(member, category);
-				}
-			}
-			break;
+			mark_as_present(member, category);
 		}
 	}
 
@@ -1933,17 +1855,14 @@ static int sanity_check(void)
 				fprintf(stderr, "\n"
 					"***********************************************************\n"
 					"  The existing menuselect.makeopts file did not specify    \n"
-					"  that '%s' should not be included.  However,              \n"
-					"  %s%s\n"
-					"  %s.\n"
+					"  that '%s' should not be included.  However, either some  \n"
+					"  dependencies for this module were not found or a         \n"
+					"  conflict exists.                                         \n"
 					"                                                           \n"
 					"  Either run 'make menuselect' or remove the existing      \n"
 					"  menuselect.makeopts file to resolve this issue.          \n"
 					"***********************************************************\n"
-					"\n", mem->name,
-					mem->depsfailed ? "dependencies for this module were not found" : "",
-					mem->depsfailed && mem->conflictsfailed ? " and" : "",
-					mem->conflictsfailed ? "a conflict exists" : "");
+					"\n", mem->name);
 				insane = 1;
 			}
 		}
@@ -1952,7 +1871,7 @@ static int sanity_check(void)
 	return insane ? -1 : 0;
 }
 
-/*! \brief Set the forced default values if they exist */
+/* \brief Set the forced default values if they exist */
 static void process_defaults(void)
 {
 	struct category *cat;
@@ -2171,7 +2090,6 @@ int main(int argc, char *argv[])
 		/* Reset options processing */
 		option_index = 0;
 		optind = 1;
-		res = 0;
 
 		while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
 			print_debug("Got option %c\n", c);
@@ -2182,7 +2100,6 @@ int main(int argc, char *argv[])
 						set_member_enabled(mem);
 					} else {
 						fprintf(stderr, "'%s' not found\n", optarg);
-						res = 1;
 					}
 				}
 				break;
@@ -2192,7 +2109,6 @@ int main(int argc, char *argv[])
 						set_all(cat, 1);
 					} else {
 						fprintf(stderr, "'%s' not found\n", optarg);
-						res = 1;
 					}
 				}
 				break;
@@ -2207,7 +2123,6 @@ int main(int argc, char *argv[])
 						clear_member_enabled(mem);
 					} else {
 						fprintf(stderr, "'%s' not found\n", optarg);
-						res = 1;
 					}
 				}
 				break;
@@ -2217,7 +2132,6 @@ int main(int argc, char *argv[])
 						set_all(cat, 0);
 					} else {
 						fprintf(stderr, "'%s' not found\n", optarg);
-						res = 1;
 					}
 				}
 				break;
@@ -2232,6 +2146,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+		res = 0;
 	}
 
 	if (!res) {

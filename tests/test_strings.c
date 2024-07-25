@@ -22,7 +22,7 @@
  *
  * \author Mark Michelson <mmichelson@digium.com>
  *
- * This module will run some dynamic string tests.
+ * This module will run some dyanmic string tests.
  *
  * \ingroup tests
  */
@@ -385,143 +385,6 @@ AST_TEST_DEFINE(strsep_test)
 	return AST_TEST_PASS;
 }
 
-AST_TEST_DEFINE(strsep_quoted_test)
-{
-	char *test1, *test2, *test3;
-
-	switch (cmd) {
-	case TEST_INIT:
-		info->name = "strsep_quoted";
-		info->category = "/main/strings/";
-		info->summary = "Test ast_strsep_quoted";
-		info->description = "Test ast_strsep_quoted";
-		return AST_TEST_NOT_RUN;
-	case TEST_EXECUTE:
-		break;
-	}
-
-	test1 = ast_strdupa("ghi=jkl,mno=\"pqr,stu\",abc=def, vwx = yz1 ,  vwx = yz1 ,  "
-		"\" vwx = yz1 \" ,  \" vwx , yz1 \",v'w'x, \"'x,v','x'\" , \" i\\'m a test\""
-		", \" i\\'m a, test\", \" i\\'m a, test\", e\\,nd, end\\");
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', 0);
-	ast_test_validate(test, 0 == strcmp("ghi=jkl", test2));
-
-	test3 = ast_strsep_quoted(&test2, '=', '"', 0);
-	ast_test_validate(test, 0 == strcmp("ghi", test3));
-
-	test3 = ast_strsep_quoted(&test2, '=', '"', 0);
-	ast_test_validate(test, 0 == strcmp("jkl", test3));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', 0);
-	ast_test_validate(test, 0 == strcmp("mno=\"pqr,stu\"", test2));
-
-	test3 = ast_strsep_quoted(&test2, '=', '"', 0);
-	ast_test_validate(test, 0 == strcmp("mno", test3));
-
-	test3 = ast_strsep_quoted(&test2, '=', '"', 0);
-	ast_test_validate(test, 0 == strcmp("\"pqr,stu\"", test3));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', 0);
-	ast_test_validate(test, 0 == strcmp("abc=def", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', 0);
-	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("vwx = yz1", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_STRIP);
-	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("vwx , yz1", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("v'w'x", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("\"'x,v','x'\"", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("\" i\\'m a test\"", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("\" i'm a, test\"", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_ALL);
-	ast_test_validate(test, 0 == strcmp("i'm a, test", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("e,nd", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '"', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("end", test2));
-
-	// Now use '|' as the quote character
-	test1 = ast_strdupa("ghi=jkl,mno=|pqr,stu|,abc=def, vwx = yz1 ,  vwx = yz1 ,  "
-		"| vwx = yz1 | ,  | vwx , yz1 |,v'w'x, |'x,v','x'| , | i\\'m a test|"
-		", | i\\'m a, test|, | i\\'m a, test|, e\\,nd, end\\");
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', 0);
-	ast_test_validate(test, 0 == strcmp("ghi=jkl", test2));
-
-	test3 = ast_strsep_quoted(&test2, '=', '|', 0);
-	ast_test_validate(test, 0 == strcmp("ghi", test3));
-
-	test3 = ast_strsep_quoted(&test2, '=', '|', 0);
-	ast_test_validate(test, 0 == strcmp("jkl", test3));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', 0);
-	ast_test_validate(test, 0 == strcmp("mno=|pqr,stu|", test2));
-
-	test3 = ast_strsep_quoted(&test2, '=', '|', 0);
-	ast_test_validate(test, 0 == strcmp("mno", test3));
-
-	test3 = ast_strsep_quoted(&test2, '=', '|', 0);
-	ast_test_validate(test, 0 == strcmp("|pqr,stu|", test3));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', 0);
-	ast_test_validate(test, 0 == strcmp("abc=def", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', 0);
-	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("vwx = yz1", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_STRIP);
-	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("vwx , yz1", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("v'w'x", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("|'x,v','x'|", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM);
-	ast_test_validate(test, 0 == strcmp("| i\\'m a test|", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("| i'm a, test|", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_ALL);
-	ast_test_validate(test, 0 == strcmp("i'm a, test", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("e,nd", test2));
-
-	test2 = ast_strsep_quoted(&test1, ',', '|', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
-	ast_test_validate(test, 0 == strcmp("end", test2));
-
-
-	// nothing failed; we're all good!
-	return AST_TEST_PASS;
-}
-
 static int test_semi(char *string1, char *string2, int test_len)
 {
 	char *test2 = NULL;
@@ -757,132 +620,16 @@ AST_TEST_DEFINE(temp_strings)
 	return AST_TEST_PASS;
 }
 
-AST_TEST_DEFINE(in_delimited_string)
-{
-	switch (cmd) {
-	case TEST_INIT:
-		info->name = "in_delimited_string";
-		info->category = "/main/strings/";
-		info->summary = "Test ast_in_delimited_string";
-		info->description = info->summary;
-		return AST_TEST_NOT_RUN;
-	case TEST_EXECUTE:
-		break;
-	}
-
-	/* Single letter */
-	ast_test_validate(test, ast_in_delimited_string("a", "a,b", ','));
-	ast_test_validate(test, ast_in_delimited_string("b", "a,b", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("c", "a,b", ','));
-	ast_test_validate(test, !ast_in_delimited_string("aa", "a,b", ','));
-	ast_test_validate(test, !ast_in_delimited_string("bb", "a,b", ','));
-	ast_test_validate(test, !ast_in_delimited_string("a,", "a,b", ','));
-	ast_test_validate(test, !ast_in_delimited_string(",b", "a,b", ','));
-	ast_test_validate(test, !ast_in_delimited_string("a,b", "a,b", ','));
-
-	/* Bad delimiter (ends up being just a strcmp) */
-	ast_test_validate(test, !ast_in_delimited_string("a", "a,b", '#'));
-	ast_test_validate(test, !ast_in_delimited_string("b", "a,b", '#'));
-
-	ast_test_validate(test, !ast_in_delimited_string("c", "a,b", '#'));
-	ast_test_validate(test, !ast_in_delimited_string("aa", "a,b", '#'));
-	ast_test_validate(test, !ast_in_delimited_string("bb", "a,b", '#'));
-	ast_test_validate(test, !ast_in_delimited_string("a,", "a,b", '#'));
-	ast_test_validate(test, !ast_in_delimited_string(",b", "a,b", '#'));
-
-	ast_test_validate(test, ast_in_delimited_string("a,b", "a,b", '#'));
-
-	/* Multi letter */
-	ast_test_validate(test, ast_in_delimited_string("abc", "abc,def", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", "abc,def", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("a", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("b", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("c", "abc,def", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("d", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("e", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("f", "abc,def", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("abc,", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string(",def", "abc,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("abc,def", "abc,def", ','));
-
-	/* Embedded */
-	ast_test_validate(test, ast_in_delimited_string("abc", "abcdef,abc", ','));
-	ast_test_validate(test, ast_in_delimited_string("abcdef", "abcdef,abc", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("abc", "abcdef,def", ','));
-	ast_test_validate(test, !ast_in_delimited_string("def", "abcdef,abc", ','));
-	ast_test_validate(test, !ast_in_delimited_string("def", "abcdefghi,abc", ','));
-
-	/* NULL and empty values */
-	ast_test_validate(test, !ast_in_delimited_string(NULL, "abc,def", ','));
-
-	ast_test_validate(test, ast_in_delimited_string("abc", ",abc,def", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", "abc,def,", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", "abc,,def,", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", "abc,,def", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", ",abc,,def,", ','));
-
-	ast_test_validate(test, ast_in_delimited_string("", ",abc,def", ','));
-	ast_test_validate(test, ast_in_delimited_string("", "abc,def,", ','));
-	ast_test_validate(test, ast_in_delimited_string("", "abc,,def,", ','));
-	ast_test_validate(test, !ast_in_delimited_string("", "abc,def", ','));
-
-	/* Multi word */
-	ast_test_validate(test, ast_in_delimited_string("abc", "abc,def,ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", "abc,def,ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("ghi", "abc,def,ghi", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("a", "abc,def,ghi", ','));
-	ast_test_validate(test, !ast_in_delimited_string("d", "abc,def,ghi", ','));
-	ast_test_validate(test, !ast_in_delimited_string("g", "abc,def,ghi", ','));
-
-	ast_test_validate(test, !ast_in_delimited_string("ab", "abc,def,ghi", ','));
-	ast_test_validate(test, !ast_in_delimited_string("de", "abc,def,ghi", ','));
-	ast_test_validate(test, !ast_in_delimited_string("gh", "abc,def,ghi", ','));
-
-
-	/* With leading spaces */
-	ast_test_validate(test, ast_in_delimited_string("abc", " abc", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", " abc, def", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", " abc, def", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", " abc, def, ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", " abc, def, ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("ghi", " abc, def, ghi", ','));
-
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc,   def", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", "   abc,   def", ','));
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc,   def,   ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("def", "   abc,   def,   ghi", ','));
-	ast_test_validate(test, ast_in_delimited_string("ghi", "   abc,   def,   ghi", ','));
-
-	/* With leading spaces and space as a delimiter */
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc", ' '));
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc   def", ' '));
-	ast_test_validate(test, ast_in_delimited_string("def", "   abc   def", ' '));
-	ast_test_validate(test, ast_in_delimited_string("abc", "   abc   def   ghi", ' '));
-	ast_test_validate(test, ast_in_delimited_string("def", "   abc   def   ghi", ' '));
-	ast_test_validate(test, ast_in_delimited_string("ghi", "   abc   def   ghi", ' '));
-
-	return AST_TEST_PASS;
-}
-
 static int unload_module(void)
 {
 	AST_TEST_UNREGISTER(str_test);
 	AST_TEST_UNREGISTER(begins_with_test);
 	AST_TEST_UNREGISTER(ends_with_test);
 	AST_TEST_UNREGISTER(strsep_test);
-	AST_TEST_UNREGISTER(strsep_quoted_test);
 	AST_TEST_UNREGISTER(escape_semicolons_test);
 	AST_TEST_UNREGISTER(escape_test);
 	AST_TEST_UNREGISTER(strings_match);
 	AST_TEST_UNREGISTER(temp_strings);
-	AST_TEST_UNREGISTER(in_delimited_string);
 	return 0;
 }
 
@@ -892,12 +639,10 @@ static int load_module(void)
 	AST_TEST_REGISTER(begins_with_test);
 	AST_TEST_REGISTER(ends_with_test);
 	AST_TEST_REGISTER(strsep_test);
-	AST_TEST_REGISTER(strsep_quoted_test);
 	AST_TEST_REGISTER(escape_semicolons_test);
 	AST_TEST_REGISTER(escape_test);
 	AST_TEST_REGISTER(strings_match);
 	AST_TEST_REGISTER(temp_strings);
-	AST_TEST_REGISTER(in_delimited_string);
 	return AST_MODULE_LOAD_SUCCESS;
 }
 

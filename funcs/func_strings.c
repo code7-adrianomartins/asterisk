@@ -4,7 +4,6 @@
  * Copyright (C) 2005-2006, Digium, Inc.
  * Portions Copyright (C) 2005, Tilghman Lesher.  All rights reserved.
  * Portions Copyright (C) 2005, Anthony Minessale II
- * Portions Copyright (C) 2021, 2022, Naveen Albert
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -22,8 +21,7 @@
  * \brief String manipulation dialplan functions
  *
  * \author Tilghman Lesher
- * \author Anthony Minessale II
- * \author Naveen Albert
+ * \author Anothony Minessale II
  * \ingroup functions
  */
 
@@ -62,10 +60,7 @@ AST_THREADSTORAGE(tmp_buf);
 			carriage return, and tab characters, respectively.  Also, octal and hexadecimal specifications are recognized
 			by the patterns <literal>\0nnn</literal> and <literal>\xHH</literal>, respectively.  For example, if you wanted
 			to encode a comma as the delimiter, you could use either <literal>\054</literal> or <literal>\x2C</literal>.</para>
-			<example title="Prints 3">
-			exten => s,1,Set(example=ex-amp-le)
-				same => n,NoOp(${FIELDQTY(example,-)})
-			</example>
+			<para>Example: If ${example} contains <literal>ex-amp-le</literal>, then ${FIELDQTY(example,-)} returns 3.</para>
 		</description>
 	</function>
 	<function name="FIELDNUM" language="en_US">
@@ -86,10 +81,7 @@ AST_THREADSTORAGE(tmp_buf);
 			carriage return, and tab characters, respectively.  Also, octal and hexadecimal specifications are recognized
 			by the patterns <literal>\0nnn</literal> and <literal>\xHH</literal>, respectively.  For example, if you wanted
 			to encode a comma as the delimiter, you could use either <literal>\054</literal> or <literal>\x2C</literal>.</para>
-			<example title="Prints 2">
-			exten => s,1,Set(example=ex-amp-le)
-				same => n,NoOp(${FIELDNUM(example,-,amp)})
-			</example>
+		        <para>Example: If ${example} contains <literal>ex-amp-le</literal>, then ${FIELDNUM(example,-,amp)} returns 2.</para>
 		</description>
 	</function>
 	<function name="LISTFILTER" language="en_US">
@@ -155,78 +147,10 @@ AST_THREADSTORAGE(tmp_buf);
 		<description>
 			<para>Searches for all instances of the <replaceable>find-string</replaceable> in provided variable and
 			replaces them with <replaceable>replace-string</replaceable>.  If <replaceable>replace-string</replaceable>
-			is an empty string, this will effectively delete that substring.  If <replaceable>max-replacements</replaceable>
+			is an empty string, this will effecively delete that substring.  If <replaceable>max-replacements</replaceable>
 			is specified, this function will stop after performing replacements <replaceable>max-replacements</replaceable> times.</para>
 			<note><para>The replacement only occurs in the output.  The original variable is not altered.</para></note>
 		</description>
-	</function>
-	<function name="STRBETWEEN" language="en_US">
-		<since>
-			<version>16.21.0</version>
-			<version>18.7.0</version>
-			<version>19.0.0</version>
-		</since>
-		<synopsis>
-			Inserts a substring between each character in a string.
-		</synopsis>
-		<syntax>
-			<parameter name="varname" required="true" />
-			<parameter name="insert-string" required="true" />
-		</syntax>
-		<description>
-			<para>Inserts a substring <replaceable>find-string</replaceable> between each character in
-			<replaceable>varname</replaceable>.</para>
-			<note><para>The replacement only occurs in the output.  The original variable is not altered.</para></note>
-			<example title="Add half-second pause between dialed digits">
-				same => n,Set(digits=5551212)
-				same => n,SendDTMF(${STRBETWEEN(digits,w)) ; this will send 5w5w5w1w2w1w2
-			</example>
-		</description>
-	</function>
-	<function name="TRIM" language="en_US">
-		<synopsis>
-			Trim leading and trailing whitespace in a string
-		</synopsis>
-		<syntax>
-			<parameter name="string" required="true" />
-		</syntax>
-		<description>
-			<para>Replaces all leading and trailing whitespace in the provided string.</para>
-		</description>
-		<see-also>
-			<ref type="function">LTRIM</ref>
-			<ref type="function">RTRIM</ref>
-		</see-also>
-	</function>
-	<function name="LTRIM" language="en_US">
-		<synopsis>
-			Trim leading whitespace in a string
-		</synopsis>
-		<syntax>
-			<parameter name="string" required="true" />
-		</syntax>
-		<description>
-			<para>Replaces all leading whitespace in the provided string.</para>
-		</description>
-		<see-also>
-			<ref type="function">TRIM</ref>
-			<ref type="function">RTRIM</ref>
-		</see-also>
-	</function>
-	<function name="RTRIM" language="en_US">
-		<synopsis>
-			Trim trailing whitespace in a string
-		</synopsis>
-		<syntax>
-			<parameter name="string" required="true" />
-		</syntax>
-		<description>
-			<para>Replaces all trailing whitespace in the provided string.</para>
-		</description>
-		<see-also>
-			<ref type="function">TRIM</ref>
-			<ref type="function">LTRIM</ref>
-		</see-also>
 	</function>
 	<function name="PASSTHRU" language="en_US">
 		<synopsis>
@@ -241,10 +165,8 @@ AST_THREADSTORAGE(tmp_buf);
 			string, instead.</para>
 			<note><para>The functions which take a variable name need to be passed var and not
 			${var}.  Similarly, use PASSTHRU() and not ${PASSTHRU()}.</para></note>
-			<example title="Prints 321">
-			exten => s,1,NoOp(${CHANNEL}) ; contains SIP/321-1
-				same => n,NoOp(${CUT(PASSTHRU(${CUT(CHANNEL,-,1)}),/,2)})
-			</example>
+			<para>Example: ${CHANNEL} contains SIP/321-1</para>
+			<para>         ${CUT(PASSTHRU(${CUT(CHANNEL,-,1)}),/,2)}) will return 321</para>
 		</description>
 	</function>
 	<function name="REGEX" language="en_US">
@@ -310,9 +232,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="string" required="true" />
 		</syntax>
 		<description>
-			<example title="Returns 537">
-			exten => s,1,Return(${KEYPADHASH(Les)})
-			</example>
+			<para>Example: ${KEYPADHASH(Les)} returns "537"</para>
 		</description>
 	</function>
 	<function name="ARRAY" language="en_US">
@@ -328,9 +248,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<para>The comma-delimited list passed as a value to which the function is set will
 			be interpreted as a set of values to which the comma-delimited list of
 			variable names in the argument should be set.</para>
-			<example title="Set var1 to 1 and var2 to 2">
-			same => n,Set(ARRAY(var1,var2)=1,2)
-			</example>
+			<para>Example: Set(ARRAY(var1,var2)=1,2) will set var1 to 1 and var2 to 2</para>
 		</description>
 	</function>
 	<function name="STRPTIME" language="en_US">
@@ -346,9 +264,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<para>This is useful for converting a date into <literal>EPOCH</literal> time,
 			possibly to pass to an application like SayUnixTime or to calculate the difference
 			between the two date strings</para>
-			<example title="Prints 1141219835">
-			same => n,NoOp(${STRPTIME(2006-03-01 07:30:35,America/Chicago,%Y-%m-%d %H:%M:%S)})
-			</example>
+			<para>Example: ${STRPTIME(2006-03-01 07:30:35,America/Chicago,%Y-%m-%d %H:%M:%S)} returns 1141219835</para>
 		</description>
 	</function>
 	<function name="STRFTIME" language="en_US">
@@ -402,9 +318,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="string" required="true" />
 		</syntax>
 		<description>
-			<example title="Prints EXAMPLE">
-			exten => s,1,NoOp(${TOUPPER(Example)})
-			</example>
+			<para>Example: ${TOUPPER(Example)} returns "EXAMPLE"</para>
 		</description>
 	</function>
 	<function name="TOLOWER" language="en_US">
@@ -415,9 +329,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="string" required="true" />
 		</syntax>
 		<description>
-			<example title="Prints example">
-			exten => s,1,NoOp(${TOLOWER(Example)})
-			</example>
+			<para>Example: ${TOLOWER(Example)} returns "example"</para>
 		</description>
 	</function>
 	<function name="LEN" language="en_US">
@@ -428,9 +340,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="string" required="true" />
 		</syntax>
 		<description>
-			<example title="Prints 7">
-			exten => s,1,NoOp(${LEN(example)})
-			</example>
+			<para>Example: ${LEN(example)} returns 7</para>
 		</description>
 	</function>
 	<function name="QUOTE" language="en_US">
@@ -464,12 +374,11 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="delimiter" required="false" default="," />
 		</syntax>
 		<description>
-			<example title="SHIFT example">
-			exten => s,1,Set(array=one,two,three)
-			exten => s,n,While($["${SET(var=${SHIFT(array)})}" != ""])
-			exten => s,n,NoOp(var is ${var})
-			exten => s,n,EndWhile
-			</example>
+			<para>Example:</para>
+			<para>exten => s,1,Set(array=one,two,three)</para>
+			<para>exten => s,n,While($["${SET(var=${SHIFT(array)})}" != ""])</para>
+			<para>exten => s,n,NoOp(var is ${var})</para>
+			<para>exten => s,n,EndWhile</para>
 			<para>This would iterate over each value in array, left to right, and
 				would result in NoOp(var is one), NoOp(var is two), and
 				NoOp(var is three) being executed.
@@ -485,12 +394,11 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="delimiter" required="false" default="," />
 		</syntax>
 		<description>
-			<example title="POP example">
-			exten => s,1,Set(array=one,two,three)
-			exten => s,n,While($["${SET(var=${POP(array)})}" != ""])
-			exten => s,n,NoOp(var is ${var})
-			exten => s,n,EndWhile
-			</example>
+			<para>Example:</para>
+			<para>exten => s,1,Set(array=one,two,three)</para>
+			<para>exten => s,n,While($["${SET(var=${POP(array)})}" != ""])</para>
+			<para>exten => s,n,NoOp(var is ${var})</para>
+			<para>exten => s,n,EndWhile</para>
 			<para>This would iterate over each value in array, right to left, and
 				would result in NoOp(var is three), NoOp(var is two), and
 				NoOp(var is one) being executed.
@@ -506,10 +414,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="delimiter" required="false" default="," />
 		</syntax>
 		<description>
-			<example title="PUSH example">
-			exten => s,1,Set(PUSH(array)=one,two,three)
-			</example>
-			<para>This would append one,
+			<para>Example: Set(PUSH(array)=one,two,three) would append one,
 				two, and three to the end of the values stored in the variable
 				"array".
 			</para>
@@ -524,10 +429,7 @@ AST_THREADSTORAGE(tmp_buf);
 			<parameter name="delimiter" required="false" default="," />
 		</syntax>
 		<description>
-			<example title="UNSHIFT example">
-			exten => s,1,Set(UNSHIFT(array)=one,two,three)
-			</example>
-			<para>This would insert one,
+			<para>Example: Set(UNSHIFT(array)=one,two,three) would insert one,
 				two, and three before the values stored in the variable
 				"array".
 			</para>
@@ -1041,131 +943,6 @@ static int strreplace(struct ast_channel *chan, const char *cmd, char *data, str
 static struct ast_custom_function strreplace_function = {
 	.name = "STRREPLACE",
 	.read2 = strreplace,
-};
-
-static int strbetween(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t len)
-{
-	int c, origsize;
-	char *varsubstr, *origstr;
-	struct ast_str *str = ast_str_thread_get(&result_buf, 16); /* Holds the data obtained from varname */
-
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(varname);
-		AST_APP_ARG(insert_string);
-		AST_APP_ARG(other);	/* Any remining unused arguments */
-	);
-
-	ast_str_reset(*buf);
-
-	if (!str) {
-		ast_log(LOG_ERROR, "Couldn't obtain string\n");
-		return -1;
-	}
-
-	AST_STANDARD_APP_ARGS(args, data);
-
-	if (args.argc != 2 || ast_strlen_zero(args.varname)) {
-		ast_log(LOG_ERROR, "Usage: %s(<varname>,<insert-string>)\n", cmd);
-		return -1;
-	}
-
-	varsubstr = ast_alloca(strlen(args.varname) + 4);
-	sprintf(varsubstr, "${%s}", args.varname);
-	ast_str_substitute_variables(&str, 0, chan, varsubstr);
-	origstr = ast_str_buffer(str);
-	origsize = strlen(origstr);
-	for (c = 0; c < origsize; c++) {
-		ast_str_append(buf, len, "%c", origstr[c]);
-		/* no insert after the last character */
-		if (c < (origsize - 1)) {
-			ast_str_append(buf, len, "%s", args.insert_string);
-		}
-	}
-
-	return 0;
-}
-
-static struct ast_custom_function strbetween_function = {
-	.name = "STRBETWEEN",
-	.read2 = strbetween,
-};
-
-#define ltrim(s) while (isspace(*s)) s++;
-#define rtrim(s) { \
-	if (s) { \
-		char *back = s + strlen(s); \
-		while (back != s && isspace(*--back)); \
-		if (*s) { \
-			*(back + 1) = '\0'; \
-		} \
-	} \
-}
-
-static int function_trim(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	char *c;
-
-	if (ast_strlen_zero(data)) {
-		return -1;
-	}
-
-	c = ast_strdupa(data);
-	ltrim(c);
-	rtrim(c);
-
-	ast_copy_string(buf, c, len);
-
-	return 0;
-}
-
-static int function_ltrim(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	char *c;
-
-	if (ast_strlen_zero(data)) {
-		return -1;
-	}
-
-	c = data;
-	ltrim(c);
-
-	ast_copy_string(buf, c, len);
-
-	return 0;
-}
-
-static int function_rtrim(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
-{
-	char *c;
-
-	if (ast_strlen_zero(data)) {
-		return -1;
-	}
-
-	c = ast_strdupa(data);
-	rtrim(c);
-
-	ast_copy_string(buf, c, len);
-
-	return 0;
-}
-
-#undef ltrim
-#undef rtrim
-
-static struct ast_custom_function trim_function = {
-	.name = "TRIM",
-	.read = function_trim,
-};
-
-static struct ast_custom_function ltrim_function = {
-	.name = "LTRIM",
-	.read = function_ltrim,
-};
-
-static struct ast_custom_function rtrim_function = {
-	.name = "RTRIM",
-	.read = function_rtrim,
 };
 
 static int regex(struct ast_channel *chan, const char *cmd, char *parse, char *buf,
@@ -2176,132 +1953,6 @@ AST_TEST_DEFINE(test_STRREPLACE)
 
 	return res;
 }
-
-AST_TEST_DEFINE(test_STRBETWEEN)
-{
-	int i, res = AST_TEST_PASS;
-	struct ast_channel *chan; /* dummy channel */
-	struct ast_str *str; /* fancy string for holding comparing value */
-
-	const char *test_strings[][5] = {
-		{"0", "w", "0"},
-		{"30", "w", "3w0"},
-		{"212", "w", "2w1w2"},
-		{"212", "55", "2551552"},
-		{"212", " ", "2 1 2"},
-		{"", "w", ""},
-		{"555", "", "555"},
-		{"abcdefg", "_", "a_b_c_d_e_f_g"},
-		{"A", "A", "A"},
-		{"AA", "B", "ABA"},
-		{"AAA", "B", "ABABA"},
-	};
-
-	switch (cmd) {
-	case TEST_INIT:
-		info->name = "func_STRBETWEEN";
-		info->category = "/funcs/func_strings/";
-		info->summary = "Test STRBETWEEN function";
-		info->description = "Verify STRBETWEEN behavior";
-		return AST_TEST_NOT_RUN;
-	case TEST_EXECUTE:
-		break;
-	}
-
-	if (!(chan = ast_dummy_channel_alloc())) {
-		ast_test_status_update(test, "Unable to allocate dummy channel\n");
-		return AST_TEST_FAIL;
-	}
-
-	if (!(str = ast_str_create(64))) {
-		ast_test_status_update(test, "Unable to allocate dynamic string buffer\n");
-		ast_channel_release(chan);
-		return AST_TEST_FAIL;
-	}
-
-	for (i = 0; i < ARRAY_LEN(test_strings); i++) {
-		char tmp[512], tmp2[512] = "";
-
-		struct ast_var_t *var = ast_var_assign("test_string", test_strings[i][0]);
-		if (!var) {
-			ast_test_status_update(test, "Unable to allocate variable\n");
-			ast_free(str);
-			ast_channel_release(chan);
-			return AST_TEST_FAIL;
-		}
-
-		AST_LIST_INSERT_HEAD(ast_channel_varshead(chan), var, entries);
-
-		if (test_strings[i][1]) {
-			snprintf(tmp, sizeof(tmp), "${STRBETWEEN(%s,%s)}", "test_string", test_strings[i][1]);
-		} else {
-			snprintf(tmp, sizeof(tmp), "${STRBETWEEN(%s)}", "test_string");
-		}
-		ast_str_substitute_variables(&str, 0, chan, tmp);
-		if (strcmp(test_strings[i][2], ast_str_buffer(str))) {
-			ast_test_status_update(test, "Format string '%s' substituted to '%s'.  Expected '%s'.\n", test_strings[i][0], tmp2, test_strings[i][2]);
-			res = AST_TEST_FAIL;
-		}
-	}
-
-	ast_free(str);
-	ast_channel_release(chan);
-
-	return res;
-}
-
-AST_TEST_DEFINE(test_TRIM)
-{
-	int i, res = AST_TEST_PASS;
-	struct ast_channel *chan; /* dummy channel */
-	struct ast_str *str; /* fancy string for holding comparing value */
-
-	const char *test_strings[][5] = {
-		{"TRIM", "  abcd ", "abcd"},
-		{"LTRIM", " abcd ", "abcd "},
-		{"RTRIM", " abcd ", " abcd"},
-		{"TRIM", "abcd", "abcd"},
-		{"TRIM", " a b c d ", "a b c d"},
-	};
-
-	switch (cmd) {
-	case TEST_INIT:
-		info->name = "func_TRIM";
-		info->category = "/funcs/func_strings/";
-		info->summary = "Test TRIM functions";
-		info->description = "Verify TRIM behavior";
-		return AST_TEST_NOT_RUN;
-	case TEST_EXECUTE:
-		break;
-	}
-
-	if (!(chan = ast_dummy_channel_alloc())) {
-		ast_test_status_update(test, "Unable to allocate dummy channel\n");
-		return AST_TEST_FAIL;
-	}
-
-	if (!(str = ast_str_create(64))) {
-		ast_test_status_update(test, "Unable to allocate dynamic string buffer\n");
-		ast_channel_release(chan);
-		return AST_TEST_FAIL;
-	}
-
-	for (i = 0; i < ARRAY_LEN(test_strings); i++) {
-		char tmp[512], tmp2[512] = "";
-
-		snprintf(tmp, sizeof(tmp), "${%s(%s)}", test_strings[i][0], test_strings[i][1]);
-		ast_str_substitute_variables(&str, 0, chan, tmp);
-		if (strcmp(test_strings[i][2], ast_str_buffer(str))) {
-			ast_test_status_update(test, "Format string '%s' substituted to '%s'.  Expected '%s'.\n", test_strings[i][0], tmp2, test_strings[i][2]);
-			res = AST_TEST_FAIL;
-		}
-	}
-
-	ast_free(str);
-	ast_channel_release(chan);
-
-	return res;
-}
 #endif
 
 static int unload_module(void)
@@ -2312,14 +1963,11 @@ static int unload_module(void)
 	AST_TEST_UNREGISTER(test_REPLACE);
 	AST_TEST_UNREGISTER(test_FILTER);
 	AST_TEST_UNREGISTER(test_STRREPLACE);
-	AST_TEST_UNREGISTER(test_STRBETWEEN);
-	AST_TEST_UNREGISTER(test_TRIM);
 	res |= ast_custom_function_unregister(&fieldqty_function);
 	res |= ast_custom_function_unregister(&fieldnum_function);
 	res |= ast_custom_function_unregister(&filter_function);
 	res |= ast_custom_function_unregister(&replace_function);
 	res |= ast_custom_function_unregister(&strreplace_function);
-	res |= ast_custom_function_unregister(&strbetween_function);
 	res |= ast_custom_function_unregister(&listfilter_function);
 	res |= ast_custom_function_unregister(&regex_function);
 	res |= ast_custom_function_unregister(&array_function);
@@ -2340,9 +1988,6 @@ static int unload_module(void)
 	res |= ast_custom_function_unregister(&push_function);
 	res |= ast_custom_function_unregister(&unshift_function);
 	res |= ast_custom_function_unregister(&passthru_function);
-	res |= ast_custom_function_unregister(&trim_function);
-	res |= ast_custom_function_unregister(&ltrim_function);
-	res |= ast_custom_function_unregister(&rtrim_function);
 
 	return res;
 }
@@ -2355,14 +2000,11 @@ static int load_module(void)
 	AST_TEST_REGISTER(test_REPLACE);
 	AST_TEST_REGISTER(test_FILTER);
 	AST_TEST_REGISTER(test_STRREPLACE);
-	AST_TEST_REGISTER(test_STRBETWEEN);
-	AST_TEST_REGISTER(test_TRIM);
 	res |= ast_custom_function_register(&fieldqty_function);
 	res |= ast_custom_function_register(&fieldnum_function);
 	res |= ast_custom_function_register(&filter_function);
 	res |= ast_custom_function_register(&replace_function);
 	res |= ast_custom_function_register(&strreplace_function);
-	res |= ast_custom_function_register(&strbetween_function);
 	res |= ast_custom_function_register(&listfilter_function);
 	res |= ast_custom_function_register(&regex_function);
 	res |= ast_custom_function_register(&array_function);
@@ -2383,9 +2025,6 @@ static int load_module(void)
 	res |= ast_custom_function_register(&push_function);
 	res |= ast_custom_function_register(&unshift_function);
 	res |= ast_custom_function_register(&passthru_function);
-	res |= ast_custom_function_register(&trim_function);
-	res |= ast_custom_function_register(&ltrim_function);
-	res |= ast_custom_function_register(&rtrim_function);
 
 	return res;
 }

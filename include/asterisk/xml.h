@@ -21,12 +21,9 @@
  * \brief Asterisk XML abstraction layer
  */
 
-#include "asterisk/vector.h"
-
 struct ast_xml_node;
 struct ast_xml_doc;
 struct ast_xml_xpath_results;
-struct ast_xslt_doc;
 
 /*!
  * \brief Initialize the XML library implementation.
@@ -48,7 +45,7 @@ int ast_xml_finish(void);
  * \brief Open an XML document.
  * \param filename Document path.
  * \retval NULL on error.
- * \return The ast_xml_doc reference to the open document.
+ * \retval The ast_xml_doc reference to the open document.
  */
 struct ast_xml_doc *ast_xml_open(char *filename);
 
@@ -105,7 +102,7 @@ struct ast_xml_node *ast_xml_copy_node_list(struct ast_xml_node *list);
 /*!
  * \brief Close an already open document and free the used
  *        structure.
- * \param doc XML Document to close
+ * \retval doc The document reference.
  */
 void ast_xml_close(struct ast_xml_doc *doc);
 
@@ -113,22 +110,22 @@ void ast_xml_close(struct ast_xml_doc *doc);
  * \param buffer The address where the document is stored
  * \param size The number of bytes in the document
  * \retval NULL on error.
- * \return The ast_xml_doc reference to the open document.
+ * \retval The ast_xml_doc reference to the open document.
  */
 struct ast_xml_doc *ast_xml_read_memory(char *buffer, size_t size);
 
 /*!
  * \brief Specify the root node of a XML document.
- * \param doc XML Document reference
+ * \param doc The document pointer.
  * \param node A pointer to the node we want to set as root node.
  */
 void ast_xml_set_root(struct ast_xml_doc *doc, struct ast_xml_node *node);
 
 /*!
  * \brief Get the document root node.
- * \param doc XML Document reference
+ * \param doc Document reference
  * \retval NULL on error
- * \return The root node on success.
+ * \retval The root node on success.
  */
 struct ast_xml_node *ast_xml_get_root(struct ast_xml_doc *doc);
 
@@ -147,7 +144,7 @@ void ast_xml_free_attr(const char *attribute);
 /*!
  * \brief Get the document based on a node.
  * \param node A node that is part of the dom.
- * \return The dom pointer where this node resides.
+ * \returns The dom pointer where this node resides.
  */
 struct ast_xml_doc *ast_xml_get_doc(struct ast_xml_node *node);
 
@@ -162,8 +159,7 @@ void ast_xml_free_text(const char *text);
  * \param node Node where to search the attribute.
  * \param attrname Attribute name.
  * \retval NULL on error
- * \return The attribute value on success.
- * \note The result must be freed with ast_xml_free_attr().
+ * \retval The attribute value on success.
  */
 const char *ast_xml_get_attribute(struct ast_xml_node *node, const char *attrname);
 
@@ -184,42 +180,17 @@ int ast_xml_set_attribute(struct ast_xml_node *node, const char *name, const cha
  * \param attrname attribute name to match (if NULL it won't be matched).
  * \param attrvalue attribute value to match (if NULL it won't be matched).
  * \retval NULL if not found.
- * \return The node on success.
+ * \retval The node on success.
  */
 struct ast_xml_node *ast_xml_find_element(struct ast_xml_node *root_node, const char *name, const char *attrname, const char *attrvalue);
 struct ast_xml_ns *ast_xml_find_namespace(struct ast_xml_doc *doc, struct ast_xml_node *node, const char *ns_name);
-
-/*!
- * \brief Find a direct child element by name.
- * \param _parent_node This is the parent node to search.
- * \param _name Node name to find.
- * \param _attrname attribute name to match (if NULL it won't be matched).
- * \param _attrvalue attribute value to match (if NULL it won't be matched).
- * \retval NULL if not found.
- * \return The node on success.
- */
-#define ast_xml_find_child_element(_parent_node, _name, _attrname, _attrvalue) \
-    ast_xml_find_element(ast_xml_node_get_children(_parent_node), _name, _attrname, _attrvalue)
-
-/*!
- * \brief Get the prefix of a namespace.
- * \param ns The namespace
- * \return The prefix of the namespace.
- */
-const char *ast_xml_get_ns_prefix(struct ast_xml_ns *ns);
-
-/*!
- * \brief Get the href of a namespace.
- * \param ns The namespace
- * \return The href of the namespace.
- */
 const char *ast_xml_get_ns_href(struct ast_xml_ns *ns);
 
 /*!
  * \brief Get an element content string.
  * \param node Node from where to get the string.
  * \retval NULL on error.
- * \return The text content of node.
+ * \retval The text content of node.
  */
 const char *ast_xml_get_text(struct ast_xml_node *node);
 
@@ -229,13 +200,6 @@ const char *ast_xml_get_text(struct ast_xml_node *node);
  * \param content The text to insert in the node.
  */
 void ast_xml_set_text(struct ast_xml_node *node, const char *content);
-
-/*!
- * \brief Set or reset an element's name.
- * \param node Node whose name is to be set.
- * \param name New name.
- */
-void ast_xml_set_name(struct ast_xml_node *node, const char *name);
 
 /*!
  * \brief Get the name of a node. */
@@ -262,17 +226,6 @@ struct ast_xml_node *ast_xml_node_get_parent(struct ast_xml_node *node);
 int ast_xml_doc_dump_file(FILE *output, struct ast_xml_doc *doc);
 
 /*!
- * \brief Dump the specified document to a buffer
- *
- * \param doc The XML doc to dump
- * \param buffer A pointer to a char * to receive the address of the results
- * \param length A pointer to an int to receive the length of the results
- *
- * \note The result buffer must be freed with ast_xml_free_text().
- */
-void ast_xml_doc_dump_memory(struct ast_xml_doc *doc, char **buffer, int *length);
-
-/*!
  * \brief Free the XPath results
  * \param results The XPath results object to dispose of
  *
@@ -283,7 +236,7 @@ void ast_xml_xpath_results_free(struct ast_xml_xpath_results *results);
 /*!
  * \brief Return the number of results from an XPath query
  * \param results The XPath results object to count
- * \return The number of results in the XPath object
+ * \retval The number of results in the XPath object
  *
  * \since 12
  */
@@ -292,7 +245,7 @@ int ast_xml_xpath_num_results(struct ast_xml_xpath_results *results);
 /*!
  * \brief Return the first result node of an XPath query
  * \param results The XPath results object to get the first result from
- * \return The first result in the XPath object on success
+ * \retval The first result in the XPath object on success
  * \retval NULL on error
  *
  * \since 12
@@ -300,99 +253,14 @@ int ast_xml_xpath_num_results(struct ast_xml_xpath_results *results);
 struct ast_xml_node *ast_xml_xpath_get_first_result(struct ast_xml_xpath_results *results);
 
 /*!
- * \brief Return a specific result node of an XPath query
- * \param results The XPath results object to get the result from
- * \param n The index of the result to get
- * \return The nth result in the XPath object on success
- * \retval NULL on error
- */
-struct ast_xml_node *ast_xml_xpath_get_result(struct ast_xml_xpath_results *results, int n);
-
-/*!
  * \brief Execute an XPath query on an XML document
- * \param doc XML document to query
+ * \param doc The XML document to query
  * \param xpath_str The XPath query string to execute on the document
- * \return An object containing the results of the XPath query on success
+ * \retval An object containing the results of the XPath query on success
  * \retval NULL on failure
  *
  * \since 12
  */
 struct ast_xml_xpath_results *ast_xml_query(struct ast_xml_doc *doc, const char *xpath_str);
 
-/*!
- * \brief Namespace definition
- */
-struct ast_xml_namespace_def {
-	const char *prefix;
-	const char *href;
-};
-
-AST_VECTOR(ast_xml_namespace_def_vector, struct ast_xml_namespace_def);
-
-/*!
- * \brief Execute an XPath query on an XML document with namespaces
- * \param doc XML document to query
- * \param xpath_str The XPath query string to execute on the document
- * \param namespaces A vector of ast_xml_namespace structures (not pointers)
- * \return An object containing the results of the XPath query on success
- * \retval NULL on failure
- */
-struct ast_xml_xpath_results *ast_xml_query_with_namespaces(struct ast_xml_doc *doc, const char *xpath_str,
-	struct ast_xml_namespace_def_vector *namespaces);
-
-#ifdef HAVE_LIBXSLT
-
-/*! \brief Open an XSLT document that resides in memory.
- *
- * \param buffer The address where the stylesheet is stored
- * \param size   The number of bytes in the stylesheet
- *
- * \return The stylesheet document.  Must be closed with ast_xslt_close().
- */
-struct ast_xslt_doc *ast_xslt_read_memory(char *buffer, size_t size);
-
-/*!
- * \brief Open an XSLT document.
- *
- * \param filename stylesheet path.
- *
- * \return The stylesheet document.  Must be closed with ast_xslt_close().
- */
-struct ast_xslt_doc *ast_xslt_open(char *filename);
-
-/*!
- * \brief Close a stylesheet document and free its resources.
- *
- * \param xslt XSLT stylesheet to close
- */
-void ast_xslt_close(struct ast_xslt_doc *xslt);
-
-/*!
- * \brief Apply an XSLT stylesheet to an XML document
- *
- * \param xslt    XSLT stylesheet to apply.
- * \param doc     XML document the stylesheet will be applied to.
- * \param params  An array of name value pairs to pass as parameters
- *                The array must terminate with a NULL sentinel.
- *                Example:  { "name1", "value1", "name2", "value2", NULL }
- *
- * \return A pointer to the result document which must be freed with ast_xml_close()
- */
-struct ast_xml_doc *ast_xslt_apply(struct ast_xslt_doc *xslt, struct ast_xml_doc *doc, const char **params);
-
-/*!
- * \brief Save the results of applying a stylesheet to a string
- *
- * \param[out] buffer  A pointer to a char * to receive the address of the result string.
- *                     The buffer must be freed with ast_xml_free_text().
- * \param[out] length  A pointer to an int to receive the result string length.
- * \param      result  The result document from ast_xslt_apply.
- * \param      xslt    The stylesheet that was applied.
- *
- * \return 0 on success, any other value on failure.
- */
-int ast_xslt_save_result_to_string(char **buffer, int *length, struct ast_xml_doc *result,
-	struct ast_xslt_doc *xslt);
-
-#endif /* HAVE_LIBXSLT */
 #endif /* _ASTERISK_XML_H */

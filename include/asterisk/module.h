@@ -181,7 +181,7 @@ enum ast_module_reload_result ast_module_reload(const char *name);
 /*!
  * \brief Notify when usecount has been changed.
  *
- * This function calculates use counts and notifies anyone trying to keep track
+ * This function calulates use counts and notifies anyone trying to keep track
  * of them.  It should be called whenever your module's usecount changes.
  *
  * \note The ast_module_user_* functions take care of calling this function for you.
@@ -242,7 +242,7 @@ int ast_update_module_list_condition(int (*modentry)(const char *module, const c
 
 /*!
  * \brief Check if module with the name given is loaded
- * \param name Module name, like "chan_pjsip.so"
+ * \param name Module name, like "chan_sip.so"
  * \retval 1 if true
  * \retval 0 if false
  */
@@ -283,7 +283,7 @@ int ast_loader_unregister(int (*updater)(void));
  * \param type The type of action that will be performed by CLI.
  *
  * \retval A possible completion of the partial match.
- * \retval NULL if no matches were found or Asterisk is not yet fully booted.
+ * \retval NULL if no matches were found.
  */
 char *ast_module_helper(const char *line, const char *word, int pos, int state, int rpos, enum ast_module_helper_type type);
 
@@ -352,7 +352,7 @@ struct ast_module_info {
 	const char *description;
 
 	/*!
-	 * This holds the ASTERISK_GPL_KEY, signifying that you agree to the terms of
+	 * This holds the ASTERISK_GPL_KEY, signifiying that you agree to the terms of
 	 * the Asterisk license as stated in the ASTERISK_GPL_KEY.  Your module will not
 	 * load if it does not return the EXACT key string.
 	 */

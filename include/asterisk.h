@@ -41,8 +41,6 @@
 #endif
 
 
-#define AST_CURL_USER_AGENT "asterisk-libcurl-agent/1.0"
-
 #define DEFAULT_LANGUAGE "en"
 
 #define DEFAULT_SAMPLE_RATE 8000

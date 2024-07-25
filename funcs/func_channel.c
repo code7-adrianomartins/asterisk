@@ -20,7 +20,6 @@
  *
  * \author Kevin P. Fleming <kpfleming@digium.com>
  * \author Ben Winslow
- * \author Naveen Albert <asterisk@phreaknet.org>
  *
  * \ingroup functions
  */
@@ -61,24 +60,6 @@
 			<replaceable>regular_expression</replaceable> must correspond to
 			the POSIX.2 specification, as shown in <emphasis>regex(7)</emphasis>. The list returned
 			will be space-delimited.</para>
-		</description>
-	</function>
-	<function name="CHANNEL_EXISTS" language="en_US">
-		<since>
-			<version>16.22.0</version>
-			<version>18.8.0</version>
-			<version>19.0.0</version>
-		</since>
-		<synopsis>
-			Checks if the specified channel exists.
-		</synopsis>
-		<syntax>
-			<parameter name="name_or_uid" required="true">
-				<para>The name or unique ID of the channel to check.</para>
-			</parameter>
-		</syntax>
-		<description>
-			<para>Returns 1 if the channel <replaceable>name_or_uid</replaceable> exists, 0 if not.</para>
 		</description>
 	</function>
 	<function name="MASTER_CHANNEL" language="en_US">
@@ -148,16 +129,6 @@
 					<enum name="checkhangup">
 						<para>R/O Whether the channel is hanging up (1/0)</para>
 					</enum>
-					<enum name="digitdetect">
-						<para>R/W Enable or disable DTMF detection on channel drivers that support it.</para>
-						<para>If set on a DAHDI channel, this will only disable DTMF detection, not pulse dialing detection.
-						To disable pulse dialing, use the <literal>dialmode</literal> option.</para>
-						<para>On DAHDI channels, this will disable DSP if it is not needed for anything else.
-						This will prevent DTMF detection regardless of the <literal>dialmode</literal> setting.</para>
-					</enum>
-					<enum name="faxdetect">
-						<para>R/W Enable or disable fax detection on channel drivers that support it.</para>
-					</enum>
 					<enum name="after_bridge_goto">
 						<para>R/W the parseable goto string indicating where the channel is
 						expected to return to in the PBX after exiting the next bridge it joins
@@ -202,10 +173,6 @@
 					<enum name="parkinglot">
 						<para>R/W parkinglot for parking.</para>
 					</enum>
-					<enum name="relaxdtmf">
-						<para>W/O Enable or disable relaxed DTMF detection for channel drivers that support it,
-						overriding any setting previously defaulted by the channel driver.</para>
-					</enum>
 					<enum name="rxgain">
 						<para>R/W set rxgain level on channel drivers that support it.</para>
 					</enum>
@@ -217,11 +184,6 @@
 					</enum>
 					<enum name="state">
 						<para>R/O state of the channel</para>
-					</enum>
-					<enum name="tdd">
-						<para>R/W Enable or disable TDD mode on channel drivers that support it.</para>
-						<para>When reading this option, 1 indicates TDD mode enabled, 0 indicates TDD mode disabled,
-						and <literal>mate</literal> indicates TDD mate mode.</para>
 					</enum>
 					<enum name="tonezone">
 						<para>R/W zone for indications played</para>
@@ -257,12 +219,6 @@
 					</enum>
 					<enum name="context">
 						<para>R/O returns the context for an outbound channel.</para>
-					</enum>
-					<enum name="lastexten">
-						<para>R/O returns the last unique extension for an outbound channel.</para>
-					</enum>
-					<enum name="lastcontext">
-						<para>R/O returns the last unique context for an outbound channel.</para>
 					</enum>
 					<enum name="channame">
 						<para>R/O returns the channel name for an outbound channel.</para>
@@ -308,41 +264,6 @@
 				same => n,Log(NOTICE, This channel is: ${CHANNEL(state)})
 			</example>
 			<xi:include xpointer="xpointer(/docs/info[@name='CHANNEL_EXAMPLES'])" />
-			<para>The following channel variables are available as special built-in
-			dialplan channel variables. These variables cannot be set or modified
-			and are read-only.</para>
-			<variablelist>
-				<variable name="CALLINGPRES">
-					<para>Caller ID presentation for incoming calls (PRI channels)</para>
-				</variable>
-				<variable name="CALLINGANI2">
-					<para>Caller ANI2 (PRI channels)</para>
-				</variable>
-				<variable name="CALLINGTON">
-					<para>Caller Type of Number (PRI channels)</para>
-				</variable>
-				<variable name="CALLINGTNS">
-					<para>Transit Network Selector (PRI channels)</para>
-				</variable>
-				<variable name="EXTEN">
-					<para>Current extension</para>
-				</variable>
-				<variable name="CONTEXT">
-					<para>Current context</para>
-				</variable>
-				<variable name="PRIORITY">
-					<para>Current priority</para>
-				</variable>
-				<variable name="CHANNEL">
-					<para>Current channel name</para>
-				</variable>
-				<variable name="UNIQUEID">
-					<para>Current call unique identifier</para>
-				</variable>
-				<variable name="HANGUPCAUSE">
-					<para>Asterisk cause of hangup (inbound/outbound)</para>
-				</variable>
-			</variablelist>
 		</description>
 	</function>
  ***/
@@ -440,10 +361,6 @@ static int func_channel_read(struct ast_channel *chan, const char *function,
 		locked_copy_string(chan, buf, ast_channel_exten(chan), len);
 	else if (!strcasecmp(data, "context"))
 		locked_copy_string(chan, buf, ast_channel_context(chan), len);
-	else if (!strcasecmp(data, "lastexten"))
-		locked_copy_string(chan, buf, ast_channel_lastexten(chan), len);
-	else if (!strcasecmp(data, "lastcontext"))
-		locked_copy_string(chan, buf, ast_channel_lastcontext(chan), len);
 	else if (!strcasecmp(data, "userfield"))
 		locked_copy_string(chan, buf, ast_channel_userfield(chan), len);
 	else if (!strcasecmp(data, "channame"))
@@ -542,29 +459,6 @@ static int func_channel_read(struct ast_channel *chan, const char *function,
 			ast_callid_strnprint(buf, len, callid);
 		}
 		ast_channel_unlock(chan);
-	} else if (!strcasecmp(data, "tdd")) {
-		char status;
-		int status_size = (int) sizeof(status);
-		ret = ast_channel_queryoption(chan, AST_OPTION_TDD, &status, &status_size, 0);
-		if (!ret) {
-			ast_copy_string(buf, status == 2 ? "mate" : status ? "1" : "0", len);
-		}
-	} else if (!strcasecmp(data, "digitdetect")) {
-		char status;
-		int status_size = (int) sizeof(status);
-		ret = ast_channel_queryoption(chan, AST_OPTION_DIGIT_DETECT, &status, &status_size, 0);
-		if (!ret) {
-			ast_copy_string(buf, status ? "1" : "0", len);
-		}
-	} else if (!strcasecmp(data, "faxdetect")) {
-		char status;
-		int status_size = (int) sizeof(status);
-		ret = ast_channel_queryoption(chan, AST_OPTION_FAX_DETECT, &status, &status_size, 0);
-		if (!ret) {
-			ast_copy_string(buf, status ? "1" : "0", len);
-		}
-	} else if (!strcasecmp(data, "device_name")) {
-		ret = ast_channel_get_device_name(chan, buf, len);
 	} else if (!ast_channel_tech(chan) || !ast_channel_tech(chan)->func_channel_read || ast_channel_tech(chan)->func_channel_read(chan, function, data, buf, len)) {
 		ast_log(LOG_WARNING, "Unknown or unavailable item requested: '%s'\n", data);
 		ret = -1;
@@ -651,29 +545,12 @@ static int func_channel_write_real(struct ast_channel *chan, const char *functio
 		ast_channel_named_pickupgroups_set(chan, groups);
 		ast_channel_unlock(chan);
 		ast_unref_namedgroups(groups);
-	} else if (!strcasecmp(data, "tdd")) {
-		char enabled;
-		if (!strcasecmp(value, "mate")) {
-			enabled = 2;
-		} else {
-			enabled = ast_true(value) ? 1 : 0;
-		}
-		ast_channel_setoption(chan, AST_OPTION_TDD, &enabled, sizeof(enabled), 0);
-	} else if (!strcasecmp(data, "relaxdtmf")) {
-		char enabled = ast_true(value) ? 1 : 0;
-		ast_channel_setoption(chan, AST_OPTION_RELAXDTMF, &enabled, sizeof(enabled), 0);
 	} else if (!strcasecmp(data, "txgain")) {
 		sscanf(value, "%4hhd", &gainset);
 		ast_channel_setoption(chan, AST_OPTION_TXGAIN, &gainset, sizeof(gainset), 0);
 	} else if (!strcasecmp(data, "rxgain")) {
 		sscanf(value, "%4hhd", &gainset);
 		ast_channel_setoption(chan, AST_OPTION_RXGAIN, &gainset, sizeof(gainset), 0);
-	} else if (!strcasecmp(data, "digitdetect")) {
-		char enabled = ast_true(value) ? 1 : 0;
-		ast_channel_setoption(chan, AST_OPTION_DIGIT_DETECT, &enabled, sizeof(enabled), 0);
-	} else if (!strcasecmp(data, "faxdetect")) {
-		char enabled = ast_true(value) ? 1 : 0;
-		ast_channel_setoption(chan, AST_OPTION_FAX_DETECT, &enabled, sizeof(enabled), 0);
 	} else if (!strcasecmp(data, "transfercapability")) {
 		unsigned short i;
 
@@ -834,28 +711,6 @@ static struct ast_custom_function channels_function = {
 	.read = func_channels_read,
 };
 
-static int func_chan_exists_read(struct ast_channel *chan, const char *function, char *data, char *buf, size_t maxlen)
-{
-	struct ast_channel *chan_found = NULL;
-
-	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "%s: Channel name or unique ID required\n", function);
-		return -1;
-	}
-
-	chan_found = ast_channel_get_by_name(data);
-	snprintf(buf, maxlen, "%d", (chan_found ? 1 : 0));
-	if (chan_found) {
-		ast_channel_unref(chan_found);
-	}
-	return 0;
-}
-
-static struct ast_custom_function chan_exists_function = {
-	.name = "CHANNEL_EXISTS",
-	.read = func_chan_exists_read,
-};
-
 static int func_mchan_read(struct ast_channel *chan, const char *function,
 			     char *data, struct ast_str **buf, ssize_t len)
 {
@@ -906,7 +761,6 @@ static int unload_module(void)
 
 	res |= ast_custom_function_unregister(&channel_function);
 	res |= ast_custom_function_unregister(&channels_function);
-	res |= ast_custom_function_unregister(&chan_exists_function);
 	res |= ast_custom_function_unregister(&mchan_function);
 
 	return res;
@@ -918,7 +772,6 @@ static int load_module(void)
 
 	res |= ast_custom_function_register(&channel_function);
 	res |= ast_custom_function_register(&channels_function);
-	res |= ast_custom_function_register(&chan_exists_function);
 	res |= ast_custom_function_register(&mchan_function);
 
 	return res;

@@ -134,15 +134,14 @@ struct ast_lock_track_flags {
  */
 struct ast_mutex_info {
 	pthread_mutex_t mutex;
-#if !defined(DEBUG_THREADS) && !defined(DEBUG_THREADS_LOOSE_ABI) && \
-	!defined(DETECT_DEADLOCKS)
+#if !defined(DEBUG_THREADS) && !defined(DEBUG_THREADS_LOOSE_ABI)
 	/*!
 	 * These fields are renamed to ensure they are never used when
 	 * DEBUG_THREADS is not defined.
 	 */
 	struct ast_lock_track *_track;
 	struct ast_lock_track_flags _flags;
-#elif defined(DEBUG_THREADS) || defined(DETECT_DEADLOCKS)
+#elif defined(DEBUG_THREADS)
 	/*! Track which thread holds this mutex. */
 	struct ast_lock_track *track;
 	struct ast_lock_track_flags flags;
@@ -156,15 +155,14 @@ struct ast_mutex_info {
  */
 struct ast_rwlock_info {
 	pthread_rwlock_t lock;
-#if !defined(DEBUG_THREADS) && !defined(DEBUG_THREADS_LOOSE_ABI) && \
-	!defined(DETECT_DEADLOCKS)
+#if !defined(DEBUG_THREADS) && !defined(DEBUG_THREADS_LOOSE_ABI)
 	/*!
 	 * These fields are renamed to ensure they are never used when
 	 * DEBUG_THREADS is not defined.
 	 */
 	struct ast_lock_track *_track;
 	struct ast_lock_track_flags _flags;
-#elif defined(DEBUG_THREADS) || defined(DETECT_DEADLOCKS)
+#elif defined(DEBUG_THREADS)
 	/*! Track which thread holds this lock */
 	struct ast_lock_track *track;
 	struct ast_lock_track_flags flags;

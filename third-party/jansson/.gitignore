@@ -1,4 +1,4 @@
 source/
-dist/
+dest/
 **.bz2
 .rebuild_needed

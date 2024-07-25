@@ -52,11 +52,9 @@
 
 /*!
  * \brief Parameter parsing callback for /asterisk/config/dynamic/{configClass}/{objectType}/{id}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_get_object_cb(
@@ -126,11 +124,9 @@ int ast_ari_asterisk_update_object_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /asterisk/config/dynamic/{configClass}/{objectType}/{id}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_update_object_cb(
@@ -195,11 +191,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/config/dynamic/{configClass}/{objectType}/{id}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_delete_object_cb(
@@ -300,11 +294,9 @@ int ast_ari_asterisk_get_info_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /asterisk/info.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_get_info_cb(
@@ -405,11 +397,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/ping.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_ping_cb(
@@ -457,11 +447,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/modules.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_list_modules_cb(
@@ -509,11 +497,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/modules/{moduleName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_get_module_cb(
@@ -570,11 +556,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/modules/{moduleName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_load_module_cb(
@@ -630,11 +614,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/modules/{moduleName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_unload_module_cb(
@@ -691,11 +673,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/modules/{moduleName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_reload_module_cb(
@@ -752,11 +732,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/logging.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_list_log_channels_cb(
@@ -817,11 +795,9 @@ int ast_ari_asterisk_add_log_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /asterisk/logging/{logChannelName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_add_log_cb(
@@ -888,11 +864,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/logging/{logChannelName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_delete_log_cb(
@@ -948,11 +922,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /asterisk/logging/{logChannelName}/rotate.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_rotate_log_cb(
@@ -1021,11 +993,9 @@ int ast_ari_asterisk_get_global_var_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /asterisk/variable.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_get_global_var_cb(
@@ -1102,11 +1072,9 @@ int ast_ari_asterisk_set_global_var_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /asterisk/variable.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_asterisk_set_global_var_cb(

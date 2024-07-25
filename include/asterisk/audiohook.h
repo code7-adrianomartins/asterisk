@@ -78,12 +78,11 @@ enum ast_audiohook_init_flags {
 struct ast_audiohook;
 
 /*! \brief Callback function for manipulate audiohook type
- * \param audiohook
- * \param chan
+ * \param audiohook Audiohook structure
+ * \param chan Channel
  * \param frame Frame of audio to manipulate
  * \param direction Direction frame came from
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure.
  * \note An audiohook does not have any reference to a private data structure for manipulate
  *       types. It is up to the manipulate callback to store this data via it's own method.
  *       An example would be datastores.
@@ -117,78 +116,64 @@ struct ast_audiohook {
 	struct ast_trans_pvt *trans_pvt;                       /*!< Translation path for reading frames */
 	ast_audiohook_manipulate_callback manipulate_callback; /*!< Manipulation callback */
 	struct ast_audiohook_options options;                  /*!< Applicable options */
-	unsigned int hook_internal_samp_rate;                  /*!< internal read/write sample rate on the audiohook.*/
-	enum ast_audiohook_direction direction;                /*!< Intended audiohook direction, BOTH by default on init */
+	unsigned int hook_internal_samp_rate;                           /*!< internal read/write sample rate on the audiohook.*/
 	AST_LIST_ENTRY(ast_audiohook) list;                    /*!< Linked list information */
 };
 
 struct ast_audiohook_list;
 
 /*! \brief Initialize an audiohook structure
- * \param audiohook
+ * \param audiohook Audiohook structure
  * \param type Type of audiohook to initialize this as
  * \param source Who is initializing this audiohook
- * \param flags
- * \retval 0 on success
- * \retval -1 on failure
+ * \param init flags
+ * \return Returns 0 on success, -1 on failure
  */
 int ast_audiohook_init(struct ast_audiohook *audiohook, enum ast_audiohook_type type, const char *source, enum ast_audiohook_init_flags flags);
 
 /*! \brief Destroys an audiohook structure
- * \param audiohook
- * \retval 0 on success
- * \retval -1 on failure
+ * \param audiohook Audiohook structure
+ * \return Returns 0 on success, -1 on failure
  */
 int ast_audiohook_destroy(struct ast_audiohook *audiohook);
 
-/*! \brief Sets direction on audiohook
- * \param audiohook
- * \param direction In which direction should the audiohook feed frames, ie if we are snooping 'in', set direction to READ so that only the 'in' frames are fed to the slin factory
- * \retval 0 on success
- * \retval -1 on failure due to audiohook already in use or in shutdown. Can only set direction on NEW audiohooks
- */
-int ast_audiohook_set_frame_feed_direction(struct ast_audiohook *audiohook, enum ast_audiohook_direction direction);
-
 /*! \brief Writes a frame into the audiohook structure
- * \param audiohook
+ * \param audiohook Audiohook structure
  * \param direction Direction the audio frame came from
  * \param frame Frame to write in
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  */
 int ast_audiohook_write_frame(struct ast_audiohook *audiohook, enum ast_audiohook_direction direction, struct ast_frame *frame);
 
 /*! \brief Reads a frame in from the audiohook structure
- * \param audiohook
+ * \param audiohook Audiohook structure
  * \param samples Number of samples wanted
  * \param direction Direction the audio frame came from
  * \param format Format of frame remote side wants back
- * \return frame on success
- * \retval NULL on failure
+ * \return Returns frame on success, NULL on failure
  */
 struct ast_frame *ast_audiohook_read_frame(struct ast_audiohook *audiohook, size_t samples, enum ast_audiohook_direction direction, struct ast_format *format);
 
 /*! \brief Reads a frame in from the audiohook structure in mixed audio mode and copies read and write frame data to provided arguments.
- * \param audiohook
+ * \param audiohook Audiohook structure
  * \param samples Number of samples wanted
- * \param format Format of frame remote side wants back
+ * \param ast_format Format of frame remote side wants back
  * \param read_frame if available, we'll copy the read buffer to this.
  * \param write_frame if available, we'll copy the write buffer to this.
- * \return frame on success
- * \retval NULL on failure
+ * \param direction
+ * \return Returns frame on success, NULL on failure
  */
 struct ast_frame *ast_audiohook_read_frame_all(struct ast_audiohook *audiohook, size_t samples, struct ast_format *format, struct ast_frame **read_frame, struct ast_frame **write_frame);
 
 /*! \brief Attach audiohook to channel
- * \param chan
- * \param audiohook
- * \return 0 on success
- * \retval -1 on failure
+ * \param chan Channel
+ * \param audiohook Audiohook structure
+ * \return Returns 0 on success, -1 on failure
  */
 int ast_audiohook_attach(struct ast_channel *chan, struct ast_audiohook *audiohook);
 
 /*! \brief Detach audiohook from channel
- * \param audiohook
+ * \param audiohook Audiohook structure
  * \return Returns 0 on success, -1 on failure
  */
 int ast_audiohook_detach(struct ast_audiohook *audiohook);
@@ -196,6 +181,7 @@ int ast_audiohook_detach(struct ast_audiohook *audiohook);
 /*!
  * \brief Detach audiohooks from list and destroy said list
  * \param audiohook_list List of audiohooks (NULL tolerant)
+ * \return Nothing
  */
 void ast_audiohook_detach_list(struct ast_audiohook_list *audiohook_list);
 
@@ -231,8 +217,7 @@ void ast_audiohook_move_all(struct ast_channel *old_chan, struct ast_channel *ne
  * \param chan Channel to detach from
  * \param source Name of source to detach
  *
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  *
  * \note The channel does not need to be locked before calling this function.
  */
@@ -244,8 +229,7 @@ int ast_audiohook_detach_source(struct ast_channel *chan, const char *source);
  * \param chan Channel to remove from
  * \param audiohook Audiohook to remove
  *
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  *
  * \note The channel does not need to be locked before calling this function
  */
@@ -254,10 +238,9 @@ int ast_audiohook_remove(struct ast_channel *chan, struct ast_audiohook *audioho
 /*!
  * \brief Determine if a audiohook_list is empty or not.
  *
- * \param audiohook_list Audiohook to check.  (NULL also means empty)
+ * \param audiohook Audiohook to check.  (NULL also means empty)
  *
- * \retval 0 false
- * \retval 1 true
+ * retval 0 false, 1 true
  */
 int ast_audiohook_write_list_empty(struct ast_audiohook_list *audiohook_list);
 
@@ -266,14 +249,13 @@ int ast_audiohook_write_list_empty(struct ast_audiohook_list *audiohook_list);
  * \param audiohook_list List of audiohooks
  * \param direction Direction frame is coming in from
  * \param frame The frame itself
- * \return frame on success
- * \retval NULL on failure
+ * \return Return frame on success, NULL on failure
  */
 struct ast_frame *ast_audiohook_write_list(struct ast_channel *chan, struct ast_audiohook_list *audiohook_list, enum ast_audiohook_direction direction, struct ast_frame *frame);
 
 /*! \brief Update audiohook's status
- * \param audiohook
- * \param status
+ * \param audiohook Audiohook structure
+ * \param audiohook status enum
  *
  * \note once status is updated to DONE, this function can not be used to set the
  * status back to any other setting.  Setting DONE effectively locks the status as such.
@@ -290,7 +272,7 @@ void ast_audiohook_trigger_wait(struct ast_audiohook *audiohook);
   \param chan The channel on which to find the spies
   \param source The audiohook's source
   \param type The type of audiohook
-  \return number of audiohooks which are from the source specified
+  \return Return the number of audiohooks which are from the source specified
 
   Note: Function performs nlocking.
 */
@@ -301,7 +283,7 @@ int ast_channel_audiohook_count_by_source(struct ast_channel *chan, const char *
   \param chan The channel on which to find the spies
   \param source The source of the audiohook
   \param type The type of spy to look for
-  \return number of running audiohooks which are from the source specified
+  \return Return the number of running audiohooks which are from the source specified
 
   Note: Function performs no locking.
 */
@@ -322,8 +304,7 @@ int ast_channel_audiohook_count_by_source_running(struct ast_channel *chan, cons
  * \param chan Channel to muck with
  * \param direction Direction to set on
  * \param volume Value to adjust the volume by
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  * \since 1.6.1
  */
 int ast_audiohook_volume_set(struct ast_channel *chan, enum ast_audiohook_direction direction, int volume);
@@ -332,7 +313,7 @@ int ast_audiohook_volume_set(struct ast_channel *chan, enum ast_audiohook_direct
  * \brief Retrieve the volume adjustment value on frames read from or written to a channel
  * \param chan Channel to retrieve volume adjustment from
  * \param direction Direction to retrieve
- * \return adjustment value
+ * \return Returns adjustment value
  * \since 1.6.1
  */
 int ast_audiohook_volume_get(struct ast_channel *chan, enum ast_audiohook_direction direction);
@@ -342,8 +323,7 @@ int ast_audiohook_volume_get(struct ast_channel *chan, enum ast_audiohook_direct
  * \param chan Channel to muck with
  * \param direction Direction to increase
  * \param volume Value to adjust the adjustment by
- * \retval 0 on success
- * \retval -1 on failure
+ * \return Returns 0 on success, -1 on failure
  * \since 1.6.1
  */
 int ast_audiohook_volume_adjust(struct ast_channel *chan, enum ast_audiohook_direction direction, int volume);
@@ -357,16 +337,6 @@ int ast_audiohook_volume_adjust(struct ast_channel *chan, enum ast_audiohook_dir
  * \retval -1 failure
  */
 int ast_audiohook_set_mute(struct ast_channel *chan, const char *source, enum ast_audiohook_flags flag, int clear);
-
-/*! \brief Mute frames read from or written for all audiohooks on a channel
- * \param chan Channel to muck with
- * \param source Type of audiohooks
- * \param flag which direction to set / clear
- * \param clear set or clear muted frames on direction based on flag parameter
- * \retval >=0 number of muted audiohooks
- * \retval -1 failure
- */
-int ast_audiohook_set_mute_all(struct ast_channel *chan, const char *source, enum ast_audiohook_flags flag, int clear);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

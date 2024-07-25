@@ -17,15 +17,15 @@
 /*!
  * \internal
  * \brief Thread running the SNMP Agent or Subagent
- * \param arg -- not used
+ * \param Not used -- required by pthread_create
  * \return A pointer with return status -- not used
  *
  * This represent the main thread of the SNMP [sub]agent, and
  * will initialize SNMP and loop, processing requests until
  * termination is requested by resetting the flag in
- * \ref res_snmp_dont_stop.
+ * \ref res_snmp_dontStop.
  */
-void	*agent_thread(void *arg);
+void	*agent_thread(void *);
 
 /*!
  * \internal

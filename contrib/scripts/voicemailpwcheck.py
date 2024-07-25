@@ -22,7 +22,7 @@ REQUIRED_LENGTH = 6
 # Regular expressions that match against invalid passwords
 REGEX_BLACKLIST = [
     ("(?P<digit>\d)(?P=digit){%d}" % (REQUIRED_LENGTH - 1),
-        "%d consecutive numbers that are the same" % REQUIRED_LENGTH)
+        "%d consective numbers that are the same" % REQUIRED_LENGTH)
 ]
 
 

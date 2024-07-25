@@ -28,9 +28,9 @@ struct ast_channel;
  */
 struct ast_features_general_config {
 	AST_DECLARE_STRING_FIELDS(
-		/*! Sound played when automixmon features are used */
+		/*! Sound played when automon or automixmon features are used */
 		AST_STRING_FIELD(courtesytone);
-		/*! Sound played when automixmon features fail when used */
+		/*! Sound played when automon or automixmon features fail when used */
 		AST_STRING_FIELD(recordingfailsound);
 	);
 	/*! Milliseconds allowed between digit presses when entering feature code */
@@ -72,8 +72,6 @@ struct ast_features_xfer_config {
 		AST_STRING_FIELD(transferretrysound);
 		/*! Sound played when an invalid extension is dialed, and the transferer is being returned to the call. */
 		AST_STRING_FIELD(transferinvalidsound);
-		/*! Sound to play to announce the transfer process has started. */
-		AST_STRING_FIELD(transferannouncesound);
 	);
 	/*! Seconds allowed between digit presses when dialing transfer destination */
 	unsigned int transferdigittimeout;
@@ -170,6 +168,8 @@ struct ast_featuremap_config {
 		AST_STRING_FIELD(blindxfer);
 		/*! Disconnect DTMF code */
 		AST_STRING_FIELD(disconnect);
+		/*! Automon DTMF code */
+		AST_STRING_FIELD(automon);
 		/*! Attended Transfer DTMF code */
 		AST_STRING_FIELD(atxfer);
 		/*! One-touch parking DTMF code */
@@ -203,7 +203,7 @@ struct ast_featuremap_config *ast_get_chan_featuremap_config(struct ast_channel 
  * \param chan The channel to get the option from
  * \param feature The short name of the feature (as it appears in features.conf)
  * \param[out] buf The buffer to write the DTMF value into
- * \param len The size of the buffer in bytes
+ * \param size The size of the buffer in bytes
  * \retval 0 Success
  * \retval non-zero Unrecognized builtin feature name
  */
@@ -222,7 +222,7 @@ int ast_get_builtin_feature(struct ast_channel *chan, const char *feature, char 
  * \param chan The channel to get the option from
  * \param feature The short name of the feature
  * \param[out] buf The buffer to write the DTMF value into
- * \param len The size of the buffer in bytes
+ * \param size The size of the buffer in bytes
  * \retval 0 Success
  * \retval non-zero Unrecognized feature name
  */

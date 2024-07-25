@@ -23,6 +23,9 @@
  *
  * \author Mark Spencer <markster@digium.com>
  *
+ * \par See also
+ * \arg \ref Config_iax
+ *
  * \ingroup channel_drivers
  *
  * \todo Implement musicclass settings for IAX2 devices
@@ -65,6 +68,7 @@
 #include <netinet/ip.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <strings.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -223,16 +227,6 @@
 			</enum>
 			<enum name="secure_media">
 				<para>R/O Get the if the IAX channel is secured.</para>
-			</enum>
-		</enumlist>
-	</info>
-	<info name="Dial_Resource" language="en_US" tech="IAX2">
-		<para>The general syntax is:</para>
-		<para><literal>Dial(IAX2/[username[:password]@]peer[:port][/exten[@context]][/options]</literal></para>
-		<para>IAX2 optionally allows modifiers to be specified after the extension.</para>
-		<enumlist>
-			<enum name="a">
-				<para>Request auto answer (supporting equipment/configuration required)</para>
 			</enum>
 		</enumlist>
 	</info>
@@ -398,47 +392,6 @@ static int (*iax2_regfunk)(const char *username, int onoff) = NULL;
 #define DEFAULT_FREQ_OK		60 * 1000	/* How often to check for the host to be up */
 #define DEFAULT_FREQ_NOTOK	10 * 1000	/* How often to check, if the host is down... */
 
-/*! \brief Name of effective auth method */
-static const char *auth_method_labels[] = {
-    [0] = "none",
-    [IAX_AUTH_PLAINTEXT] = "plaintext",
-    [IAX_AUTH_MD5] = "MD5",
-    [IAX_AUTH_RSA] = "RSA",
-};
-
-/* Max length is length of |RSA|MD5|plaintext (18 + 1 for NUL = 19) */
-#define AUTH_METHOD_NAMES_BUFSIZE 19
-
-/*!
- * \brief Get names of all auth methods
- * \param Bit field of auth methods
- * \param[out] buf Buffer into which to write the names. Must be of size AUTH_METHOD_NAMES_BUFSIZE.
- * \return Auth methods name
- */
-static char *auth_method_names(int authmethods, char *restrict buf)
-{
-	char *pos = buf;
-
-	*pos = '\0';
-
-	if (authmethods & IAX_AUTH_RSA) {
-		pos += sprintf(pos, "|RSA");
-	}
-	if (authmethods & IAX_AUTH_MD5) {
-		pos += sprintf(pos, "|MD5");
-	}
-	if (authmethods & IAX_AUTH_PLAINTEXT) {
-		pos += sprintf(pos, "|plaintext");
-	}
-
-	if (pos == buf) { /* No auth methods */
-		strcpy(buf, "none");
-		return buf;
-	}
-
-	return buf + 1; /* Skip leading | */
-}
-
 /* if a pvt has encryption setup done and is running on the call */
 #define IAX_CALLENCRYPTED(pvt) \
 	(ast_test_flag64(pvt, IAX_ENCRYPTED) && ast_test_flag64(pvt, IAX_KEYPOPULATED))
@@ -480,7 +433,6 @@ static int amaflags = 0;
 static int adsi = 0;
 static int delayreject = 0;
 static int iax2_encryption = 0;
-static int iax2_authmethods = 0;
 
 static struct ast_flags64 globalflags = { 0 };
 
@@ -866,8 +818,6 @@ struct chan_iax2_pvt {
 	int authrej;
 	/*! permitted authentication methods */
 	int authmethods;
-	/*! effective authentication method */
-	int eff_auth_method;
 	/*! permitted encryption methods */
 	int encmethods;
 	/*! Encryption AES-128 Key */
@@ -915,7 +865,6 @@ struct chan_iax2_pvt {
 	int calling_ton;
 	int calling_tns;
 	int calling_pres;
-	int calling_ani2;
 	int amaflags;
 	AST_LIST_HEAD_NOLOCK(, iax2_dpcache) dpentries;
 	/*! variables inherited from the user definition */
@@ -1214,9 +1163,9 @@ static struct ao2_container *iax_peercallno_pvts;
 static ast_mutex_t iaxsl[ARRAY_LEN(iaxs)];
 
 /*!
- * \brief Another container of iax2_pvt structures
+ *  * \brief Another container of iax2_pvt structures
  *
- * Active IAX2 pvt structs used during transfering a call are stored here.
+ *  Active IAX2 pvt stucts used during transfering a call are stored here.
  */
 static struct ao2_container *iax_transfercallno_pvts;
 
@@ -1380,6 +1329,8 @@ static struct ast_channel_tech iax2_tech = {
  * valid after calling it.  This function may unlock and lock
  * the mutex associated with this callno, meaning that another
  * thread may grab it and destroy the call.
+ *
+ * \return Nothing
  */
 static void iax2_lock_owner(int callno)
 {
@@ -1739,11 +1690,10 @@ static int iax2_sched_add(struct ast_sched_context *con, int when,
 	return ast_sched_add(con, when, callback, data);
 }
 
-/*!
+/*
  * \brief Acquire the iaxsl[callno] if call exists and not having ongoing hangup.
  * \param callno Call number to lock.
- * \retval 0 If call disappeared or has ongoing hangup procedure.
- * \retval 1 If call found and mutex is locked.
+ * \return 0 If call disappeared or has ongoing hangup procedure. 1 If call found and mutex is locked.
  */
 static int iax2_lock_callno_unless_destroyed(int callno)
 {
@@ -2739,7 +2689,7 @@ static void peercnt_remove(struct peercnt *peercnt)
 	 * Container locked here since peercnt may be unlinked from
 	 * list.  If left unlocked, peercnt_add could try and grab this
 	 * entry from the table and modify it at the "same time" this
-	 * thread attempts to unlink it.
+	 * thread attemps to unlink it.
 	 */
 	ao2_lock(peercnts);
 	peercnt->cur--;
@@ -3152,7 +3102,7 @@ static inline int attribute_pure iax2_allow_new(int frametype, int subclass, int
 	return 0;
 }
 
-/*!
+/*
  * \note Calling this function while holding another pvt lock can cause a deadlock.
  */
 static int __find_callno(unsigned short callno, unsigned short dcallno, struct ast_sockaddr *addr, int new, int sockfd, int return_locked, int check_dcallno)
@@ -3460,7 +3410,7 @@ static int send_packet(struct iax_frame *f)
 
 	/* Called with iaxsl held */
 	if (iaxdebug) {
-		ast_debug(8, "Sending %u on %d/%d to %s\n", f->ts, callno, iaxs[callno]->peercallno, ast_sockaddr_stringify(&iaxs[callno]->addr));
+		ast_debug(3, "Sending %u on %d/%d to %s\n", f->ts, callno, iaxs[callno]->peercallno, ast_sockaddr_stringify(&iaxs[callno]->addr));
 	}
 	if (f->transfer) {
 		iax_outputframe(f, NULL, 0, &iaxs[callno]->transfer, f->datalen - sizeof(struct ast_iax2_full_hdr));
@@ -4182,7 +4132,6 @@ static void __get_from_jb(const void *p)
 	long ms;
 	long next;
 	struct timeval now = ast_tvnow();
-	struct ast_format *voicefmt;
 
 	/* Make sure we have a valid private structure before going on */
 	ast_mutex_lock(&iaxsl[callno]);
@@ -4201,20 +4150,11 @@ static void __get_from_jb(const void *p)
 	now.tv_usec += 1000;
 
 	ms = ast_tvdiff_ms(now, pvt->rxcore);
-	if (ms >= (next = jb_next(pvt->jb))) {
+
+	if(ms >= (next = jb_next(pvt->jb))) {
+		struct ast_format *voicefmt;
 		voicefmt = ast_format_compatibility_bitfield2format(pvt->voiceformat);
-		if (!voicefmt) {
-			/* pvt->voiceformat won't be set if we haven't received any voice frames yet.
-			 * In this case, fall back to using the format negotiated during call setup,
-			 * so we don't stall the jitterbuffer completely. */
-			voicefmt = ast_format_compatibility_bitfield2format(pvt->peerformat);
-		}
-		if (!voicefmt) {
-			/* Really shouldn't happen, but if it does, should be looked into */
-			ast_log(LOG_WARNING, "No voice format and no peer format available on %s, backlogging frame\n", ast_channel_name(pvt->owner));
-			goto cleanup; /* Don't crash if there's no voice format */
-		}
-		ret = jb_get(pvt->jb, &frame, ms, ast_format_get_default_ms(voicefmt));
+		ret = jb_get(pvt->jb, &frame, ms, voicefmt ? ast_format_get_default_ms(voicefmt) : 20);
 		switch(ret) {
 		case JB_OK:
 			fr = frame.data;
@@ -4242,7 +4182,7 @@ static void __get_from_jb(const void *p)
 				pvt = iaxs[callno];
 			}
 		}
-		break;
+			break;
 		case JB_DROP:
 			iax2_frame_free(frame.data);
 			break;
@@ -4255,7 +4195,6 @@ static void __get_from_jb(const void *p)
 			break;
 		}
 	}
-cleanup:
 	if (pvt)
 		update_jbsched(pvt);
 	ast_mutex_unlock(&iaxsl[callno]);
@@ -4641,7 +4580,7 @@ static void realtime_update_peer(const char *peername, struct ast_sockaddr *sock
 	ast_update_realtime("iaxpeers", "name", peername,
 		"ipaddr", ast_sockaddr_isnull(sockaddr) ? "" : ast_sockaddr_stringify_addr(sockaddr),
 		"port", ast_sockaddr_isnull(sockaddr) ? "" : port,
-		"regseconds", regseconds, syslabel, sysname, SENTINEL); /* note syslabel can be NULL */
+		"regseconds", regseconds, syslabel, sysname, SENTINEL); /* note syslable can be NULL */
 }
 
 struct create_addr_info {
@@ -4650,7 +4589,6 @@ struct create_addr_info {
 	struct iax2_codec_pref prefs;
 	int maxtime;
 	int encmethods;
-	int authmethods;
 	int found;
 	int sockfd;
 	int adsi;
@@ -4726,7 +4664,6 @@ static int create_addr(const char *peername, struct ast_channel *c, struct ast_s
 	cai->maxtime = peer->maxms;
 	cai->capability = peer->capability;
 	cai->encmethods = peer->encmethods;
-	cai->authmethods = peer->authmethods;
 	cai->sockfd = peer->sockfd;
 	cai->adsi = peer->adsi;
 	cai->prefs = peer->prefs;
@@ -5079,6 +5016,7 @@ reject:
  * \brief Parses an IAX dial string into its component parts.
  * \param data the string to be parsed
  * \param pds pointer to a \c struct \c parsed_dial_string to be filled in
+ * \return nothing
  *
  * This function parses the string and fills the structure
  * with pointers to its component parts. The input string
@@ -5090,12 +5028,10 @@ reject:
  * password field will be set to NULL.
  *
  * \note The dial string format is:
- * \verbatim [username[:password]@]peer[:port][/exten[@context]][/options] \endverbatim
+ *       [username[:password]@]peer[:port][/exten[@context]][/options]
  */
 static void parse_dial_string(char *data, struct parsed_dial_string *pds)
 {
-	char *outkey = NULL;
-
 	if (ast_strlen_zero(data))
 		return;
 
@@ -5118,8 +5054,7 @@ static void parse_dial_string(char *data, struct parsed_dial_string *pds)
 	if (pds->username) {
 		data = pds->username;
 		pds->username = strsep(&data, ":");
-		pds->password = strsep(&data, ":");
-		outkey = data;
+		pds->password = data;
 	}
 
 	data = pds->peer;
@@ -5129,26 +5064,10 @@ static void parse_dial_string(char *data, struct parsed_dial_string *pds)
 	/*
 	 * Check for a key name wrapped in [] in the password position.
 	 * If found, move it to the key field instead.
-	 * Also allow for both key and secret to be specified, now that
-	 * encryption is possible with RSA authentication.
 	 */
-	
-	if (pds->password && (pds->password[0] == '[')) { /* key (then maybe secret) */
+	if (pds->password && (pds->password[0] == '[')) {
 		pds->key = ast_strip_quoted(pds->password, "[", "]");
-		if (ast_strlen_zero(outkey)) {
-			pds->password = NULL;
-			ast_debug(1, "Outkey (%s), no secret\n", pds->key);
-		} else {
-			pds->password = outkey;
-			ast_debug(1, "Outkey (%s) and secret (%s)\n", pds->key, pds->password);
-		}
-	} else if (outkey && (outkey[0] == '[')) { /* secret, then key */
-		pds->key = ast_strip_quoted(outkey, "[", "]");
-		if (ast_strlen_zero(pds->password)) {
-			ast_debug(1, "Outkey (%s), no secret\n", pds->key);
-		} else {
-			ast_debug(1, "Outkey (%s) and secret (%s)\n", pds->key, pds->password);
-		}
+		pds->password = NULL;
 	}
 }
 
@@ -5178,7 +5097,6 @@ static int iax2_call(struct ast_channel *c, const char *dest, int timeout)
 
 	memset(&cai, 0, sizeof(cai));
 	cai.encmethods = iax2_encryption;
-	cai.authmethods = iax2_authmethods;
 
 	memset(&pds, 0, sizeof(pds));
 	tmpstr = ast_strdupa(dest);
@@ -5195,21 +5113,15 @@ static int iax2_call(struct ast_channel *c, const char *dest, int timeout)
 		ast_log(LOG_WARNING, "No address associated with '%s'\n", pds.peer);
 		return -1;
 	}
-
-	if (ast_test_flag64(&cai, IAX_FORCE_ENCRYPT) ||
-		ast_test_flag64(iaxs[callno], IAX_FORCE_ENCRYPT)) {
-		if (!cai.encmethods) {
-			ast_log(LOG_WARNING, "Encryption forced for call, but not enabled\n");
-			ast_channel_hangupcause_set(c, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
-			return -1;
-		}
-		if (((cai.authmethods & IAX_AUTH_RSA) || (cai.authmethods & IAX_AUTH_MD5) || (cai.authmethods & IAX_AUTH_PLAINTEXT)) &&
-			ast_strlen_zero(cai.secret) && ast_strlen_zero(pds.password)) {
-		        ast_log(LOG_WARNING, "Call terminated. Encryption forced but no secret provided\n");
-		        return -1;
-		}
+	if (ast_test_flag64(iaxs[callno], IAX_FORCE_ENCRYPT) && !cai.encmethods) {
+		ast_log(LOG_WARNING, "Encryption forced for call, but not enabled\n");
+		ast_channel_hangupcause_set(c, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
+		return -1;
 	}
-
+	if (ast_strlen_zero(cai.secret) && ast_test_flag64(iaxs[callno], IAX_FORCE_ENCRYPT)) {
+		ast_log(LOG_WARNING, "Call terminated. No secret given and force encrypt enabled\n");
+		return -1;
+	}
 	if (!pds.username && !ast_strlen_zero(cai.username))
 		pds.username = cai.username;
 	if (!pds.password && !ast_strlen_zero(cai.secret))
@@ -5260,7 +5172,6 @@ static int iax2_call(struct ast_channel *c, const char *dest, int timeout)
 
 	iax_ie_append_byte(&ied, IAX_IE_CALLINGTON, ast_channel_connected(c)->id.number.plan);
 	iax_ie_append_short(&ied, IAX_IE_CALLINGTNS, ast_channel_dialed(c)->transit_network_select);
-	iax_ie_append_int(&ied, IAX_IE_CALLINGANI2, ast_channel_connected(c)->ani2);
 
 	if (n)
 		iax_ie_append_str(&ied, IAX_IE_CALLING_NAME, n);
@@ -6021,7 +5932,6 @@ static struct ast_channel *ast_iax2_new(int callno, int state, iax2_format capab
 		ast_channel_redirecting(tmp)->from.number.valid = 1;
 		ast_channel_redirecting(tmp)->from.number.str = ast_strdup(i->rdnis);
 	}
-	ast_channel_caller(tmp)->ani2 = i->calling_ani2;
 	ast_channel_caller(tmp)->id.name.presentation = i->calling_pres;
 	ast_channel_caller(tmp)->id.number.presentation = i->calling_pres;
 	ast_channel_caller(tmp)->id.number.plan = i->calling_ton;
@@ -6443,22 +6353,6 @@ static void build_rand_pad(unsigned char *buf, ssize_t len)
 	}
 }
 
-static int invalid_key(ast_aes_decrypt_key *ecx)
-{
-#ifdef HAVE_OPENSSL
-	int i;
-	for (i = 0; i < 60; i++) {
-		if (ecx->raw[i]) {
-			return 0; /* stop if we encounter anything non-zero */
-		}
-	}
-	/* if ast_aes_encrypt or ast_aes_decrypt is called, then we'll crash when calling AES_encrypt or AES_decrypt */
-	return -1;
-#else
-	return 0; /* Can't verify, but doesn't matter anyways */
-#endif
-}
-
 static void build_encryption_keys(const unsigned char *digest, struct chan_iax2_pvt *pvt)
 {
 	build_ecx_key(digest, pvt);
@@ -6548,21 +6442,15 @@ static int decode_frame(ast_aes_decrypt_key *dcx, struct ast_iax2_full_hdr *fh, 
 		f->frametype = fh->type;
 		if (f->frametype == AST_FRAME_VIDEO) {
 			f->subclass.format = ast_format_compatibility_bitfield2format(uncompress_subclass(fh->csub & ~0x40) | ((fh->csub >> 6) & 0x1));
-			if (!f->subclass.format) {
-				f->subclass.format = ast_format_none;
-			}
 		} else if (f->frametype == AST_FRAME_VOICE) {
 			f->subclass.format = ast_format_compatibility_bitfield2format(uncompress_subclass(fh->csub));
-			if (!f->subclass.format) {
-				f->subclass.format = ast_format_none;
-			}
 		} else {
 			f->subclass.integer = uncompress_subclass(fh->csub);
 		}
 	} else {
 		struct ast_iax2_mini_enc_hdr *efh = (struct ast_iax2_mini_enc_hdr *)fh;
 		if (iaxdebug)
-			ast_debug(5, "Decoding mini with length %d\n", *datalen);
+			ast_debug(1, "Decoding mini with length %d\n", *datalen);
 		if (*datalen < 16 + sizeof(struct ast_iax2_mini_hdr))
 			return -1;
 		/* Decrypt */
@@ -6600,7 +6488,7 @@ static int encrypt_frame(ast_aes_encrypt_key *ecx, struct ast_iax2_full_hdr *fh,
 	} else {
 		struct ast_iax2_mini_enc_hdr *efh = (struct ast_iax2_mini_enc_hdr *)fh;
 		if (iaxdebug)
-			ast_debug(5, "Encoding mini frame with length %d\n", *datalen);
+			ast_debug(1, "Encoding mini frame with length %d\n", *datalen);
 		padding = 16 - ((*datalen - sizeof(struct ast_iax2_mini_enc_hdr)) % 16);
 		padding = 16 + (padding & 0xf);
 		memcpy(workspace, poo, padding);
@@ -7455,7 +7343,7 @@ static char *handle_cli_iax2_show_registry(struct ast_cli_entry *e, int cmd, str
 	AST_LIST_TRAVERSE(&registrations, reg, entry) {
 		snprintf(host, sizeof(host), "%s", ast_sockaddr_stringify(&reg->addr));
 
-		snprintf(perceived, sizeof(perceived), "%s", ast_sockaddr_isnull(&reg->us) ? "<Unregistered>" : ast_sockaddr_stringify(&reg->us));
+		snprintf(perceived, sizeof(perceived), "%s", ast_sockaddr_isnull(&reg->addr) ? "<Unregistered>" : ast_sockaddr_stringify(&reg->addr));
 
 		ast_cli(a->fd, FORMAT, host,
 				(reg->dnsmgr) ? "Y" : "N",
@@ -7487,7 +7375,7 @@ static int manager_iax2_show_registry(struct mansession *s, const struct message
 	AST_LIST_TRAVERSE(&registrations, reg, entry) {
 		snprintf(host, sizeof(host), "%s", ast_sockaddr_stringify(&reg->addr));
 
-		snprintf(perceived, sizeof(perceived), "%s", ast_sockaddr_isnull(&reg->us) ? "<Unregistered>" : ast_sockaddr_stringify(&reg->us));
+		snprintf(perceived, sizeof(perceived), "%s", ast_sockaddr_isnull(&reg->addr) ? "<Unregistered>" : ast_sockaddr_stringify(&reg->addr));
 
 		astman_append(s,
 			"Event: RegistryEntry\r\n"
@@ -7583,7 +7471,7 @@ static int ast_cli_netstats(struct mansession *s, int fd, int limit_fmt)
 	int numchans = 0;
 	char first_message[10] = { 0, };
 	char last_message[10] = { 0, };
-#define ACN_FORMAT1 "%-24.25s %4u %4d %4d %5d %3d %5d %4d %6d %4d %4d %5d %3d %5d %4d %6d %s%s %4s%s\n"
+#define ACN_FORMAT1 "%-20.25s %4u %4d %4d %5d %3d %5d %4d %6d %4d %4d %5d %3d %5d %4d %6d %s%s %4s%s\n"
 #define ACN_FORMAT2 "%s %u %d %d %d %d %d %d %d %d %d %d %d %d %d %d %s%s %s%s\n"
 	for (x = 0; x < ARRAY_LEN(iaxs); x++) {
 		ast_mutex_lock(&iaxsl[x]);
@@ -7677,8 +7565,8 @@ static char *handle_cli_iax2_show_netstats(struct ast_cli_entry *e, int cmd, str
 	}
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
-	ast_cli(a->fd, "                                -------- LOCAL ---------------------  -------- REMOTE --------------------\n");
-	ast_cli(a->fd, "Channel                    RTT  Jit  Del  Lost   %%  Drop  OOO  Kpkts  Jit  Del  Lost   %%  Drop  OOO  Kpkts FirstMsg    LastMsg\n");
+	ast_cli(a->fd, "                           -------- LOCAL ---------------------  -------- REMOTE --------------------\n");
+	ast_cli(a->fd, "Channel               RTT  Jit  Del  Lost   %%  Drop  OOO  Kpkts  Jit  Del  Lost   %%  Drop  OOO  Kpkts FirstMsg    LastMsg\n");
 	numchans = ast_cli_netstats(NULL, a->fd, 1);
 	ast_cli(a->fd, "%d active IAX channel%s\n", numchans, (numchans != 1) ? "s" : "");
 	return CLI_SUCCESS;
@@ -7928,8 +7816,6 @@ static int check_access(int callno, struct ast_sockaddr *addr, struct iax_ies *i
 		iaxs[callno]->calling_tns = ies->calling_tns;
 	if (ies->calling_pres > -1)
 		iaxs[callno]->calling_pres = ies->calling_pres;
-	if (ies->calling_ani2 > -1)
-		iaxs[callno]->calling_ani2 = ies->calling_ani2;
 	if (ies->format)
 		iaxs[callno]->peerformat = ies->format;
 	if (ies->adsicpe)
@@ -8232,7 +8118,7 @@ static int authenticate_verify(struct chan_iax2_pvt *p, struct iax_ies *ies)
 		user = user_unref(user);
 	}
 	if (ast_test_flag64(p, IAX_FORCE_ENCRYPT) && !p->encmethods) {
-		ast_log(LOG_WARNING, "Call Terminated, incoming call is unencrypted while force encrypt is enabled.\n");
+		ast_log(LOG_NOTICE, "Call Terminated, Incoming call is unencrypted while force encrypt is enabled.\n");
 		return res;
 	}
 	if (!ast_test_flag(&p->state, IAX_STATE_AUTHENTICATED))
@@ -8258,17 +8144,12 @@ static int authenticate_verify(struct chan_iax2_pvt *p, struct iax_ies *ies)
 			key = ast_key_get(keyn, AST_KEY_PUBLIC);
 			if (key && !ast_check_signature(key, p->challenge, rsasecret)) {
 				res = 0;
-				p->eff_auth_method = IAX_AUTH_RSA;
 				break;
-			} else if (!key) {
-				ast_log(LOG_WARNING, "Requested inkey '%s' for RSA authentication does not exist\n", keyn);
-			}
+			} else if (!key)
+				ast_log(LOG_WARNING, "requested inkey '%s' for RSA authentication does not exist\n", keyn);
 			keyn = strsep(&stringp, ":");
 		}
 		ast_free(tmpkey);
-		if (res && authdebug) {
-			ast_log(LOG_WARNING, "No RSA public keys on file matched incoming call\n");
-		}
 	} else if (p->authmethods & IAX_AUTH_MD5) {
 		struct MD5Context md5;
 		unsigned char digest[16];
@@ -8285,19 +8166,12 @@ static int authenticate_verify(struct chan_iax2_pvt *p, struct iax_ies *ies)
 				sprintf(requeststr + (x << 1), "%02hhx", digest[x]); /* safe */
 			if (!strcasecmp(requeststr, md5secret)) {
 				res = 0;
-				p->eff_auth_method = IAX_AUTH_MD5;
 				break;
-			} else if (authdebug) {
-				ast_log(LOG_WARNING, "MD5 secret mismatch\n");
 			}
 		}
 	} else if (p->authmethods & IAX_AUTH_PLAINTEXT) {
-		if (!strcmp(secret, p->secret)) {
+		if (!strcmp(secret, p->secret))
 			res = 0;
-			p->eff_auth_method = IAX_AUTH_PLAINTEXT;
-		} else if (authdebug) {
-			ast_log(LOG_WARNING, "Plaintext secret mismatch\n");
-		}
 	}
 	return res;
 }
@@ -8472,39 +8346,24 @@ static int authenticate(const char *challenge, const char *secret, const char *k
 	if (!ast_strlen_zero(keyn)) {
 		if (!(authmethods & IAX_AUTH_RSA)) {
 			if (ast_strlen_zero(secret)) {
-				ast_log(LOG_WARNING, "Asked to authenticate to %s with an RSA key, but they don't allow RSA authentication\n", ast_sockaddr_stringify_addr(addr));
+				ast_log(LOG_NOTICE, "Asked to authenticate to %s with an RSA key, but they don't allow RSA authentication\n", ast_sockaddr_stringify_addr(addr));
 			}
 		} else if (ast_strlen_zero(challenge)) {
-			ast_log(LOG_WARNING, "No challenge provided for RSA authentication to %s\n", ast_sockaddr_stringify_addr(addr));
+			ast_log(LOG_NOTICE, "No challenge provided for RSA authentication to %s\n", ast_sockaddr_stringify_addr(addr));
 		} else {
 			char sig[256];
 			struct ast_key *key;
 			key = ast_key_get(keyn, AST_KEY_PRIVATE);
 			if (!key) {
-				ast_log(LOG_WARNING, "Unable to find private key '%s'\n", keyn);
+				ast_log(LOG_NOTICE, "Unable to find private key '%s'\n", keyn);
 			} else {
 				if (ast_sign(key, (char*)challenge, sig)) {
-					ast_log(LOG_WARNING, "Unable to sign challenge with key\n");
+					ast_log(LOG_NOTICE, "Unable to sign challenge with key\n");
 					res = -1;
 				} else {
 					iax_ie_append_str(ied, IAX_IE_RSA_RESULT, sig);
-					if (pvt) {
-						pvt->eff_auth_method = IAX_AUTH_RSA;
-					}
 					res = 0;
 				}
-			}
-
-			if (pvt && !ast_strlen_zero(secret)) {
-				struct MD5Context md5;
-				unsigned char digest[16];
-
-				MD5Init(&md5);
-				MD5Update(&md5, (unsigned char *) challenge, strlen(challenge));
-				MD5Update(&md5, (unsigned char *) secret, strlen(secret));
-				MD5Final(digest, &md5);
-
-				build_encryption_keys(digest, pvt);
 			}
 		}
 	}
@@ -8523,18 +8382,14 @@ static int authenticate(const char *challenge, const char *secret, const char *k
 				sprintf(digres + (x << 1),  "%02hhx", digest[x]); /* safe */
 			if (pvt) {
 				build_encryption_keys(digest, pvt);
-				pvt->eff_auth_method = IAX_AUTH_MD5;
 			}
 			iax_ie_append_str(ied, IAX_IE_MD5_RESULT, digres);
 			res = 0;
 		} else if (authmethods & IAX_AUTH_PLAINTEXT) {
 			iax_ie_append_str(ied, IAX_IE_PASSWORD, secret);
-			if (pvt) {
-				pvt->eff_auth_method = IAX_AUTH_PLAINTEXT;
-			}
 			res = 0;
 		} else
-			ast_log(LOG_WARNING, "No way to send secret to peer '%s' (their methods: %d)\n", ast_sockaddr_stringify_addr(addr), authmethods);
+			ast_log(LOG_NOTICE, "No way to send secret to peer '%s' (their methods: %d)\n", ast_sockaddr_stringify_addr(addr), authmethods);
 	}
 	return res;
 }
@@ -8619,22 +8474,7 @@ static int authenticate_reply(struct chan_iax2_pvt *p, struct ast_sockaddr *addr
 		}
 	}
 
-	if (!(ies->authmethods & (IAX_AUTH_MD5 | IAX_AUTH_PLAINTEXT)) && (ies->authmethods & IAX_AUTH_RSA) && ast_strlen_zero(okey)) {
-		/* If the only thing available is RSA, and we don't have an outkey, we can't do it... */
-		ast_log(LOG_WARNING, "Call terminated. RSA authentication requires an outkey\n");
-		return -1;
-	}
-
 	if (ies->encmethods) {
-		if (ast_strlen_zero(p->secret) &&
-			((ies->authmethods & IAX_AUTH_RSA) || (ies->authmethods & IAX_AUTH_MD5) || (ies->authmethods & IAX_AUTH_PLAINTEXT))) {
-			ast_log(LOG_WARNING, "Call terminated. Encryption requested by peer but no secret available locally\n");
-			return -1;
-		}
-		/* Don't even THINK about trying to encrypt or decrypt anything if we don't have valid keys, for some reason... */
-		/* If either of these happens, it's our fault, not the user's. But we should abort rather than crash. */
-		ast_assert_return(!invalid_key(&p->ecx), -1);
-		ast_assert_return(!invalid_key(&p->dcx), -1);
 		ast_set_flag64(p, IAX_ENCRYPTED | IAX_KEYPOPULATED);
 	} else if (ast_test_flag64(iaxs[callno], IAX_FORCE_ENCRYPT)) {
 		ast_log(LOG_NOTICE, "Call initiated without encryption while forceencryption=yes option is set\n");
@@ -8824,7 +8664,7 @@ static int complete_transfer(int callno, struct iax_ies *ies)
 		remove_by_peercallno(pvt);
 	}
 	pvt->peercallno = peercallno;
-	/*this is where the transfering call switches hash tables */
+	/*this is where the transfering call swiches hash tables */
 	store_by_peercallno(pvt);
 	pvt->transferring = TRANSFER_NONE;
 	pvt->svoiceformat = -1;
@@ -9413,7 +9253,7 @@ static int registry_rerequest(struct iax_ies *ies, int callno, struct ast_sockad
 			return send_command(iaxs[callno], AST_FRAME_IAX, IAX_COMMAND_REGREQ, 0, ied.buf, ied.pos, -1);
 		} else
 			return -1;
-		ast_log(LOG_WARNING, "Registry acknowledge on unknown registry '%s'\n", peer);
+		ast_log(LOG_WARNING, "Registry acknowledge on unknown registery '%s'\n", peer);
 	} else
 		ast_log(LOG_NOTICE, "Can't reregister without a reg\n");
 	return -1;
@@ -9636,7 +9476,7 @@ static int timing_read(int *id, int fd, short events, void *cbdata)
 			res = send_trunk(tpeer, &now);
 			trunk_timed++;
 			if (iaxtrunkdebug) {
-				ast_verbose(" - Trunk peer (%s) has %d call chunk%s in transit, %u bytes backlogged and has hit a high water mark of %u bytes\n",
+				ast_verbose(" - Trunk peer (%s) has %d call chunk%s in transit, %u bytes backloged and has hit a high water mark of %u bytes\n",
 							ast_sockaddr_stringify(&tpeer->addr),
 							res,
 							(res != 1) ? "s" : "",
@@ -10075,8 +9915,8 @@ static int socket_process_meta(int packet_len, struct ast_iax2_meta_hdr *meta, s
 		} else if (iaxs[fr->callno]->voiceformat == 0) {
 			ast_log(LOG_WARNING, "Received trunked frame before first full voice frame\n");
 			iax2_vnak(fr->callno);
-		} else if ((f.subclass.format = ast_format_compatibility_bitfield2format(
-						iaxs[fr->callno]->voiceformat))) {
+		} else {
+			f.subclass.format = ast_format_compatibility_bitfield2format(iaxs[fr->callno]->voiceformat);
 			f.datalen = len;
 			if (f.datalen >= 0) {
 				if (f.datalen)
@@ -10319,17 +10159,11 @@ static int socket_process_helper(struct iax2_thread *thread)
 		f.frametype = fh->type;
 		if (f.frametype == AST_FRAME_VIDEO) {
 			f.subclass.format = ast_format_compatibility_bitfield2format(uncompress_subclass(fh->csub & ~0x40));
-			if (!f.subclass.format) {
-				return 1;
-			}
 			if ((fh->csub >> 6) & 0x1) {
 				f.subclass.frame_ending = 1;
 			}
 		} else if (f.frametype == AST_FRAME_VOICE) {
 			f.subclass.format = ast_format_compatibility_bitfield2format(uncompress_subclass(fh->csub));
-			if (!f.subclass.format) {
-				return 1;
-			}
 		} else {
 			f.subclass.integer = uncompress_subclass(fh->csub);
 		}
@@ -10446,7 +10280,7 @@ static int socket_process_helper(struct iax2_thread *thread)
 	}
 	if (ast_test_flag64(iaxs[fr->callno], IAX_ENCRYPTED) && !decrypted) {
 		if (decrypt_frame(fr->callno, fh, &f, &res)) {
-			ast_log(LOG_WARNING, "Packet Decrypt Failed!\n");
+			ast_log(LOG_NOTICE, "Packet Decrypt Failed!\n");
 			ast_variables_destroy(ies.vars);
 			ast_mutex_unlock(&iaxsl[fr->callno]);
 			return 1;
@@ -11094,8 +10928,8 @@ static int socket_process_helper(struct iax2_thread *thread)
 					}
 					break;
 				}
-				if (iaxs[fr->callno]->authmethods & (IAX_AUTH_MD5 | IAX_AUTH_RSA))
-					merge_encryption(iaxs[fr->callno], ies.encmethods);
+				if (iaxs[fr->callno]->authmethods & IAX_AUTH_MD5)
+					merge_encryption(iaxs[fr->callno],ies.encmethods);
 				else
 					iaxs[fr->callno]->encmethods = 0;
 				if (!authenticate_request(fr->callno) && iaxs[fr->callno])
@@ -11373,7 +11207,7 @@ static int socket_process_helper(struct iax2_thread *thread)
 				}
 				if (authenticate_verify(iaxs[fr->callno], &ies)) {
 					if (authdebug)
-						ast_log(LOG_WARNING, "Host %s failed to authenticate as %s\n", ast_sockaddr_stringify(&addr),
+						ast_log(LOG_NOTICE, "Host %s failed to authenticate as %s\n", ast_sockaddr_stringify(&addr),
 								iaxs[fr->callno]->username);
 					memset(&ied0, 0, sizeof(ied0));
 					auth_fail(fr->callno, IAX_COMMAND_REJECT);
@@ -11386,7 +11220,7 @@ static int socket_process_helper(struct iax2_thread *thread)
 					exists = 0;
 				if (strcmp(iaxs[fr->callno]->exten, "TBD") && !exists) {
 					if (authdebug)
-						ast_log(LOG_WARNING, "Rejected connect attempt from %s, request '%s@%s' does not exist\n",
+						ast_log(LOG_NOTICE, "Rejected connect attempt from %s, request '%s@%s' does not exist\n",
 								ast_sockaddr_stringify(&addr),
 								iaxs[fr->callno]->exten,
 								iaxs[fr->callno]->context);
@@ -11441,12 +11275,12 @@ static int socket_process_helper(struct iax2_thread *thread)
 						if (!format) {
 							if (authdebug) {
 								if (ast_test_flag64(iaxs[fr->callno], IAX_CODEC_NOCAP)) {
-									ast_log(LOG_WARNING, "Rejected connect attempt from %s, requested '%s' incompatible with our capability '%s'.\n",
+									ast_log(LOG_NOTICE, "Rejected connect attempt from %s, requested '%s' incompatible with our capability '%s'.\n",
 											ast_sockaddr_stringify(&addr),
 										iax2_getformatname_multiple(iaxs[fr->callno]->peerformat, &peer_form_buf),
 										iax2_getformatname_multiple(iaxs[fr->callno]->capability, &cap_buf));
 								} else {
-									ast_log(LOG_WARNING, "Rejected connect attempt from %s, requested/capability '%s'/'%s' incompatible with our capability '%s'.\n",
+									ast_log(LOG_NOTICE, "Rejected connect attempt from %s, requested/capability '%s'/'%s' incompatible with our capability '%s'.\n",
 										ast_sockaddr_stringify(&addr),
 										iax2_getformatname_multiple(iaxs[fr->callno]->peerformat, &peer_form_buf),
 										iax2_getformatname_multiple(iaxs[fr->callno]->peercapability, &peer_buf),
@@ -11499,12 +11333,12 @@ static int socket_process_helper(struct iax2_thread *thread)
 									iax2_getformatname_multiple(iaxs[fr->callno]->peercapability & iaxs[fr->callno]->capability, &cap_buf));
 								if (authdebug) {
 									if (ast_test_flag64(iaxs[fr->callno], IAX_CODEC_NOCAP)) {
-										ast_log(LOG_WARNING, "Rejected connect attempt from %s, requested '%s' incompatible with our capability '%s'.\n",
+										ast_log(LOG_NOTICE, "Rejected connect attempt from %s, requested '%s' incompatible with our capability '%s'.\n",
 											ast_sockaddr_stringify(&addr),
 											iax2_getformatname_multiple(iaxs[fr->callno]->peerformat, &peer_form_buf),
 											iax2_getformatname_multiple(iaxs[fr->callno]->capability, &cap_buf));
 									} else {
-										ast_log(LOG_WARNING, "Rejected connect attempt from %s, requested/capability '%s'/'%s' incompatible with our capability '%s'.\n",
+										ast_log(LOG_NOTICE, "Rejected connect attempt from %s, requested/capability '%s'/'%s' incompatible with our capability '%s'.\n",
 											ast_sockaddr_stringify(&addr),
 											iax2_getformatname_multiple(iaxs[fr->callno]->peerformat, &peer_form_buf),
 											iax2_getformatname_multiple(iaxs[fr->callno]->peercapability, &peer_buf),
@@ -11528,24 +11362,14 @@ static int socket_process_helper(struct iax2_thread *thread)
 						iax_ie_append_versioned_uint64(&ied1, IAX_IE_FORMAT2, 0, format);
 						send_command(iaxs[fr->callno], AST_FRAME_IAX, IAX_COMMAND_ACCEPT, 0, ied1.buf, ied1.pos, -1);
 						if (strcmp(iaxs[fr->callno]->exten, "TBD")) {
-							char authmethodnames[AUTH_METHOD_NAMES_BUFSIZE];
 							ast_set_flag(&iaxs[fr->callno]->state, IAX_STATE_STARTED);
 							ast_verb(3, "Accepting AUTHENTICATED call from %s:\n"
-											"%srequested auth methods = (%s),\n"
-											"%sactual auth method = %s,\n"
-											"%sencrypted = %s,\n"
 											"%srequested format = %s,\n"
 											"%srequested prefs = %s,\n"
 											"%sactual format = %s,\n"
 											"%shost prefs = %s,\n"
 											"%spriority = %s\n",
 											ast_sockaddr_stringify(&addr),
-											VERBOSE_PREFIX_4,
-											auth_method_names(iaxs[fr->callno]->authmethods, authmethodnames),
-											VERBOSE_PREFIX_4,
-											auth_method_labels[iaxs[fr->callno]->eff_auth_method],
-											VERBOSE_PREFIX_4,
-											IAX_CALLENCRYPTED(iaxs[fr->callno]) ? "yes" : "no",
 											VERBOSE_PREFIX_4,
 											iax2_getformatname(iaxs[fr->callno]->peerformat),
 											VERBOSE_PREFIX_4,
@@ -11615,7 +11439,7 @@ immediatedial:
 					ast_string_field_set(iaxs[fr->callno], exten, ies.called_number ? ies.called_number : "s");
 					if (!ast_exists_extension(NULL, iaxs[fr->callno]->context, iaxs[fr->callno]->exten, 1, iaxs[fr->callno]->cid_num)) {
 						if (authdebug)
-							ast_log(LOG_WARNING, "Rejected dial attempt from %s, request '%s@%s' does not exist\n",
+							ast_log(LOG_NOTICE, "Rejected dial attempt from %s, request '%s@%s' does not exist\n",
 									ast_sockaddr_stringify(&addr),
 									iaxs[fr->callno]->exten,
 									iaxs[fr->callno]->context);
@@ -11957,11 +11781,6 @@ immediatedial:
 				f.subclass.frame_ending = 1;
 			}
 			f.subclass.format = ast_format_compatibility_bitfield2format(iaxs[fr->callno]->videoformat);
-			if (!f.subclass.format) {
-				ast_variables_destroy(ies.vars);
-				ast_mutex_unlock(&iaxsl[fr->callno]);
-				return 1;
-			}
 		} else {
 			ast_log(LOG_WARNING, "Received mini frame before first full video frame\n");
 			iax2_vnak(fr->callno);
@@ -11983,14 +11802,9 @@ immediatedial:
 	} else {
 		/* A mini frame */
 		f.frametype = AST_FRAME_VOICE;
-		if (iaxs[fr->callno]->voiceformat > 0) {
+		if (iaxs[fr->callno]->voiceformat > 0)
 			f.subclass.format = ast_format_compatibility_bitfield2format(iaxs[fr->callno]->voiceformat);
-			if (!f.subclass.format) {
-				ast_variables_destroy(ies.vars);
-				ast_mutex_unlock(&iaxsl[fr->callno]);
-				return 1;
-			}
-		} else {
+		else {
 			ast_debug(1, "Received mini frame before first full voice frame\n");
 			iax2_vnak(fr->callno);
 			ast_variables_destroy(ies.vars);
@@ -12126,7 +11940,7 @@ immediatedial:
 		iaxs[fr->callno]->last = fr->ts;
 #if 1
 		if (iaxdebug)
-			ast_debug(8, "For call=%d, set last=%u\n", fr->callno, fr->ts);
+			ast_debug(1, "For call=%d, set last=%u\n", fr->callno, fr->ts);
 #endif
 	}
 
@@ -12839,9 +12653,7 @@ static int get_auth_methods(const char *value)
 
 
 /*! \brief Check if address can be used as packet source.
- \retval  0 address available
- \retval  1 address unavailable
- \retval -1 error
+ \return 0  address available, 1  address unavailable, -1  error
 */
 static int check_srcaddr(struct ast_sockaddr *addr)
 {
@@ -13001,7 +12813,6 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, st
 		if (firstpass) {
 			ast_copy_flags64(peer, &globalflags, IAX_USEJITTERBUF | IAX_SENDCONNECTEDLINE | IAX_RECVCONNECTEDLINE | IAX_FORCE_ENCRYPT);
 			peer->encmethods = iax2_encryption;
-			peer->authmethods = iax2_authmethods;
 			peer->adsi = adsi;
 			ast_string_field_set(peer, secret, "");
 			if (!found) {
@@ -13335,7 +13146,6 @@ static struct iax2_user *build_user(const char *name, struct ast_variable *v, st
 			user->prefs = prefs_global;
 			user->capability = iax2_capability;
 			user->encmethods = iax2_encryption;
-			user->authmethods = iax2_authmethods;
 			user->adsi = adsi;
 			user->calltoken_required = CALLTOKEN_DEFAULT;
 			ast_string_field_set(user, name, name);
@@ -13728,7 +13538,6 @@ static int set_config(const char *config_file, int reload, int forced)
 	maxauthreq = 3;
 
 	srvlookup = 0;
-	iax2_authmethods = 0;
 
 	v = ast_variable_browse(cfg, "general");
 
@@ -13836,11 +13645,6 @@ static int set_config(const char *config_file, int reload, int forced)
 				} else {
 					ast_log(LOG_WARNING, "Invalid address '%s' specified, at line %d\n", v->value, v->lineno);
 				}
-			}
-		} else if (!strcasecmp(v->name, "auth")) {
-			iax2_authmethods = get_auth_methods(v->value);
-			if (iax2_authmethods & IAX_AUTH_PLAINTEXT) {
-				ast_log(LOG_WARNING, "Default auth method is set to deprecated 'plaintext' at line %d of iax.conf\n", v->lineno);
 			}
 		} else if (!strcasecmp(v->name, "authdebug")) {
 			authdebug = ast_true(v->value);
@@ -14311,7 +14115,9 @@ static struct iax2_dpcache *find_cache(struct ast_channel *chan, const char *dat
 {
 	struct iax2_dpcache *dp = NULL;
 	struct timeval now = ast_tvnow();
-	int x, com[2], timeout, doabort, callno;
+	int x, com[2], timeout, old = 0, outfd, doabort, callno;
+	struct ast_channel *c = NULL;
+	struct ast_frame *f = NULL;
 
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&dpcache, dp, cache_list) {
 		if (ast_tvcmp(now, dp->expiry) > 0) {
@@ -14358,8 +14164,8 @@ static struct iax2_dpcache *find_cache(struct ast_channel *chan, const char *dat
 
 	/* By here we must have a dp */
 	if (dp->flags & CACHE_FLAG_PENDING) {
-		int res;
-		struct pollfd pfd;
+		struct timeval start;
+		int ms;
 		/* Okay, here it starts to get nasty.  We need a pipe now to wait
 		   for a reply to come back so long as it's pending */
 		for (x = 0; x < ARRAY_LEN(dp->waiters); x++) {
@@ -14380,31 +14186,35 @@ static struct iax2_dpcache *find_cache(struct ast_channel *chan, const char *dat
 		timeout = iaxdefaulttimeout * 1000;
 		/* Temporarily unlock */
 		AST_LIST_UNLOCK(&dpcache);
+		/* Defer any dtmf */
+		if (chan)
+			old = ast_channel_defer_dtmf(chan);
 		doabort = 0;
-
-		/* chan is in autoservice here, so do NOT service it here! */
-		pfd.fd = com[0];
-		pfd.events = POLLIN;
-		pfd.revents = 0;
-		/* Wait for pipe activity... if the channel hangs up, we'll catch it on the way out. */
-		res = ast_poll(&pfd, 1, timeout);
-		if (res < 0) {
-			ast_log(LOG_WARNING, "poll returned < 0: %s\n", strerror(errno));
-			return NULL;
-		} else if (!pfd.revents) {
+		start = ast_tvnow();
+		while ((ms = ast_remaining_ms(start, timeout))) {
+			c = ast_waitfor_nandfds(&chan, chan ? 1 : 0, &com[0], 1, NULL, &outfd, &ms);
+			if (outfd > -1)
+				break;
+			if (!c)
+				continue;
+			if (!(f = ast_read(c))) {
+				doabort = 1;
+				break;
+			}
+			ast_frfree(f);
+		}
+		if (!ms) {
 			ast_log(LOG_WARNING, "Timeout waiting for %s exten %s\n", data, exten);
 		}
-
-		if (chan && ast_check_hangup(chan)) {
-			doabort = 1;
-		}
-
 		AST_LIST_LOCK(&dpcache);
 		dp->waiters[x] = -1;
 		close(com[1]);
 		close(com[0]);
 		if (doabort) {
-			/* Don't interpret anything, just abort. */
+			/* Don't interpret anything, just abort.  Not sure what th epoint
+			  of undeferring dtmf on a hung up channel is but hey whatever */
+			if (!old && chan)
+				ast_channel_undefer_dtmf(chan);
 			return NULL;
 		}
 		if (!(dp->flags & CACHE_FLAG_TIMEOUT)) {
@@ -14427,6 +14237,8 @@ static struct iax2_dpcache *find_cache(struct ast_channel *chan, const char *dat
 			}
 		}
 		/* Our caller will obtain the rest */
+		if (!old && chan)
+			ast_channel_undefer_dtmf(chan);
 	}
 	return dp;
 }

@@ -55,7 +55,7 @@ struct stasis_cp_all;
  * \param name Base name of the topics.
  * \param id_fn Identity function for the cache.
  * \return All side instance.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct stasis_cp_all *stasis_cp_all_create(const char *name,
 	snapshot_get_id id_fn);
@@ -68,7 +68,7 @@ struct stasis_cp_all *stasis_cp_all_create(const char *name,
  *
  * \param all All side caching pattern object.
  * \return The aggregate topic.
- * \retval NULL if \a all is \c NULL
+ * \return \c NULL if \a all is \c NULL
  */
 struct stasis_topic *stasis_cp_all_topic(struct stasis_cp_all *all);
 
@@ -83,7 +83,7 @@ struct stasis_topic *stasis_cp_all_topic(struct stasis_cp_all *all);
  *
  * \param all All side caching pattern object.
  * \return The aggregate caching topic.
- * \retval NULL if \a all is \c NULL
+ * \return \c NULL if \a all is \c NULL
  */
 struct stasis_topic *stasis_cp_all_topic_cached(
 	struct stasis_cp_all *all);
@@ -95,7 +95,7 @@ struct stasis_topic *stasis_cp_all_topic_cached(
  *
  * \param all All side caching pattern object.
  * \return The cache.
- * \retval NULL if \a all is \c NULL
+ * \return \c NULL if \a all is \c NULL
  */
 struct stasis_cache *stasis_cp_all_cache(struct stasis_cp_all *all);
 
@@ -152,7 +152,7 @@ void stasis_cp_single_unsubscribe(struct stasis_cp_single *one);
  *
  * \param one One side of the cache pattern.
  * \return The main topic.
- * \retval NULL if \a one is \c NULL
+ * \return \c NULL if \a one is \c NULL
  */
 struct stasis_topic *stasis_cp_single_topic(struct stasis_cp_single *one);
 
@@ -164,7 +164,7 @@ struct stasis_topic *stasis_cp_single_topic(struct stasis_cp_single *one);
  *
  * \param one One side of the cache pattern.
  * \return The caching topic.
- * \retval NULL if \a one is \c NULL
+ * \return \c NULL if \a one is \c NULL
  */
 struct stasis_topic *stasis_cp_single_topic_cached(
 	struct stasis_cp_single *one);

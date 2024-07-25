@@ -59,7 +59,7 @@ struct ast_ari_conf {
 };
 
 /*! Max length for auth_realm field */
-#define ARI_AUTH_REALM_LEN 256
+#define ARI_AUTH_REALM_LEN 80
 
 /*! \brief Global configuration options for ARI. */
 struct ast_ari_conf_general {
@@ -126,7 +126,7 @@ void ast_ari_config_destroy(void);
  * ao2_cleanup() when you're done with it.
  *
  * \return ARI configuration object.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_ari_conf *ast_ari_config_get(void);
 
@@ -136,7 +136,7 @@ struct ast_ari_conf *ast_ari_config_get(void);
  * \param username Name of the user.
  * \param password User's password.
  * \return User object.
- * \retval NULL if username or password is invalid.
+ * \return \c NULL if username or password is invalid.
  */
 struct ast_ari_conf_user *ast_ari_config_validate_user(const char *username,
 	const char *password);

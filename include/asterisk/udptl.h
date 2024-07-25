@@ -60,6 +60,8 @@ struct ast_udptl *ast_udptl_new_with_bindaddr(struct ast_sched_context *sched, s
  * related to that session will include the tag and the reader of
  * the messages will be able to identify which endpoint caused them
  * to be generated.
+ *
+ * \retval none
  */
 void __attribute__((format(printf, 2, 3))) ast_udptl_set_tag(struct ast_udptl *udptl, const char *format, ...);
 
@@ -99,7 +101,7 @@ void ast_udptl_set_local_max_ifp(struct ast_udptl *udptl, unsigned int max_ifp);
 /*!
  * \brief retrieves local_max_datagram.
  *
- * \return positive value representing max datagram size.
+ * \retval positive value representing max datagram size.
  * \retval 0 if no value is present
  */
 unsigned int ast_udptl_get_local_max_datagram(struct ast_udptl *udptl);
@@ -115,7 +117,7 @@ unsigned int ast_udptl_get_far_max_datagram(const struct ast_udptl *udptl);
 /*!
  * \brief retrieves far max ifp
  *
- * \return positive value representing max ifp size
+ * \retval positive value representing max ifp size
  * \retval 0 if no value is present
  */
 unsigned int ast_udptl_get_far_max_ifp(struct ast_udptl *udptl);

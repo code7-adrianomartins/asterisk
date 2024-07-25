@@ -15,8 +15,8 @@
  * \brief
  *
  * Implementation of Inter-Asterisk eXchange, version 2
- * \ref parser.c
- * \ref parser.h
+ * \ref iax2-parser.c
+ * \ref iax2-parser.h
  * \ref chan_iax2.c
  */
 
@@ -75,7 +75,7 @@ enum iax_frame_subclass {
 	IAX_COMMAND_VNAK =      18,
 	/*! Request status of a dialplan entry */
 	IAX_COMMAND_DPREQ =     19,
-	/*! Status reply of a dialplan entry status request */
+	/*! Request status of a dialplan entry */
 	IAX_COMMAND_DPREP =     20,
 	/*! Request a dial on channel brought up TBD */
 	IAX_COMMAND_DIAL =      21,
@@ -186,8 +186,6 @@ enum iax_frame_subclass {
 
 #define IAX_IE_CAPABILITY2          55      /*!< Actual codec capability - u8 version + integer array */
 #define IAX_IE_FORMAT2              56      /*!< Desired codec format - u8 version + integer array */
-
-#define IAX_IE_CALLINGANI2          57      /*!< Calling Originating Line Information (ANI2) digits */
 
 #define IAX_MAX_OSPBLOCK_SIZE		254		/*!< Max OSP token block size, 255 bytes - 1 byte OSP token block index */
 #define IAX_MAX_OSPBLOCK_NUM		4

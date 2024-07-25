@@ -104,8 +104,6 @@ static int clearglobalvars_config = 0;
 static int extenpatternmatchnew_config = 0;
 static char *overrideswitch_config = NULL;
 
-static struct stasis_subscription *fully_booted_subscription;
-
 AST_MUTEX_DEFINE_STATIC(save_dialplan_lock);
 
 AST_MUTEX_DEFINE_STATIC(reload_lock);
@@ -845,7 +843,7 @@ static char *handle_cli_dialplan_save(struct ast_cli_entry *e, int cmd, struct a
 
 	if (ast_mutex_lock(&save_dialplan_lock)) {
 		ast_cli(a->fd,
-			"Failed to lock dialplan saving (another process saving?)\n");
+			"Failed to lock dialplan saving (another proccess saving?)\n");
 		return CLI_FAILURE;
 	}
 	/* XXX the code here is quite loose, a pathname with .conf in it
@@ -1378,7 +1376,7 @@ static char *handle_cli_dialplan_add_ignorepat(struct ast_cli_entry *e, int cmd,
 			break;
 
 		default:
-			ast_cli(a->fd, "Failed to add ignore pattern '%s' into '%s' context\n",
+			ast_cli(a->fd, "Failed to add ingore pattern '%s' into '%s' context\n",
 				a->argv[3], a->argv[5]);
 			break;
 		}
@@ -1634,8 +1632,6 @@ static int unload_module(void)
 	ast_manager_unregister(AMI_EXTENSION_ADD);
 	ast_manager_unregister(AMI_EXTENSION_REMOVE);
 	ast_context_destroy(NULL, registrar);
-
-	stasis_unsubscribe_and_join(fully_booted_subscription);
 
 	return 0;
 }
@@ -1978,27 +1974,6 @@ static void append_interface(char *iface, int maxlen, char *add)
 	}
 }
 
-static void startup_event_cb(void *data, struct stasis_subscription *sub, struct stasis_message *message)
-{
-	struct ast_json_payload *payload;
-	const char *type;
-
-	if (stasis_message_type(message) != ast_manager_get_generic_type()) {
-		return;
-	}
-
-	payload = stasis_message_data(message);
-	type = ast_json_string_get(ast_json_object_get(payload->json, "type"));
-
-	if (strcmp(type, "FullyBooted")) {
-		return;
-	}
-
-	ast_log(LOG_WARNING, "users.conf is deprecated and will be removed in a future version of Asterisk\n");
-
-	fully_booted_subscription = stasis_unsubscribe(fully_booted_subscription);
-}
-
 static void pbx_load_users(void)
 {
 	struct ast_config *cfg;
@@ -2019,14 +1994,14 @@ static void pbx_load_users(void)
 	if (!cfg)
 		return;
 
-	/*! \todo Remove users.conf support in Asterisk 23 */
-	fully_booted_subscription =
-		stasis_subscribe_pool(ast_manager_get_topic(), startup_event_cb, NULL);
-
 	for (cat = ast_category_browse(cfg, NULL); cat ; cat = ast_category_browse(cfg, cat)) {
 		if (!strcasecmp(cat, "general"))
 			continue;
 		iface[0] = '\0';
+		if (ast_true(ast_config_option(cfg, cat, "hassip"))) {
+			snprintf(tmp, sizeof(tmp), "SIP/%s", cat);
+			append_interface(iface, sizeof(iface), tmp);
+		}
 		if (ast_true(ast_config_option(cfg, cat, "hasiax"))) {
 			snprintf(tmp, sizeof(tmp), "IAX2/%s", cat);
 			append_interface(iface, sizeof(iface), tmp);
@@ -2082,8 +2057,14 @@ static void pbx_load_users(void)
 			ast_add_extension2(con, 0, cat, -1, NULL, NULL, iface, NULL, NULL, registrar, NULL, 0);
 			/* If voicemail, use "stdexten" else use plain old dial */
 			if (hasvoicemail) {
-				snprintf(tmp, sizeof(tmp), "%s,stdexten(${HINT})", cat);
-				ast_add_extension2(con, 0, cat, 1, NULL, NULL, "Gosub", ast_strdup(tmp), ast_free_ptr, registrar, NULL, 0);
+				if (ast_opt_stdexten_macro) {
+					/* Use legacy stdexten macro method. */
+					snprintf(tmp, sizeof(tmp), "stdexten,%s,${HINT}", cat);
+					ast_add_extension2(con, 0, cat, 1, NULL, NULL, "Macro", ast_strdup(tmp), ast_free_ptr, registrar, NULL, 0);
+				} else {
+					snprintf(tmp, sizeof(tmp), "%s,stdexten(${HINT})", cat);
+					ast_add_extension2(con, 0, cat, 1, NULL, NULL, "Gosub", ast_strdup(tmp), ast_free_ptr, registrar, NULL, 0);
+				}
 			} else {
 				ast_add_extension2(con, 0, cat, 1, NULL, NULL, "Dial", ast_strdup("${HINT}"), ast_free_ptr, registrar, NULL, 0);
 			}

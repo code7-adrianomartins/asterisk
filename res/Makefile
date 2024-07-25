@@ -33,6 +33,9 @@ ael/ael_lex.o: _ASTCFLAGS+=-I. -Iael -Wno-unused $(AST_NO_FORMAT_TRUNCATION)
 
 ael/ael.tab.o: ael/ael.tab.c ael/ael.tab.h ../include/asterisk/ael_structs.h
 ael/ael.tab.o: _ASTCFLAGS+=-I. -Iael -DYYENABLE_NLS=0
+	ifneq ($(AST_CLANG_BLOCKS),)
+		_ASTCFLAGS+=-Wno-parentheses-equality
+	endif
 
 ifneq ($(findstring REBUILD_PARSERS,$(MENUSELECT_CFLAGS)),)
 ael/ael_lex.c: ael/ael.flex
@@ -40,10 +43,13 @@ else
 ael/ael_lex.c:
 endif
 	$(ECHO_PREFIX) echo "   [FLEX] $< -> $@"
+	$(CMD_PREFIX) (cd ael; $(FLEX) ael.flex)
+	$(CMD_PREFIX) sed 's@#if __STDC_VERSION__ >= 199901L@#if !defined __STDC_VERSION__ || __STDC_VERSION__ >= 199901L@' $@ > $@.fix
 	$(CMD_PREFIX) echo "#define ASTMM_LIBC ASTMM_REDIRECT" > $@
 	$(CMD_PREFIX) echo "#include \"asterisk.h\"" >> $@
 	$(CMD_PREFIX) echo >> $@
-	$(CMD_PREFIX) $(FLEX) -t ael/ael.flex >> $@
+	$(CMD_PREFIX) cat $@.fix >> $@
+	$(CMD_PREFIX) rm $@.fix
 
 ifneq ($(findstring REBUILD_PARSERS,$(MENUSELECT_CFLAGS)),)
 ael/ael.tab.c ael/ael.tab.h: ael/ael.y
@@ -66,16 +72,8 @@ $(call MOD_ADD_C,res_ari,ari/cli.c ari/config.c ari/ari_websockets.c)
 $(call MOD_ADD_C,res_ari_model,ari/ari_model_validators.c)
 $(call MOD_ADD_C,res_stasis_recording,stasis_recording/stored.c)
 $(call MOD_ADD_C,res_stir_shaken,$(wildcard res_stir_shaken/*.c))
-$(call MOD_ADD_C,res_aeap,$(wildcard res_aeap/*.c))
-$(call MOD_ADD_C,res_geolocation,$(wildcard res_geolocation/*.c))
-
-# These are the xml and xslt files to be embedded
-res_geolocation.so: res_geolocation/pidf_lo_test.o res_geolocation/pidf_to_eprofile.o res_geolocation/eprofile_to_pidf.o
 
 res_parking.o: _ASTCFLAGS+=$(AST_NO_FORMAT_TRUNCATION)
-snmp/agent.o: _ASTCFLAGS+=-fPIC
-res_snmp.o: _ASTCFLAGS+=-fPIC
 
 # Dependencies for res_ari_*.so are generated, so they're in this file
 include ari.make
-

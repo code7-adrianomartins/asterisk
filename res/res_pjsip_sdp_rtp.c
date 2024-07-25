@@ -106,10 +106,9 @@ static int rtp_check_timeout(const void *data)
 {
 	struct ast_sip_session_media *session_media = (struct ast_sip_session_media *)data;
 	struct ast_rtp_instance *rtp = session_media->rtp;
-	struct ast_channel *chan;
 	int elapsed;
-	int now;
 	int timeout;
+	struct ast_channel *chan;
 
 	if (!rtp) {
 		return 0;
@@ -120,37 +119,41 @@ static int rtp_check_timeout(const void *data)
 		return 0;
 	}
 
-	/* Store these values locally to avoid multiple function calls */
-	now = time(NULL);
-	timeout = ast_rtp_instance_get_timeout(rtp);
-
-	/* If the channel is not in UP state or call is redirected
-	 * outside Asterisk return for later check.
+	/* Get channel lock to make sure that we access a consistent set of values
+	 * (last_rx and direct_media_addr) - the lock is held when values are modified
+	 * (see send_direct_media_request()/check_for_rtp_changes() in chan_pjsip.c). We
+	 * are trying to avoid a situation where direct_media_addr has been reset but the
+	 * last-rx time was not set yet.
 	 */
-	if (ast_channel_state(chan) != AST_STATE_UP || !ast_sockaddr_isnull(&session_media->direct_media_addr)) {
-		/* Avoiding immediately disconnect after channel up or direct media has been stopped */
-		ast_rtp_instance_set_last_rx(rtp, now);
-		ast_channel_unref(chan);
-		/* Recheck after half timeout for avoiding possible races
-		* and faster reacting to cases while there is no an RTP at all.
-		*/
-		return timeout * 500;
-	}
+	ast_channel_lock(chan);
 
-	elapsed = now - ast_rtp_instance_get_last_rx(rtp);
+	elapsed = time(NULL) - ast_rtp_instance_get_last_rx(rtp);
+	timeout = ast_rtp_instance_get_timeout(rtp);
 	if (elapsed < timeout) {
+		ast_channel_unlock(chan);
 		ast_channel_unref(chan);
 		return (timeout - elapsed) * 1000;
+	}
+
+	/* Last RTP packet was received too long ago
+	 * - disconnect channel unless direct media is in use.
+	 */
+	if (!ast_sockaddr_isnull(&session_media->direct_media_addr)) {
+		ast_debug_rtp(3, "(%p) RTP not disconnecting channel '%s' for lack of %s RTP activity in %d seconds "
+			"since direct media is in use\n", rtp, ast_channel_name(chan),
+			ast_codec_media_type2str(session_media->type), elapsed);
+		ast_channel_unlock(chan);
+		ast_channel_unref(chan);
+		return timeout * 1000; /* recheck later, direct media may have ended then */
 	}
 
 	ast_log(LOG_NOTICE, "Disconnecting channel '%s' for lack of %s RTP activity in %d seconds\n",
 		ast_channel_name(chan), ast_codec_media_type2str(session_media->type), elapsed);
 
-	ast_channel_lock(chan);
 	ast_channel_hangupcause_set(chan, AST_CAUSE_REQUESTED_CHAN_UNAVAIL);
-	ast_channel_unlock(chan);
-
 	ast_softhangup(chan, AST_SOFTHANGUP_DEV);
+
+	ast_channel_unlock(chan);
 	ast_channel_unref(chan);
 
 	return 0;
@@ -310,7 +313,7 @@ static int create_rtp(struct ast_sip_session *session, struct ast_sip_session_me
 }
 
 static void get_codecs(struct ast_sip_session *session, const struct pjmedia_sdp_media *stream, struct ast_rtp_codecs *codecs,
-	struct ast_sip_session_media *session_media, struct ast_format_cap *astformats)
+	struct ast_sip_session_media *session_media)
 {
 	pjmedia_sdp_attr *attr;
 	pjmedia_sdp_rtpmap *rtpmap;
@@ -325,8 +328,6 @@ static void get_codecs(struct ast_sip_session *session, const struct pjmedia_sdp
 	SCOPE_ENTER(1, "%s\n", ast_sip_session_get_name(session));
 
 	ast_rtp_codecs_payloads_initialize(codecs);
-
-	ast_format_cap_remove_by_type(astformats, AST_MEDIA_TYPE_UNKNOWN);
 
 	/* Iterate through provided formats */
 	for (i = 0; i < stream->desc.fmt_count; ++i) {
@@ -371,19 +372,11 @@ static void get_codecs(struct ast_sip_session *session, const struct pjmedia_sdp
 					ast_rtp_codecs_payload_replace_format(codecs, num, format_parsed);
 					ao2_ref(format_parsed, -1);
 				}
+
 				ao2_ref(format, -1);
 			}
 		}
 	}
-
-	/* Parsing done, now fill the ast_format_cap struct in the correct order */
-	for (i = 0; i < stream->desc.fmt_count; ++i) {
-		if ((format = ast_rtp_codecs_get_payload_format(codecs, pj_strtoul(&stream->desc.fmt[i])))) {
-			ast_format_cap_append(astformats, format, 0);
-			ao2_ref(format, -1);
-		}
-	}
-
 	if (!tel_event && (session->dtmf == AST_SIP_DTMF_AUTO)) {
 		ast_rtp_instance_dtmf_mode_set(session_media->rtp, AST_RTP_DTMF_MODE_INBAND);
 		ast_rtp_instance_set_prop(session_media->rtp, AST_RTP_PROPERTY_DTMF, 0);
@@ -405,7 +398,6 @@ static void get_codecs(struct ast_sip_session *session, const struct pjmedia_sdp
 		unsigned long framing = pj_strtoul(pj_strltrim(&attr->value));
 		if (framing && session->endpoint->media.rtp.use_ptime) {
 			ast_rtp_codecs_set_framing(codecs, framing);
-			ast_format_cap_set_framing(astformats, framing);
 		}
 	}
 
@@ -450,6 +442,7 @@ static struct ast_format_cap *set_incoming_call_offer_cap(
 	struct ast_format_cap *incoming_call_offer_cap;
 	struct ast_format_cap *remote;
 	struct ast_rtp_codecs codecs = AST_RTP_CODECS_NULL_INIT;
+	int fmts = 0;
 	SCOPE_ENTER(1, "%s\n", ast_sip_session_get_name(session));
 
 
@@ -461,7 +454,8 @@ static struct ast_format_cap *set_incoming_call_offer_cap(
 	}
 
 	/* Get the peer's capabilities*/
-	get_codecs(session, stream, &codecs, session_media, remote);
+	get_codecs(session, stream, &codecs, session_media);
+	ast_rtp_codecs_payload_formats(&codecs, remote, &fmts);
 
 	incoming_call_offer_cap = ast_sip_session_create_joint_call_cap(
 		session, session_media->type, remote);
@@ -499,6 +493,7 @@ static int set_caps(struct ast_sip_session *session,
 	RAII_VAR(struct ast_format_cap *, joint, NULL, ao2_cleanup);
 	enum ast_media_type media_type = session_media->type;
 	struct ast_rtp_codecs codecs = AST_RTP_CODECS_NULL_INIT;
+	int fmts = 0;
 	int direct_media_enabled = !ast_sockaddr_isnull(&session_media->direct_media_addr) &&
 		ast_format_cap_count(session->direct_media_cap);
 	int dsp_features = 0;
@@ -521,7 +516,8 @@ static int set_caps(struct ast_sip_session *session,
 	}
 
 	/* get the capabilities on the peer */
-	get_codecs(session, stream, &codecs, session_media, peer);
+	get_codecs(session, stream, &codecs,  session_media);
+	ast_rtp_codecs_payload_formats(&codecs, peer, &fmts);
 
 	/* get the joint capabilities between peer and endpoint */
 	ast_format_cap_get_compatible(caps, peer, joint);
@@ -777,43 +773,6 @@ static void check_ice_support(struct ast_sip_session *session, struct ast_sip_se
 	}
 }
 
-static void process_ice_auth_attrb(struct ast_sip_session *session, struct ast_sip_session_media *session_media,
-				   const struct pjmedia_sdp_session *remote, const struct pjmedia_sdp_media *remote_stream)
-{
-	struct ast_rtp_engine_ice *ice;
-	const pjmedia_sdp_attr *ufrag_attr, *passwd_attr;
-	char ufrag_attr_value[256];
-	char passwd_attr_value[256];
-
-	/* If ICE support is not enabled or available exit early */
-	if (!session->endpoint->media.rtp.ice_support || !(ice = ast_rtp_instance_get_ice(session_media->rtp))) {
-		return;
-	}
-
-	ufrag_attr = pjmedia_sdp_media_find_attr2(remote_stream, "ice-ufrag", NULL);
-	if (!ufrag_attr) {
-		ufrag_attr = pjmedia_sdp_attr_find2(remote->attr_count, remote->attr, "ice-ufrag", NULL);
-	}
-	if (ufrag_attr) {
-		ast_copy_pj_str(ufrag_attr_value, (pj_str_t*)&ufrag_attr->value, sizeof(ufrag_attr_value));
-	} else {
-		return;
-	}
-        passwd_attr = pjmedia_sdp_media_find_attr2(remote_stream, "ice-pwd", NULL);
-	if (!passwd_attr) {
-		passwd_attr = pjmedia_sdp_attr_find2(remote->attr_count, remote->attr, "ice-pwd", NULL);
-	}
-	if (passwd_attr) {
-		ast_copy_pj_str(passwd_attr_value, (pj_str_t*)&passwd_attr->value, sizeof(passwd_attr_value));
-	} else {
-		return;
-	}
-
-	if (ufrag_attr && passwd_attr) {
-		ice->set_authentication(session_media->rtp, ufrag_attr_value, passwd_attr_value);
-	}
-}
-
 /*! \brief Function which processes ICE attributes in an audio stream */
 static void process_ice_attributes(struct ast_sip_session *session, struct ast_sip_session_media *session_media,
 				   const struct pjmedia_sdp_session *remote, const struct pjmedia_sdp_media *remote_stream)
@@ -965,7 +924,7 @@ static enum ast_sip_session_media_encryption get_media_encryption_type(pj_str_t 
  * \brief Checks whether the encryption offered in SDP is compatible with the endpoint's configuration
  * \internal
  *
- * \param endpoint Media encryption configured for the endpoint
+ * \param endpoint_encryption Media encryption configured for the endpoint
  * \param stream pjmedia_sdp_media stream description
  *
  * \retval AST_SIP_MEDIA_TRANSPORT_INVALID on encryption mismatch
@@ -1148,7 +1107,7 @@ static int setup_sdes_srtp(struct ast_sip_session_media *session_media,
 			return 0;
 		}
 
-		ast_debug(1, "Ignoring crypto offer with unsupported parameters: %s\n", crypto_str);
+		ast_log(LOG_WARNING, "Ignoring crypto offer with unsupported parameters: %s\n", crypto_str);
 	}
 
 	/* no usable crypto attributes found */
@@ -1462,29 +1421,6 @@ static void process_extmap_attributes(struct ast_sip_session *session, struct as
 	}
 }
 
-static void set_session_media_remotely_held(struct ast_sip_session_media *session_media,
-											const struct ast_sip_session *session,
-											const pjmedia_sdp_media *media,
-											const struct ast_stream *stream,
-											const struct ast_sockaddr *addrs)
-{
-	if (ast_sip_session_is_pending_stream_default(session, stream) &&
-		(session_media->type == AST_MEDIA_TYPE_AUDIO)) {
-		if (((addrs != NULL) && ast_sockaddr_isnull(addrs)) ||
-			((addrs != NULL) && ast_sockaddr_is_any(addrs)) ||
-			pjmedia_sdp_media_find_attr2(media, "sendonly", NULL) ||
-			pjmedia_sdp_media_find_attr2(media, "inactive", NULL)) {
-			if (!session_media->remotely_held) {
-				session_media->remotely_held = 1;
-				session_media->remotely_held_changed = 1;
-			}
-		} else if (session_media->remotely_held) {
-			session_media->remotely_held = 0;
-			session_media->remotely_held_changed = 1;
-		}
-	}
-}
-
 /*! \brief Function which negotiates an incoming media stream */
 static int negotiate_incoming_sdp_stream(struct ast_sip_session *session,
 	struct ast_sip_session_media *session_media, const pjmedia_sdp_session *sdp,
@@ -1573,13 +1509,21 @@ static int negotiate_incoming_sdp_stream(struct ast_sip_session *session,
 	/* If ICE support is enabled find all the needed attributes */
 	check_ice_support(session, session_media, stream);
 
-	/* If ICE support is enabled then check remote ICE started? */
-	if (session_media->remote_ice) {
-		process_ice_auth_attrb(session, session_media, sdp, stream);
+	if (ast_sip_session_is_pending_stream_default(session, asterisk_stream) && media_type == AST_MEDIA_TYPE_AUDIO) {
+		/* Check if incomming SDP is changing the remotely held state */
+		if (ast_sockaddr_isnull(addrs) ||
+			ast_sockaddr_is_any(addrs) ||
+			pjmedia_sdp_media_find_attr2(stream, "sendonly", NULL) ||
+			pjmedia_sdp_media_find_attr2(stream, "inactive", NULL)) {
+			if (!session_media->remotely_held) {
+				session_media->remotely_held = 1;
+				session_media->remotely_held_changed = 1;
+			}
+		} else if (session_media->remotely_held) {
+			session_media->remotely_held = 0;
+			session_media->remotely_held_changed = 1;
+		}
 	}
-
-	/* Check if incoming SDP is changing the remotely held state */
-	set_session_media_remotely_held(session_media, session, stream, asterisk_stream, addrs);
 
 	joint = set_incoming_call_offer_cap(session, session_media, stream);
 	res = apply_cap_to_bundled(session_media, session_media_transport, asterisk_stream, joint);
@@ -1607,7 +1551,6 @@ static int add_crypto_to_stream(struct ast_sip_session *session,
 	static const pj_str_t STR_PASSIVE = { "passive", 7 };
 	static const pj_str_t STR_ACTPASS = { "actpass", 7 };
 	static const pj_str_t STR_HOLDCONN = { "holdconn", 8 };
-	static const pj_str_t STR_MEDSECREQ = { "requested", 9 };
 	enum ast_rtp_dtls_setup setup;
 
 	switch (session_media->encryption) {
@@ -1637,11 +1580,6 @@ static int add_crypto_to_stream(struct ast_sip_session *session,
 				pj_cstr(&stmp, crypto_attribute));
 			media->attr[media->attr_count++] = attr;
 		} while ((tmp = AST_LIST_NEXT(tmp, sdp_srtp_list)));
-
-		if (session->endpoint->security_negotiation == AST_SIP_SECURITY_NEG_MEDIASEC) {
-			attr = pjmedia_sdp_attr_create(pool, "3ge2ae", &STR_MEDSECREQ);
-			media->attr[media->attr_count++] = attr;
-		}
 
 		break;
 	case AST_SIP_MEDIA_ENCRYPT_DTLS:
@@ -1904,16 +1842,6 @@ static int create_outgoing_sdp_stream(struct ast_sip_session *session, struct as
 		struct ast_format *format = ast_format_cap_get_format(caps, index);
 
 		if (ast_format_get_type(format) != media_type) {
-			ao2_ref(format, -1);
-			continue;
-		}
-
-		/* It is possible for some formats not to have SDP information available for them
-		 * and if this is the case, skip over them so the SDP can still be created.
-		 */
-		if (!ast_rtp_lookup_sample_rate2(1, format, 0)) {
-			ast_log(LOG_WARNING, "Format '%s' can not be added to SDP, consider disallowing it on endpoint '%s'\n",
-				ast_format_get_name(format), ast_sorcery_object_get_id(session->endpoint));
 			ao2_ref(format, -1);
 			continue;
 		}
@@ -2186,15 +2114,13 @@ static int apply_negotiated_sdp_stream(struct ast_sip_session *session,
 	ast_rtp_instance_activate(session_media->rtp);
 
 	/* audio stream handles music on hold */
-	if (media_type != AST_MEDIA_TYPE_AUDIO && media_type != AST_MEDIA_TYPE_VIDEO) {
+	if (media_type != AST_MEDIA_TYPE_AUDIO) {
 		if ((pjmedia_sdp_neg_was_answer_remote(session->inv_session->neg) == PJ_FALSE)
 			&& (session->inv_session->state == PJSIP_INV_STATE_CONFIRMED)) {
 			ast_queue_control(session->channel, AST_CONTROL_UPDATE_RTP_PEER);
 		}
 		SCOPE_EXIT_RTN_VALUE(1, "moh\n");
 	}
-
-	set_session_media_remotely_held(session_media, session, remote_stream, asterisk_stream, addrs);
 
 	if (session_media->remotely_held_changed) {
 		if (session_media->remotely_held) {
@@ -2218,8 +2144,7 @@ static int apply_negotiated_sdp_stream(struct ast_sip_session *session,
 	session_media->encryption = session->endpoint->media.rtp.encryption;
 
 	if (session->endpoint->media.rtp.keepalive > 0 &&
-		(session_media->type == AST_MEDIA_TYPE_AUDIO ||
-			session_media->type == AST_MEDIA_TYPE_VIDEO)) {
+			session_media->type == AST_MEDIA_TYPE_AUDIO) {
 		ast_rtp_instance_set_keepalive(session_media->rtp, session->endpoint->media.rtp.keepalive);
 		/* Schedule the initial keepalive early in case this is being used to punch holes through
 		 * a NAT. This way there won't be an awkward delay before media starts flowing in some
@@ -2240,14 +2165,15 @@ static int apply_negotiated_sdp_stream(struct ast_sip_session *session,
 	 * instance itself.
 	 */
 	ast_rtp_instance_set_timeout(session_media->rtp, 0);
-	if (session->endpoint->media.rtp.timeout && !session_media->remotely_held && !session_media->locally_held) {
+	if (session->endpoint->media.rtp.timeout && !session_media->remotely_held) {
 		ast_rtp_instance_set_timeout(session_media->rtp, session->endpoint->media.rtp.timeout);
-	} else if (session->endpoint->media.rtp.timeout_hold && (session_media->remotely_held || session_media->locally_held)) {
+	} else if (session->endpoint->media.rtp.timeout_hold && session_media->remotely_held) {
 		ast_rtp_instance_set_timeout(session_media->rtp, session->endpoint->media.rtp.timeout_hold);
 	}
 
 	if (ast_rtp_instance_get_timeout(session_media->rtp)) {
-		session_media->timeout_sched_id = ast_sched_add_variable(sched,	500, rtp_check_timeout,
+		session_media->timeout_sched_id = ast_sched_add_variable(sched,
+			ast_rtp_instance_get_timeout(session_media->rtp) * 1000, rtp_check_timeout,
 			session_media, 1);
 	}
 
@@ -2330,8 +2256,9 @@ static int video_info_incoming_request(struct ast_sip_session *session, struct p
 	pjsip_tx_data *tdata;
 
 	if (!session->channel
-		|| !ast_sip_are_media_types_equal(&rdata->msg_info.msg->body->content_type,
-			&pjsip_media_type_application_media_control_xml)) {
+		|| !ast_sip_is_content_type(&rdata->msg_info.msg->body->content_type,
+			"application",
+			"media_control+xml")) {
 		return 0;
 	}
 

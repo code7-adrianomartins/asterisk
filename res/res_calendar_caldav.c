@@ -339,7 +339,7 @@ static time_t icalfloat_to_timet(icaltimetype time)
 }
 
 /* span->start & span->end may be dates or floating times which have no timezone,
- * which would mean that they should apply to the local timezone for all recipients.
+ * which would mean that they should apply to the local timezone for all recepients.
  * For example, if a meeting was set for 1PM-2PM floating time, people in different time
  * zones would not be scheduled at the same local times.  Dates are often treated as
  * floating times, so all day events will need to be converted--so we can trust the
@@ -400,12 +400,12 @@ static void caldav_add_event(icalcomponent *comp, struct icaltime_span *span, vo
 	if ((prop = icalcomponent_get_first_property(comp, ICAL_UID_PROPERTY))) {
 		ast_string_field_set(event, uid, icalproperty_get_value_as_string(prop));
 	} else {
-		ast_log(LOG_WARNING, "No UID found, but one is required. Generating, but updates may not be accurate\n");
+		ast_log(LOG_WARNING, "No UID found, but one is required. Generating, but updates may not be acurate\n");
 		if (!ast_strlen_zero(event->summary)) {
 			ast_string_field_set(event, uid, event->summary);
 		} else {
-			char tmp[AST_TIME_T_LEN];
-			ast_time_t_to_string(event->start, tmp, sizeof(tmp));
+			char tmp[100];
+			snprintf(tmp, sizeof(tmp), "%ld", event->start);
 			ast_string_field_set(event, uid, tmp);
 		}
 	}

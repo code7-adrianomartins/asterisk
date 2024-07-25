@@ -53,7 +53,7 @@
 
 /*! \defgroup main_options Main Configuration Options
  * \brief Main configuration options from asterisk.conf or OS command line on starting Asterisk.
- * \arg \ref asterisk.conf "Config_ast"
+ * \arg \ref Config_ast "asterisk.conf"
  * \note Some of them can be changed in the CLI
  */
 /*! @{ */
@@ -472,13 +472,10 @@ void load_asterisk_conf(void)
 			live_dangerously = ast_true(v->value);
 		} else if (!strcasecmp(v->name, "hide_messaging_ami_events")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_HIDE_MESSAGING_AMI_EVENTS);
-		} else if (!strcasecmp(v->name, "sounds_search_custom_dir")) {
-			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_SOUNDS_SEARCH_CUSTOM);
 		}
 	}
 	if (!ast_opt_remote) {
 		pbx_live_dangerously(live_dangerously);
-		astman_live_dangerously(live_dangerously);
 	}
 
 	option_debug += option_debug_new;

@@ -41,12 +41,8 @@
 #define AST_STATSD_TIMER "ms"
 /*! Distribution of values over time. */
 #define AST_STATSD_HISTOGRAM "h"
-/*!
- * Meters are non-standard and poorly supported by StatsD servers
- * \deprecated You should switch to counter or stateful counters for a similar effect.
- */
+/*! Events over time. Sorta like increment-only counters. */
 #define AST_STATSD_METER "m"
-
 
 /*!
  * \brief Send a stat to the configured statsd server.
@@ -56,7 +52,7 @@
  * updating a current value rather than resetting it.
  *
  * \param metric_name String (UTF-8) name of the metric.
- * \param metric_type Type of metric to send.
+ * \param type_str Type of metric to send.
  * \param value Value to send.
  * \param sample_rate Percentage of samples to send.
  * \since 13
@@ -94,7 +90,7 @@ AST_OPTIONAL_API_ATTR(void, format(printf, 1, 5), ast_statsd_log_string_va,
  * ast_statsd_log_sample() for a slightly more convenient interface.
  *
  * \param metric_name String (UTF-8) name of the metric.
- * \param metric_type Type of metric to send.
+ * \param type_str Type of metric to send.
  * \param value Value to send.
  * \param sample_rate Percentage of samples to send.
  * \since 12

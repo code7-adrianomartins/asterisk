@@ -167,6 +167,7 @@ struct ast_cc_config_params {
 	unsigned int cc_recall_timer;
 	unsigned int cc_max_agents;
 	unsigned int cc_max_monitors;
+	char cc_callback_macro[AST_MAX_EXTENSION];
 	char cc_callback_sub[AST_MAX_EXTENSION];
 	char cc_agent_dialstring[AST_MAX_EXTENSION];
 };
@@ -228,7 +229,7 @@ struct cc_control_payload {
 	 * and "SIP"
 	 *
 	 * \note This really should be an array of characters in case this payload
-	 * is sent across an IAX2 link.  However, this would not make too much sense
+	 * is sent accross an IAX2 link.  However, this would not make too much sense
 	 * given this type may not be recognized by the other end.
 	 * Protection may be necessary to prevent it from being transmitted.
 	 *
@@ -371,7 +372,6 @@ static int __attribute__((format(printf, 3, 0))) cc_request_state_change(enum cc
  * \param called_tree A reference to the tree of called devices. The agent
  * will gain a reference to this tree as well
  * \param core_id The core_id that this core_instance will assume
- * \param cc_data
  * \retval NULL Failed to create the core instance either due to memory allocation
  * errors or due to the agent count for the caller being too high
  * \retval non-NULL A reference to the newly created cc_core_instance
@@ -668,6 +668,7 @@ static const struct ast_cc_config_params cc_default_params = {
 	.cc_recall_timer = CC_RECALL_TIMER_DEFAULT,
 	.cc_max_agents = CC_MAX_AGENTS_DEFAULT,
 	.cc_max_monitors = CC_MAX_MONITORS_DEFAULT,
+	.cc_callback_macro = "",
 	.cc_callback_sub = "",
 	.cc_agent_dialstring = "",
 };
@@ -760,7 +761,9 @@ int ast_cc_get_param(struct ast_cc_config_params *params, const char * const nam
 {
 	const char *value = NULL;
 
-	if (!strcasecmp(name, "cc_callback_sub")) {
+	if (!strcasecmp(name, "cc_callback_macro")) {
+		value = ast_get_cc_callback_macro(params);
+	} else if (!strcasecmp(name, "cc_callback_sub")) {
 		value = ast_get_cc_callback_sub(params);
 	} else if (!strcasecmp(name, "cc_agent_policy")) {
 		value = agent_policy_to_str(ast_get_cc_agent_policy(params));
@@ -808,6 +811,9 @@ int ast_cc_set_param(struct ast_cc_config_params *params, const char * const nam
 		return ast_set_cc_monitor_policy(params, str_to_monitor_policy(value));
 	} else if (!strcasecmp(name, "cc_agent_dialstring")) {
 		ast_set_cc_agent_dialstring(params, value);
+	} else if (!strcasecmp(name, "cc_callback_macro")) {
+		ast_set_cc_callback_macro(params, value);
+		return 0;
 	} else if (!strcasecmp(name, "cc_callback_sub")) {
 		ast_set_cc_callback_sub(params, value);
 		return 0;
@@ -846,6 +852,7 @@ int ast_cc_is_config_param(const char * const name)
 				!strcasecmp(name, "ccbs_available_timer") ||
 				!strcasecmp(name, "cc_max_agents") ||
 				!strcasecmp(name, "cc_max_monitors") ||
+				!strcasecmp(name, "cc_callback_macro") ||
 				!strcasecmp(name, "cc_callback_sub") ||
 				!strcasecmp(name, "cc_agent_dialstring") ||
 				!strcasecmp(name, "cc_recall_timer"));
@@ -984,9 +991,24 @@ void ast_set_cc_max_monitors(struct ast_cc_config_params *config, unsigned int v
 	config->cc_max_monitors = value;
 }
 
+const char *ast_get_cc_callback_macro(struct ast_cc_config_params *config)
+{
+	return config->cc_callback_macro;
+}
+
 const char *ast_get_cc_callback_sub(struct ast_cc_config_params *config)
 {
 	return config->cc_callback_sub;
+}
+
+void ast_set_cc_callback_macro(struct ast_cc_config_params *config, const char * const value)
+{
+	ast_log(LOG_WARNING, "Usage of cc_callback_macro is deprecated.  Please use cc_callback_sub instead.\n");
+	if (ast_strlen_zero(value)) {
+		config->cc_callback_macro[0] = '\0';
+	} else {
+		ast_copy_string(config->cc_callback_macro, value, sizeof(config->cc_callback_macro));
+	}
 }
 
 void ast_set_cc_callback_sub(struct ast_cc_config_params *config, const char * const value)
@@ -1286,7 +1308,7 @@ static const struct ast_cc_agent_callbacks *find_agent_callbacks(struct ast_chan
  *
  * \param state Device state to test.
  *
- * \retval TRUE if the given device state is considered available by generic CCSS.
+ * \return TRUE if the given device state is considered available by generic CCSS.
  */
 static int cc_generic_is_device_available(enum ast_device_state state)
 {
@@ -1332,7 +1354,7 @@ struct generic_monitor_instance_list {
 	 * for recall. If a CCNR request comes in, then we will
 	 * have to mark the list as unfit for recall since this
 	 * is a clear indicator that the person at the monitored
-	 * device has gone away and is actually not fit to be
+	 * device has gone away and is actuall not fit to be
 	 * recalled
 	 */
 	int fit_for_recall;
@@ -2133,7 +2155,7 @@ static int cc_interfaces_datastore_init(struct ast_channel *chan) {
 		return -1;
 	}
 
-	if (!(monitor = cc_extension_monitor_init(ast_channel_exten(chan), ast_channel_context(chan), 0))) {
+	if (!(monitor = cc_extension_monitor_init(S_OR(ast_channel_macroexten(chan), ast_channel_exten(chan)), S_OR(ast_channel_macrocontext(chan), ast_channel_context(chan)), 0))) {
 		ast_free(interfaces);
 		return -1;
 	}
@@ -2188,6 +2210,8 @@ static int cc_interfaces_datastore_init(struct ast_channel *chan) {
  * has been properly allocated and had its callbacks assigned to it. If one of these
  * failures should occur, then we still need to let the channel driver know that it
  * must destroy the data that it allocated.
+ *
+ * \return Nothing
  */
 static void call_destructor_with_no_monitor(const char * const monitor_type, void *private_data)
 {
@@ -2219,8 +2243,7 @@ static void call_destructor_with_no_monitor(const char * const monitor_type, voi
  *
  * \param device_name The name of the device being added to the tree
  * \param dialstring The dialstring used to dial the device being added
- * \param core_id
- * \param cc_data
+ * \param parent_id The parent of this new tree node.
  * \retval NULL Memory allocation failure
  * \retval non-NULL The new ast_cc_interface created.
  */
@@ -2442,9 +2465,8 @@ int ast_cc_call_init(struct ast_channel *chan, int *ignore_cc)
 	}
 
 	/* Situation 2 has occurred */
-	if (!(monitor = cc_extension_monitor_init(ast_channel_exten(chan),
-											ast_channel_context(chan),
-		  									interfaces->dial_parent_id))) {
+	if (!(monitor = cc_extension_monitor_init(S_OR(ast_channel_macroexten(chan), ast_channel_exten(chan)),
+			S_OR(ast_channel_macrocontext(chan), ast_channel_context(chan)), interfaces->dial_parent_id))) {
 		return -1;
 	}
 	monitor->core_id = interfaces->core_id;
@@ -2638,7 +2660,7 @@ struct cc_generic_agent_pvt {
 	 * Context dialed
 	 *
 	 * The original context dialed. This is used
-	 * so that when performing a recall, we can
+	 * so that when performaing a recall, we can
 	 * call into the proper context
 	 */
 	char context[AST_CHANNEL_NAME];
@@ -2659,8 +2681,8 @@ static int cc_generic_agent_init(struct ast_cc_agent *agent, struct ast_channel 
 	if (ast_channel_caller(chan)->id.name.valid && ast_channel_caller(chan)->id.name.str) {
 		ast_copy_string(generic_pvt->cid_name, ast_channel_caller(chan)->id.name.str, sizeof(generic_pvt->cid_name));
 	}
-	ast_copy_string(generic_pvt->exten, ast_channel_exten(chan), sizeof(generic_pvt->exten));
-	ast_copy_string(generic_pvt->context, ast_channel_context(chan), sizeof(generic_pvt->context));
+	ast_copy_string(generic_pvt->exten, S_OR(ast_channel_macroexten(chan), ast_channel_exten(chan)), sizeof(generic_pvt->exten));
+	ast_copy_string(generic_pvt->context, S_OR(ast_channel_macrocontext(chan), ast_channel_context(chan)), sizeof(generic_pvt->context));
 	agent->private_data = generic_pvt;
 	ast_set_flag(agent, AST_CC_AGENT_SKIP_OFFER);
 	return 0;
@@ -2800,6 +2822,7 @@ static void *generic_recall(void *data)
 	char *target;
 	int reason;
 	struct ast_channel *chan;
+	const char *callback_macro = ast_get_cc_callback_macro(agent->cc_params);
 	const char *callback_sub = ast_get_cc_callback_sub(agent->cc_params);
 	unsigned int recall_timer = ast_get_cc_recall_timer(agent->cc_params) * 1000;
 	struct ast_format_cap *tmp_cap = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT);
@@ -2839,6 +2862,16 @@ static void *generic_recall(void *data)
 
 	pbx_builtin_setvar_helper(chan, "CC_EXTEN", generic_pvt->exten);
 	pbx_builtin_setvar_helper(chan, "CC_CONTEXT", generic_pvt->context);
+
+	if (!ast_strlen_zero(callback_macro)) {
+		ast_log_dynamic_level(cc_logger_level, "Core %u: There's a callback macro configured for agent %s\n",
+				agent->core_id, agent->device_name);
+		if (ast_app_exec_macro(NULL, chan, callback_macro)) {
+			ast_cc_failed(agent->core_id, "Callback macro to %s failed. Maybe a hangup?", agent->device_name);
+			ast_hangup(chan);
+			return NULL;
+		}
+	}
 
 	if (!ast_strlen_zero(callback_sub)) {
 		ast_log_dynamic_level(cc_logger_level, "Core %u: There's a callback subroutine configured for agent %s\n",
@@ -3520,6 +3553,7 @@ struct ast_cc_monitor *ast_cc_get_monitor_by_recall_core_id(const int core_id, c
  *
  * \param str An ast_str holding what we will add to CC_INTERFACES
  * \param dialstring A new dialstring to add
+ * \retval void
  */
 static void cc_unique_append(struct ast_str **str, const char *dialstring)
 {
@@ -3549,6 +3583,7 @@ static void cc_unique_append(struct ast_str **str, const char *dialstring)
  * \param starting_point The extension monitor that is the parent to all
  * monitors whose dialstrings should be added to CC_INTERFACES
  * \param str Where we will store CC_INTERFACES
+ * \retval void
  */
 static void build_cc_interfaces_chanvar(struct ast_cc_monitor *starting_point, struct ast_str **str)
 {

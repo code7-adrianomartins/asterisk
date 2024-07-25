@@ -70,7 +70,7 @@ if __name__ == "__main__":
     sip_to_pjsip.sip = sip
     sip.connect(user,password,host,port,database)
     print('Please, report any issue at:')
-    print('    https://github.com/asterisk/asterisk/issues/')
+    print('    https://issues.asterisk.org/')
     print('Reading ' + sip_filename)
     sip.read(sip_filename)
     print('Converting to PJSIP realtime sql...')

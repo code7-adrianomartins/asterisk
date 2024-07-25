@@ -144,7 +144,7 @@ struct ast_custom_function {
 					 * 'dangerous', and should not be run directly
 					 * from external interfaces (AMI, ARI, etc.)
 					 * \since 12 */
-	unsigned int write_escalates:1; /*!< The write function is to be considered
+	unsigned int write_escalates:1; /*!< The write function is to be considerd
 					 * 'dangerous', and should not be run directly
 					 * from external interfaces (AMI, ARI, etc.)
 					 * \since 12 */
@@ -180,17 +180,15 @@ struct ast_timing {
 /*!
  * \brief Construct a timing bitmap, for use in time-based conditionals.
  * \param i Pointer to an ast_timing structure.
- * \param info_in Standard string containing a timerange, weekday range, monthday range, and month range, as well as an optional timezone.
- * \retval 1 on success.
- * \retval 0 on failure.
+ * \param info Standard string containing a timerange, weekday range, monthday range, and month range, as well as an optional timezone.
+ * \retval Returns 1 on success or 0 on failure.
  */
-int ast_build_timing(struct ast_timing *i, const char *info_in);
+int ast_build_timing(struct ast_timing *i, const char *info);
 
 /*!
  * \brief Evaluate a pre-constructed bitmap as to whether the current time falls within the range specified.
  * \param i Pointer to an ast_timing structure.
- * \retval 1 if the time matches.
- * \retval 0 if the current time falls outside of the specified range.
+ * \retval Returns 1, if the time matches or 0, if the current time falls outside of the specified range.
  */
 int ast_check_timing(const struct ast_timing *i);
 
@@ -198,8 +196,7 @@ int ast_check_timing(const struct ast_timing *i);
  * \brief Evaluate a pre-constructed bitmap as to whether a particular time falls within the range specified.
  * \param i Pointer to an ast_timing structure.
  * \param tv Specified time
- * \retval 1 if the time matches.
- * \retval 0 if the time falls outside of the specified range.
+ * \retval Returns 1, if the time matches or 0, if the time falls outside of the specified range.
  */
 int ast_check_timing2(const struct ast_timing *i, const struct timeval tv);
 
@@ -236,6 +233,8 @@ int ast_register_switch(struct ast_switch *sw);
  * \param sw switch to unregister
  *
  * Unregisters a switch from asterisk.
+ *
+ * \return nothing
  */
 void ast_unregister_switch(struct ast_switch *sw);
 
@@ -267,23 +266,6 @@ struct ast_app *pbx_findapp(const char *app);
  * \retval -1 failure
  */
 int pbx_exec(struct ast_channel *c, struct ast_app *app, const char *data);
-
-/*!
- * \brief Execute an application
- *
- * \param chan channel to execute on
- * \param app_name name of app to execute
- * \param app_args the data passed into the app
- *
- * This application executes an application by name on a given channel.
- * It is a wrapper around pbx_exec that will perform variable substitution
- * and then execute the application if it exists.
- * If the application is not found, a warning is logged.
- *
- * \retval 0 success
- * \retval -1 failure (including application not found)
- */
-int ast_pbx_exec_application(struct ast_channel *chan, const char *app_name, const char *app_args);
 
 /*!
  * \brief Register a new context or find an existing one
@@ -348,6 +330,8 @@ int ast_context_destroy_by_name(const char *context, const char *registrar);
  *
  * You can optionally leave out either parameter.  It will find it
  * based on either the ast_context or the registrar name.
+ *
+ * \return nothing
  */
 void ast_context_destroy(struct ast_context *con, const char *registrar);
 
@@ -438,6 +422,8 @@ enum ast_pbx_result ast_pbx_run_args(struct ast_channel *c, struct ast_pbx_args 
  *
  * \param chan Channel to run the h exten on.
  * \param context Context the h exten is in.
+ *
+ * \return Nothing
  */
 void ast_pbx_h_exten_run(struct ast_channel *chan, const char *context);
 
@@ -459,6 +445,8 @@ int ast_pbx_hangup_handler_run(struct ast_channel *chan);
  * \since 11.0
  *
  * \param chan Channel to init the hangup handler container on.
+ *
+ * \return Nothing
  */
 void ast_pbx_hangup_handler_init(struct ast_channel *chan);
 
@@ -467,6 +455,8 @@ void ast_pbx_hangup_handler_init(struct ast_channel *chan);
  * \since 11.0
  *
  * \param chan Channel to destroy the hangup handler container on.
+ *
+ * \return Nothing
  */
 void ast_pbx_hangup_handler_destroy(struct ast_channel *chan);
 
@@ -486,6 +476,8 @@ int ast_pbx_hangup_handler_pop(struct ast_channel *chan);
  *
  * \param chan Channel to push the hangup handler onto.
  * \param handler Gosub application parameter string.
+ *
+ * \return Nothing
  */
 void ast_pbx_hangup_handler_push(struct ast_channel *chan, const char *handler);
 
@@ -517,25 +509,10 @@ int ast_add_extension(const char *context, int replace, const char *extension,
 /*!
  * \brief Add an extension to an extension context, this time with an ast_context *.
  *
- * \param con context to add the extension to
- * \param replace
- * \param extension extension to add
- * \param priority priority level of extension addition
- * \param label extension label
- * \param callerid pattern to match CallerID, or NULL to match any CallerID
- * \param application application to run on the extension with that priority level
- * \param data data to pass to the application
- * \param datad a pointer to a function that will deallocate \c data when needed
- *              or NULL if \c data does not need to be freed.
- * \param registrar who registered the extension
  * \param registrar_file optional configuration file that defines this extension
  * \param registrar_line optional line number of configuration file that defines extension
  *
- * \note On any failure, the function pointed to by \c datap will be called and passed the
- *       \c data pointer.
- *
- * \retval 0 success
- * \retval -1 failure
+ * \note For details about the other arguments, check ast_add_extension()
  */
 int ast_add_extension2(struct ast_context *con, int replace, const char *extension,
 	int priority, const char *label, const char *callerid,
@@ -812,7 +789,7 @@ int ast_findlabel_extension2(struct ast_channel *c, struct ast_context *con,
  * \brief Looks for a valid matching extension
  *
  * \param c not really important
- * \param context context to search within
+ * \param context context to serach within
  * \param exten extension to check
  * \param priority priority of extension path
  * \param callerid callerid of extension being searched for
@@ -832,7 +809,7 @@ int ast_canmatch_extension(struct ast_channel *c, const char *context,
  * \brief Looks to see if adding anything to this extension might match something. (exists ^ canmatch)
  *
  * \param c not really important XXX
- * \param context context to search within
+ * \param context context to serach within
  * \param exten extension to check
  * \param priority priority of extension path
  * \param callerid callerid of extension being searched for
@@ -919,17 +896,25 @@ int ast_context_add_include(const char *context, const char *include,
 /*!
  * \brief Add a context include
  *
+ * \param con context to add the include to
+ * \param value include value to add
+ * \param registrar who registered the context
+ *
  * Adds an include taking a struct ast_context as the first parameter
  *
- * \note See ast_context_add_include for information on arguments
+ * \retval 0 on success
+ * \retval -1 on failure
  */
-int ast_context_add_include2(struct ast_context *con, const char *value,
+int ast_context_add_include2(struct ast_context *con, const char *include,
 	const char *registrar);
 
 /*!
  * \brief Remove a context include
  *
  * \note See ast_context_add_include for information on arguments
+ *
+ * \retval 0 on success
+ * \retval -1 on failure
  */
 int ast_context_remove_include(const char *context, const char *include,
 	const char *registrar);
@@ -937,7 +922,10 @@ int ast_context_remove_include(const char *context, const char *include,
 /*!
  * \brief Removes an include by an ast_context structure
  *
- * \note See ast_context_add_include for information on arguments
+ * \note See ast_context_add_include2 for information on arguments
+ *
+ * \retval 0 on success
+ * \retval -1 on success
  */
 int ast_context_remove_include2(struct ast_context *con, const char *include,
 	const char *registrar);
@@ -1025,7 +1013,7 @@ int ast_context_remove_extension_callerid2(struct ast_context *con, const char *
 /*!
  * \brief Add an ignorepat
  *
- * \param context which context to add the ignorepattern to
+ * \param context which context to add the ignorpattern to
  * \param ignorepat ignorepattern to set up for the extension
  * \param registrar registrar of the ignore pattern
  *
@@ -1038,7 +1026,7 @@ int ast_context_add_ignorepat(const char *context, const char *ignorepat, const 
 
 int ast_context_add_ignorepat2(struct ast_context *con, const char *ignorepat, const char *registrar);
 
-/*!
+/*
  * \brief Remove an ignorepat
  *
  * \param context context from which to remove the pattern
@@ -1124,6 +1112,30 @@ int ast_rdlock_context(struct ast_context *con);
 int ast_unlock_context(struct ast_context *con);
 
 /*!
+ * \brief locks the macrolock in the given context
+ *
+ * \param macrocontext name of the macro-context to lock
+ *
+ * Locks the given macro-context to ensure only one thread (call) can execute it at a time
+ *
+ * \retval 0 on success
+ * \retval -1 on failure
+ */
+int ast_context_lockmacro(const char *macrocontext);
+
+/*!
+ * \brief Unlocks the macrolock in the given context
+ *
+ * \param macrocontext name of the macro-context to unlock
+ *
+ * Unlocks the given macro-context so that another thread (call) can execute it
+ *
+ * \retval 0 on success
+ * \retval -1 on failure
+ */
+int ast_context_unlockmacro(const char *macrocontext);
+
+/*!
  * \brief Set the channel to next execute the specified dialplan location.
  * \see ast_async_parseable_goto, ast_async_goto_if_exists
  *
@@ -1162,8 +1174,8 @@ enum ast_pbx_outgoing_sync {
  *        If \c AST_OUTGOING_WAIT_COMPLETE then wait for the call to complete or
  *        fail.
  *        If \c AST_OUTGOING_WAIT or \c AST_OUTGOING_WAIT_COMPLETE is specified,
- *        the call doesn't answer, and \c failed\@context exists then run a channel
- *        named \c OutgoingSpoolFailed at \c failed\@context.
+ *        the call doesn't answer, and \c failed@context exists then run a channel
+ *        named \c OutgoingSpoolFailed at \c failed@context.
  * \param cid_num The caller ID number to set on the outbound channel
  * \param cid_name The caller ID name to set on the outbound channel
  * \param vars Variables to set on the outbound channel
@@ -1265,22 +1277,6 @@ const char *ast_get_extension_cidmatch(struct ast_exten *e);
 const char *ast_get_extension_app(struct ast_exten *e);
 const char *ast_get_extension_label(struct ast_exten *e);
 void *ast_get_extension_app_data(struct ast_exten *e);
-
-/*!
- * \brief Fill a string buffer with the data at a dialplan extension
- *
- * \param buf String buffer
- * \param bufsize Size of buf
- * \param c Channel
- * \param context Dialplan context
- * \param exten Dialplan extension
- * \param priority Dialplan priority
- *
- * \retval -1 Failed to obtain extension data
- * \retval 0 Successfully obtained extension data
- */
-int ast_get_extension_data(char *buf, int bufsize, struct ast_channel *c,
-	const char *context, const char *exten, int priority);
 /*! @} */
 
 /*! @name Registrar info functions ... */
@@ -1404,15 +1400,10 @@ int pbx_builtin_raise_exception(struct ast_channel *chan, const char *data);
 void pbx_substitute_variables_helper(struct ast_channel *c, const char *cp1, char *cp2, int count);
 void pbx_substitute_variables_varshead(struct varshead *headp, const char *cp1, char *cp2, int count);
 void pbx_substitute_variables_helper_full(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used);
-
-/*!
- * \brief Substitutes variables, similar to pbx_substitute_variables_helper_full, but allows passing the context, extension, and priority in.
- */
-void pbx_substitute_variables_helper_full_location(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used, const char *context, const char *exten, int pri);
+/*! @} */
 /*! @} */
 
-/*! @name Substitution routines, using dynamic string buffers
- * @{ */
+/*! @name Substitution routines, using dynamic string buffers */
 
 /*!
  * \param buf Result will be placed in this buffer.
@@ -1448,28 +1439,6 @@ void ast_str_substitute_variables_varshead(struct ast_str **buf, ssize_t maxlen,
  * \param used Number of bytes read from the template.  (May be NULL)
  */
 void ast_str_substitute_variables_full(struct ast_str **buf, ssize_t maxlen, struct ast_channel *c, struct varshead *headp, const char *templ, size_t *used);
-
-/*!
- * \brief Perform variable/function/expression substitution on an ast_str
- *
- * \param buf      Result will be placed in this buffer.
- * \param maxlen   -1 if the buffer should not grow, 0 if the buffer
- *                 may grow to any size, and >0 if the buffer should
- *                 grow only to that number of bytes.
- * \param c        A channel from which to extract values, and to pass
- *                 to any dialplan functions.
- * \param headp    A channel variables list to also search for variables.
- * \param templ    Variable template to expand.
- * \param used     Number of bytes read from the template.  (May be NULL)
- * \param use_both Normally, if a channel is specified, headp is ignored.
- *                 If this parameter is set to 1 and both a channel and headp
- *                 are specified, the channel will be searched for variables
- *                 first and any not found will be searched for in headp.
- */
-void ast_str_substitute_variables_full2(struct ast_str **buf, ssize_t maxlen,
-	struct ast_channel *c, struct varshead *headp, const char *templ,
-	size_t *used, int use_both);
-
 /*! @} */
 
 int ast_extension_patmatch(const char *pattern, const char *data);
@@ -1515,25 +1484,6 @@ int ast_explicit_goto(struct ast_channel *chan, const char *context, const char 
  * \note This function will handle locking the channel as needed.
  */
 int ast_async_goto_if_exists(struct ast_channel *chan, const char *context, const char *exten, int priority);
-
-/*!
- * \brief Parses a dialplan location into context, extension, priority
- *
- * \param chan Channel to execute on
- * \param context Pointer to initial value for context.
- * \param exten Pointer to initial value for exten.
- * \param pri Pointer to initial value for pri
- * \param ipri Pointer to integer value of priority
- * \param mode Pointer to mode (or NULL if mode is not used)
- * \param rest Pointer to buffer to capture rest of parsing (or NULL if not used)
- *
- * strsep should be used to initially populate context, exten, and pri prior
- * to calling this function. All arguments are modified in place.
- *
- * \retval 0 success
- * \retval non-zero failure
- */
-int pbx_parse_location(struct ast_channel *chan, char **context, char **exten, char **pri, int *ipri, int *mode, char *rest);
 
 struct ast_custom_function* ast_custom_function_find(const char *name);
 

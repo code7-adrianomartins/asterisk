@@ -108,7 +108,9 @@ int __ast_repl_vasprintf(char **strp, const char *format, va_list ap, const char
  */
 #define ASTMM_IGNORE   2
 
-/*! @} */
+/*!
+ * }@
+ */
 
 #if !defined(ASTMM_LIBC)
 /* BLOCK libc allocators by default. */
@@ -293,7 +295,7 @@ int __ast_repl_vasprintf(char **strp, const char *format, va_list ap, const char
  * \param s The string to duplicate
  *
  * This macro will duplicate the given string.  It returns a pointer to the stack
- * allocated memory for the new string.
+ * allocatted memory for the new string.
  */
 #define ast_strdupa(s)                                                    \
 	(__extension__                                                    \

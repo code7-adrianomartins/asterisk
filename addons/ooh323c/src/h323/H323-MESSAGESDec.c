@@ -6357,14 +6357,14 @@ EXTERN int asn1PD_H225SecurityCapabilities (OOCTXT* pctxt, H225SecurityCapabilit
 
    invokeEndElement (pctxt, "encryption", -1);
 
-   /* decode authentication */
+   /* decode authenticaton */
 
-   invokeStartElement (pctxt, "authentication", -1);
+   invokeStartElement (pctxt, "authenticaton", -1);
 
-   stat = asn1PD_H225SecurityServiceMode (pctxt, &pvalue->authentication);
+   stat = asn1PD_H225SecurityServiceMode (pctxt, &pvalue->authenticaton);
    if (stat != ASN_OK) return stat;
 
-   invokeEndElement (pctxt, "authentication", -1);
+   invokeEndElement (pctxt, "authenticaton", -1);
 
    /* decode integrity */
 

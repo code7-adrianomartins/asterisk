@@ -46,6 +46,8 @@ struct ast_uuid {
  * \since 12.0.0
  *
  * \param uuid Fill this with a generated UUID.
+ *
+ * \return Nothing
  */
 static void generate_uuid(struct ast_uuid *uuid)
 {

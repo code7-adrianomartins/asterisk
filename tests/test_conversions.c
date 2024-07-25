@@ -48,7 +48,6 @@ AST_TEST_DEFINE(str_to_int)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	int val;
 	char str[64];
 
@@ -74,7 +73,6 @@ AST_TEST_DEFINE(str_to_int)
 	ast_test_validate(test, ast_str_to_int(spaces, &val));
 	ast_test_validate(test, !ast_str_to_int(valid, &val));
 	ast_test_validate(test, !ast_str_to_int(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_int(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%d", INT_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_int(str, &val));
@@ -97,7 +95,6 @@ AST_TEST_DEFINE(str_to_uint)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	unsigned int val;
 	char str[64];
 
@@ -122,7 +119,6 @@ AST_TEST_DEFINE(str_to_uint)
 	ast_test_validate(test, ast_str_to_uint(spaces, &val));
 	ast_test_validate(test, !ast_str_to_uint(valid, &val));
 	ast_test_validate(test, !ast_str_to_uint(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_uint(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%u", UINT_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_uint(str, &val));
@@ -142,7 +138,6 @@ AST_TEST_DEFINE(str_to_long)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	long val;
 	char str[64];
 
@@ -168,7 +163,6 @@ AST_TEST_DEFINE(str_to_long)
 	ast_test_validate(test, ast_str_to_long(spaces, &val));
 	ast_test_validate(test, !ast_str_to_long(valid, &val));
 	ast_test_validate(test, !ast_str_to_long(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_long(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%ld", LONG_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_long(str, &val));
@@ -191,7 +185,6 @@ AST_TEST_DEFINE(str_to_ulong)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	unsigned long val;
 	char str[64];
 
@@ -216,7 +209,6 @@ AST_TEST_DEFINE(str_to_ulong)
 	ast_test_validate(test, ast_str_to_ulong(spaces, &val));
 	ast_test_validate(test, !ast_str_to_ulong(valid, &val));
 	ast_test_validate(test, !ast_str_to_ulong(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_ulong(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%lu", ULONG_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_ulong(str, &val));
@@ -236,7 +228,6 @@ AST_TEST_DEFINE(str_to_imax)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	intmax_t val;
 	char str[64];
 
@@ -262,7 +253,6 @@ AST_TEST_DEFINE(str_to_imax)
 	ast_test_validate(test, ast_str_to_imax(spaces, &val));
 	ast_test_validate(test, !ast_str_to_imax(valid, &val));
 	ast_test_validate(test, !ast_str_to_imax(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_imax(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%jd", INTMAX_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_imax(str, &val));
@@ -286,7 +276,6 @@ AST_TEST_DEFINE(str_to_umax)
 	const char *spaces = "  ";
 	const char *valid = "7";
 	const char *valid_spaces = "  7";
-	const char *valid_decimal = "08";
 	uintmax_t val;
 	char str[64];
 
@@ -311,7 +300,6 @@ AST_TEST_DEFINE(str_to_umax)
 	ast_test_validate(test, ast_str_to_umax(spaces, &val));
 	ast_test_validate(test, !ast_str_to_umax(valid, &val));
 	ast_test_validate(test, !ast_str_to_umax(valid_spaces, &val));
-	ast_test_validate(test, !ast_str_to_umax(valid_decimal, &val));
 
 	ast_test_validate(test, snprintf(str, sizeof(str), "%ju", UINTMAX_MAX) > 0);
 	ast_test_validate(test, !ast_str_to_umax(str, &val));

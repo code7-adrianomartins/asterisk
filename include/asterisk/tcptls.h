@@ -17,16 +17,15 @@
  */
 
 /*!
- * \file
+ * \file tcptls.h
  *
  * \brief Generic support for tcp/tls servers in Asterisk.
- *
  * \note In order to have TLS/SSL support, we need the openssl libraries.
  * Still we can decide whether or not to use them by commenting
  * in or out the DO_SSL macro.
  *
  * TLS/SSL support is basically implemented by reading from a config file
- * (currently manager.conf, http.conf and pjsip.conf) the names of the certificate
+ * (currently manager.conf, http.conf and sip.conf) the names of the certificate
  * files and cipher to use, and then run ssl_setup() to create an appropriate
  * data structure named ssl_ctx.
  *
@@ -164,34 +163,12 @@ struct ast_tcptls_session_instance {
 };
 
 /*!
-  * \brief Attempt to connect and start a tcptls session within the given timeout
-  *
-  * \note On error the tcptls_session's ref count is decremented, fd and file
-  * are closed, and NULL is returned.
-  *
-  * \param tcptls_session The session instance to connect and start
-  * \param timeout How long (in milliseconds) to attempt to connect (-1 equals infinite)
-  *
-  * \return The tcptls_session, or NULL on error
-  */
-struct ast_tcptls_session_instance *ast_tcptls_client_start_timeout(
-	struct ast_tcptls_session_instance *tcptls_session, int timeout);
-
-/*!
-  * \brief Attempt to connect and start a tcptls session
-  *
-  * Blocks until a connection is established, or an error occurs.
-  *
-  * \note On error the tcptls_session's ref count is decremented, fd and file
-  * are closed, and NULL is returned.
-  *
-  * \param tcptls_session The session instance to connect and start
-  *
-  * \return The tcptls_session, or NULL on error
+  * \brief attempts to connect and start tcptls session, on error the tcptls_session's
+  * ref count is decremented, fd and file are closed, and NULL is returned.
   */
 struct ast_tcptls_session_instance *ast_tcptls_client_start(struct ast_tcptls_session_instance *tcptls_session);
 
-/*! \brief Creates a client connection's ast_tcptls_session_instance. */
+/* \brief Creates a client connection's ast_tcptls_session_instance. */
 struct ast_tcptls_session_instance *ast_tcptls_client_create(struct ast_tcptls_session_args *desc);
 
 void *ast_tcptls_server_root(void *);

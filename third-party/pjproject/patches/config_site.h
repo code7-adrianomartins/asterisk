@@ -77,7 +77,7 @@
 /* Increase limits to allow more formats */
 #define	PJMEDIA_MAX_SDP_FMT   64
 #define	PJMEDIA_MAX_SDP_BANDW   4
-#define	PJMEDIA_MAX_SDP_ATTR   (PJMEDIA_MAX_SDP_FMT*3 + 4)
+#define	PJMEDIA_MAX_SDP_ATTR   (PJMEDIA_MAX_SDP_FMT*2 + 4)
 #define	PJMEDIA_MAX_SDP_MEDIA   16
 
 /*
@@ -87,15 +87,3 @@
  */
 #define PJSIP_TCP_KEEP_ALIVE_INTERVAL	0
 #define PJSIP_TLS_KEEP_ALIVE_INTERVAL	0
-
-#define PJSIP_TSX_UAS_CONTINUE_ON_TP_ERROR 0
-#define PJ_SSL_SOCK_OSSL_USE_THREAD_CB 0
-#define PJSIP_AUTH_ALLOW_MULTIPLE_AUTH_HEADER 1
-
-/*
- * The default is 32 with 8 being used by pjproject itself.
- * Since this value is used in invites, dialogs, transports
- * and subscriptions as well as the global pjproject endpoint,
- * we don't want to increase it too much.
- */
-#define PJSIP_MAX_MODULE 38

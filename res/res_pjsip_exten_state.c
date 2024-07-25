@@ -117,7 +117,6 @@ static void subscription_shutdown(struct ast_sip_subscription *sub);
 static int new_subscribe(struct ast_sip_endpoint *endpoint, const char *resource);
 static int subscription_established(struct ast_sip_subscription *sub);
 static void *get_notify_data(struct ast_sip_subscription *sub);
-static int get_resource_display_name(struct ast_sip_endpoint *endpoint, const char *resource, char *display_name, int display_name_size);
 static void to_ami(struct ast_sip_subscription *sub,
 		   struct ast_str **buf);
 static int publisher_start(struct ast_sip_outbound_publish *configuration,
@@ -129,7 +128,6 @@ struct ast_sip_notifier presence_notifier = {
 	.new_subscribe = new_subscribe,
 	.subscription_established = subscription_established,
 	.get_notify_data = get_notify_data,
-	.get_resource_display_name = get_resource_display_name,
 };
 
 struct ast_sip_notifier dialog_notifier = {
@@ -137,7 +135,6 @@ struct ast_sip_notifier dialog_notifier = {
 	.new_subscribe = new_subscribe,
 	.subscription_established = subscription_established,
 	.get_notify_data = get_notify_data,
-	.get_resource_display_name = get_resource_display_name,
 };
 
 struct ast_sip_subscription_handler presence_handler = {
@@ -296,8 +293,7 @@ static int notify_task(void *obj)
 		.body_data = &task_data->exten_state_data,
 	};
 
-	/* The subscription was terminated while notify_task was in queue.
-	   Terminated subscriptions are no longer associated with a valid tree, and sending
+	/* Terminated subscriptions are no longer associated with a valid tree, and sending
 	 * NOTIFY messages on a subscription which has already been terminated won't work.
 	 */
 	if (ast_sip_subscription_is_terminated(task_data->exten_state_sub->sip_sub)) {
@@ -339,13 +335,6 @@ static int state_changed(const char *context, const char *exten,
 {
 	struct notify_task_data *task_data;
 	struct exten_state_subscription *exten_state_sub = data;
-
-	/* Terminated subscriptions are no longer associated with a valid tree.
-	 * Do not queue notify_task.
-	 */
-	if (ast_sip_subscription_is_terminated(exten_state_sub->sip_sub)) {
-		return 0;
-	}
 
 	if (!(task_data = alloc_notify_task_data(exten, exten_state_sub, info))) {
 		return -1;
@@ -433,27 +422,6 @@ static int new_subscribe(struct ast_sip_endpoint *endpoint,
 	}
 
 	return 200;
-}
-
-static int get_resource_display_name(struct ast_sip_endpoint *endpoint,
-		const char *resource, char *display_name, int display_name_size)
-{
-	const char *context;
-
-	if (!endpoint || ast_strlen_zero(resource) || !display_name || display_name_size <= 0) {
-		return -1;
-	}
-
-	context = S_OR(endpoint->subscription.context, endpoint->context);
-
-	if (!ast_get_hint(NULL, 0, display_name, display_name_size, NULL, context, resource)) {
-		ast_log(LOG_NOTICE, "Endpoint '%s': "
-			"Extension '%s' does not exist in context '%s' or has no associated hint\n",
-			ast_sorcery_object_get_id(endpoint), resource, context);
-		return -1;
-	}
-
-	return 0;
 }
 
 static int subscription_established(struct ast_sip_subscription *sip_sub)
@@ -973,35 +941,20 @@ static int publisher_stop(struct ast_sip_outbound_publish_client *client)
 
 static int unload_module(void)
 {
-	/*
-	 * pjsip_evsub_register_pkg is called by ast_sip_register_subscription_handler
-	 * but there is no corresponding unregister function, so unloading
-	 * a module does not remove the event package. If this module is ever
-	 * loaded again, then pjproject will assert and cause a crash.
-	 * For that reason, we must only be allowed to unload when
-	 * asterisk is shutting down.  If a pjsip_evsub_unregister_pkg
-	 * API is added in the future then we should go back to unloading
-	 * the module as intended.
-	 */
+	ast_sip_unregister_event_publisher_handler(&dialog_publisher);
+	ast_sip_unregister_subscription_handler(&dialog_handler);
+	ast_sip_unregister_event_publisher_handler(&presence_publisher);
+	ast_sip_unregister_subscription_handler(&presence_handler);
 
-	if (ast_shutdown_final()) {
-		ast_sip_unregister_event_publisher_handler(&dialog_publisher);
-		ast_sip_unregister_subscription_handler(&dialog_handler);
-		ast_sip_unregister_event_publisher_handler(&presence_publisher);
-		ast_sip_unregister_subscription_handler(&presence_handler);
+	ast_extension_state_del(0, exten_state_publisher_state_cb);
 
-		ast_extension_state_del(0, exten_state_publisher_state_cb);
+	ast_taskprocessor_unreference(publish_exten_state_serializer);
+	publish_exten_state_serializer = NULL;
 
-		ast_taskprocessor_unreference(publish_exten_state_serializer);
-		publish_exten_state_serializer = NULL;
+	ao2_cleanup(publishers);
+	publishers = NULL;
 
-		ao2_cleanup(publishers);
-		publishers = NULL;
-
-		return 0;
-	} else {
-		return -1;
-	}
+	return 0;
 }
 
 static int load_module(void)

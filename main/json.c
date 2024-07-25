@@ -250,16 +250,6 @@ struct ast_json *ast_json_null(void)
 	return (struct ast_json *)json_null();
 }
 
-int ast_json_is_array(const struct ast_json *json)
-{
-	return json_is_array((const json_t *)json);
-}
-
-int ast_json_is_object(const struct ast_json *json)
-{
-	return json_is_object((const json_t *)json);
-}
-
 int ast_json_is_true(const struct ast_json *json)
 {
 	return json_is_true((const json_t *)json);
@@ -466,19 +456,8 @@ int ast_json_object_iter_set(struct ast_json *object, struct ast_json_iter *iter
  */
 static size_t dump_flags(enum ast_json_encoding_format format)
 {
-	size_t jansson_dump_flags;
-
-	if (format & AST_JSON_PRETTY) {
-		jansson_dump_flags = JSON_INDENT(2);
-	} else {
-		jansson_dump_flags = JSON_COMPACT;
-	}
-
-	if (format & AST_JSON_SORTED) {
-		jansson_dump_flags |= JSON_SORT_KEYS;
-	}
-
-	return jansson_dump_flags;
+	return format == AST_JSON_PRETTY ?
+		JSON_INDENT(2) | JSON_PRESERVE_ORDER : JSON_COMPACT;
 }
 
 char *ast_json_dump_string_format(struct ast_json *root, enum ast_json_encoding_format format)
@@ -872,23 +851,4 @@ struct ast_json *ast_json_channel_vars(struct varshead *channelvars)
 	}
 
 	return ret;
-}
-
-struct ast_json *ast_json_object_create_vars(const struct ast_variable *variables, const char *excludes)
-{
-	const struct ast_variable *i;
-	struct ast_json *obj;
-
-	obj = ast_json_object_create();
-	if (!obj) {
-		return NULL;
-	}
-
-	for (i = variables; i; i = i->next) {
-		if (!excludes || !ast_in_delimited_string(i->name, excludes, ',')) {
-			ast_json_object_set(obj, i->name, ast_json_string_create(i->value));
-		}
-	}
-
-	return obj;
 }

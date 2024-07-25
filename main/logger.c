@@ -74,10 +74,6 @@
 /*** DOCUMENTATION
  ***/
 
-static int logger_register_level(const char *name);
-static int logger_unregister_level(const char *name);
-static int logger_get_dynamic_level(const char *name);
-
 static char dateformat[256] = "%b %e %T";		/* Original Asterisk Format */
 
 static char queue_log_name[256] = QUEUELOG;
@@ -96,11 +92,6 @@ static int logger_queue_size;
 static int logger_queue_limit = 1000;
 static int logger_messages_discarded;
 static unsigned int high_water_alert;
-
-/* On some platforms, like those with MUSL as the runtime, BUFSIZ is
- * unreasonably small (1024). Use a larger value in those environments.
- */
-#define LOGMSG_SIZE		MAX(BUFSIZ, 8192)
 
 static enum rotatestrategy {
 	NONE = 0,                /* Do not rotate log files at all, instead rely on external mechanisms */
@@ -176,7 +167,6 @@ struct logmsg {
 	int line;
 	int lwp;
 	ast_callid callid;
-	unsigned int hidecli:1;		/*!< Whether to suppress log message from CLI output (but log normally to other log channels */
 	AST_DECLARE_STRING_FIELDS(
 		AST_STRING_FIELD(date);
 		AST_STRING_FIELD(file);
@@ -220,15 +210,6 @@ static char *levels[NUMLOGLEVELS] = {
 	"VERBOSE",
 	"DTMF",
 };
-
-/*! \brief Custom dynamic logging levels added by the user
- *
- * The first 16 levels are reserved for system usage, and the remaining
- * levels are reserved for usage by dynamic levels registered via
- * ast_logger_register_level.
- */
-
-static char *custom_dynamic_levels[NUMLOGLEVELS];
 
 /*! \brief Colors used in the console for logging */
 static const int colors[NUMLOGLEVELS] = {
@@ -698,43 +679,6 @@ static struct logchannel *make_logchannel(const char *channel, const char *compo
 	return chan;
 }
 
-void ast_init_logger_for_socket_console(void)
-{
-	struct ast_config *cfg;
-	const char *s;
-	struct ast_flags config_flags = { 0 };
-
-	if (!(cfg = ast_config_load2("logger.conf", "logger", config_flags)) || cfg == CONFIG_STATUS_FILEINVALID) {
-		return;
-	}
-
-	if ((s = ast_variable_retrieve(cfg, "general", "dateformat"))) {
-		ast_copy_string(dateformat, s, sizeof(dateformat));
-	}
-
-	ast_config_destroy(cfg);
-}
-
-/*!
- * \brief Checks if level exists in array of level names
- * \param levels Array of level names
- * \param level Name to search for
- * \param len Size of levels
- *
- * \retval 1 Found
- * \retval 0 Not Found
- */
-static int custom_level_still_exists(char **levels, char *level, size_t len)
-{
-	int i;
-	for (i = 0; i < len; i++) {
-		if (!strcmp(levels[i], level)) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
 /*!
  * \brief Read config, setup channels.
  * \param altconf Alternate configuration file to read.
@@ -845,39 +789,6 @@ static int init_logger_chain(const char *altconf)
 		if (logger_queue_limit < 10) {
 			fprintf(stderr, "logger_queue_limit must be >= 10. Setting to 10.\n");
 			logger_queue_limit = 10;
-		}
-	}
-
-	/* Custom dynamic logging levels defined by user */
-	if ((s = ast_variable_retrieve(cfg, "general", "custom_levels"))) {
-		char *customlogs = ast_strdupa(s);
-		char *logfile;
-		char *new_custom_levels[16] = { };
-		unsigned int level, new_level = 0;
-
-		/* get the custom levels we need to register or reload */
-		while ((logfile = strsep(&customlogs, ","))) {
-			new_custom_levels[new_level++] = logfile;
-		}
-
-		/* unregister existing custom levels, if they're not still
-			specified in customlogs, to make room for new levels */
-		for (level = 16; level < ARRAY_LEN(levels); level++) {
-			if (levels[level] && custom_dynamic_levels[level] &&
-				!custom_level_still_exists(new_custom_levels, levels[level], ARRAY_LEN(new_custom_levels))) {
-				logger_unregister_level(levels[level]);
-				custom_dynamic_levels[level] = 0;
-			}
-		}
-
-		new_level = 0;
-		while ((logfile = new_custom_levels[new_level++])) {
-			/* Lock already held, so directly register the level,
-				unless it's already registered (as during reload) */
-			if (logger_get_dynamic_level(logfile) == -1) {
-				int custom_level = logger_register_level(logfile);
-				custom_dynamic_levels[custom_level] = logfile;
-			}
 		}
 	}
 
@@ -1228,16 +1139,14 @@ static int reload_logger(int rotate, const char *altconf)
 		if (f->disabled) {
 			f->disabled = 0;	/* Re-enable logging at reload */
 			/*** DOCUMENTATION
-				<managerEvent language="en_US" name="LogChannel">
-					<managerEventInstance class="EVENT_FLAG_SYSTEM">
-						<synopsis>Raised when a logging channel is re-enabled after a reload operation.</synopsis>
-						<syntax>
-							<parameter name="Channel">
-								<para>The name of the logging channel.</para>
-							</parameter>
-						</syntax>
-					</managerEventInstance>
-				</managerEvent>
+				<managerEventInstance>
+					<synopsis>Raised when a logging channel is re-enabled after a reload operation.</synopsis>
+					<syntax>
+						<parameter name="Channel">
+							<para>The name of the logging channel.</para>
+						</parameter>
+					</syntax>
+				</managerEventInstance>
 			***/
 			manager_event(EVENT_FLAG_SYSTEM, "LogChannel", "Channel: %s\r\nEnabled: Yes\r\n", f->filename);
 		}
@@ -1477,35 +1386,6 @@ static char *handle_logger_show_channels(struct ast_cli_entry *e, int cmd, struc
 	return CLI_SUCCESS;
 }
 
-/*! \brief CLI command to show logging levels */
-static char *handle_logger_show_levels(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-#define FORMATL2	"%5s %s\n"
-	unsigned int level;
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "logger show levels";
-		e->usage =
-			"Usage: logger show levels\n"
-			"       List configured logger levels.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-	ast_cli(a->fd, FORMATL2, "Level", "Name");
-	ast_cli(a->fd, FORMATL2, "-----", "----");
-	AST_RWLIST_RDLOCK(&logchannels);
-	for (level = 0; level < ARRAY_LEN(levels); level++) {
-		if (levels[level]) {
-			ast_cli(a->fd, "%5d %s\n", level, levels[level]);
-		}
-	}
-	AST_RWLIST_UNLOCK(&logchannels);
-	ast_cli(a->fd, "\n");
-
-	return CLI_SUCCESS;
-}
-
 int ast_logger_create_channel(const char *log_channel, const char *components)
 {
 	struct logchannel *chan;
@@ -1646,247 +1526,13 @@ static char *handle_logger_remove_channel(struct ast_cli_entry *e, int cmd, stru
 	}
 }
 
-/* Call ID filtering */
-
-AST_THREADSTORAGE(callid_group_name);
-
-/*! \brief map call ID to group */
-struct chan_group_lock {
-	AST_RWLIST_ENTRY(chan_group_lock) entry;
-	char name[0];
-};
-
-AST_RWLIST_HEAD_STATIC(chan_group_lock_list, chan_group_lock);
-
-static int callid_filtering = 0;
-
-static const char *get_callid_group(void)
-{
-	char **callid_group;
-	callid_group = ast_threadstorage_get(&callid_group_name, sizeof(*callid_group));
-	return callid_group ? *callid_group : NULL;
-}
-
-static int callid_set_chanloggroup(const char *group)
-{
-	/* Use threadstorage for constant time access, rather than a linked list */
-	ast_callid callid;
-	char **callid_group;
-
-	callid = ast_read_threadstorage_callid();
-	if (!callid) {
-		/* Should never be called on non-PBX threads */
-		ast_assert(0);
-		return -1;
-	}
-
-	callid_group = ast_threadstorage_get(&callid_group_name, sizeof(*callid_group));
-
-	if (!group) {
-		/* Remove from list */
-		if (!*callid_group) {
-			return 0; /* Wasn't in any group to begin with */
-		}
-		ast_free(*callid_group);
-		return 0; /* Set Call ID group for the first time */
-	}
-	/* Existing group */
-	ast_free(*callid_group);
-	*callid_group = ast_strdup(group);
-	if (!*callid_group) {
-		return -1;
-	}
-	return 0; /* Set Call ID group for the first time */
-}
-
-static int callid_group_remove_filters(void)
-{
-	int i = 0;
-	struct chan_group_lock *cgl;
-
-	AST_RWLIST_WRLOCK(&chan_group_lock_list);
-	while ((cgl = AST_RWLIST_REMOVE_HEAD(&chan_group_lock_list, entry))) {
-		ast_free(cgl);
-		i++;
-	}
-	callid_filtering = 0;
-	AST_RWLIST_UNLOCK(&chan_group_lock_list);
-	return i;
-}
-
-static int callid_group_set_filter(const char *group, int enabled)
-{
-	struct chan_group_lock *cgl;
-
-	AST_RWLIST_WRLOCK(&chan_group_lock_list);
-	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&chan_group_lock_list, cgl, entry) {
-		if (!strcmp(group, cgl->name)) {
-			if (!enabled) {
-				AST_RWLIST_REMOVE_CURRENT(entry);
-				ast_free(cgl);
-			}
-			break;
-		}
-	}
-	AST_RWLIST_TRAVERSE_SAFE_END;
-
-	if (!enabled) {
-		if (AST_LIST_EMPTY(&chan_group_lock_list)) {
-			callid_filtering = 0;
-		}
-		AST_RWLIST_UNLOCK(&chan_group_lock_list);
-		return 0;
-	}
-
-	if (!cgl) {
-		cgl = ast_calloc(1, sizeof(*cgl) + strlen(group) + 1);
-		if (!cgl) {
-			AST_RWLIST_UNLOCK(&chan_group_lock_list);
-			return -1;
-		}
-		strcpy(cgl->name, group); /* Safe */
-		AST_RWLIST_INSERT_HEAD(&chan_group_lock_list, cgl, entry);
-	} /* else, already existed, and was already enabled, no change */
-	callid_filtering = 1;
-	AST_RWLIST_UNLOCK(&chan_group_lock_list);
-	return 0;
-}
-
-static int callid_logging_enabled(void)
-{
-	struct chan_group_lock *cgl;
-	const char *callidgroup;
-
-	if (!callid_filtering) {
-		return 1; /* Everything enabled by default, if no filtering */
-	}
-
-	callidgroup = get_callid_group();
-	if (!callidgroup) {
-		return 0; /* Filtering, but no call group, not enabled */
-	}
-
-	AST_RWLIST_RDLOCK(&chan_group_lock_list);
-	AST_RWLIST_TRAVERSE(&chan_group_lock_list, cgl, entry) {
-		if (!strcmp(callidgroup, cgl->name)) {
-			break;
-		}
-	}
-	AST_RWLIST_UNLOCK(&chan_group_lock_list);
-	return cgl ? 1 : 0; /* If found, enabled, otherwise not */
-}
-
-static int log_group_write(struct ast_channel *chan, const char *cmd, char *data, const char *value)
-{
-	int res = callid_set_chanloggroup(value);
-	if (res) {
-		ast_log(LOG_ERROR, "Failed to set channel log group for %s\n", ast_channel_name(chan));
-		return -1;
-	}
-	return 0;
-}
-
-static struct ast_custom_function log_group_function = {
-	.name = "LOG_GROUP",
-	.write = log_group_write,
-};
-
-static char *handle_logger_chanloggroup_filter(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	int enabled;
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "logger filter changroup";
-		e->usage =
-			"Usage: logger filter changroup <group> {on|off}\n"
-			"       Add or remove channel groups from log filtering.\n"
-			"       If filtering is active, only channels assigned\n"
-			"       to a group that has been enabled using this command\n"
-			"       will have execution shown in the CLI.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc < 5) {
-		return CLI_SHOWUSAGE;
-	}
-
-	enabled = ast_true(a->argv[4]) ? 1 : 0;
-	if (callid_group_set_filter(a->argv[3], enabled)) {
-		ast_cli(a->fd, "Failed to set channel group filter for group %s\n", a->argv[3]);
-		return CLI_FAILURE;
-	}
-
-	ast_cli(a->fd, "Logging of channel group '%s' is now %s\n", a->argv[3], enabled ? "enabled" : "disabled");
-	return CLI_SUCCESS;
-}
-
-static char *handle_logger_filter_show(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	int i = 0;
-	struct chan_group_lock *cgl;
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "logger filter show";
-		e->usage =
-			"Usage: logger filter show\n"
-			"       Show current logger filtering settings.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	AST_RWLIST_RDLOCK(&chan_group_lock_list);
-	AST_RWLIST_TRAVERSE(&chan_group_lock_list, cgl, entry) {
-		ast_cli(a->fd, "%3d %-32s\n", ++i, cgl->name);
-	}
-	AST_RWLIST_UNLOCK(&chan_group_lock_list);
-
-	if (i) {
-		ast_cli(a->fd, "%d channel group%s currently enabled\n", i, ESS(i));
-	} else {
-		ast_cli(a->fd, "No filtering currently active\n");
-	}
-	return CLI_SUCCESS;
-}
-
-static char *handle_logger_filter_reset(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	int removed;
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "logger filter reset";
-		e->usage =
-			"Usage: logger filter reset\n"
-			"       Reset the logger filter.\n"
-			"       This removes any channel groups from filtering\n"
-			"       (all channel execution will be shown)\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	removed = callid_group_remove_filters();
-
-	ast_cli(a->fd, "Log filtering has been reset (%d filter%s removed)\n", removed, ESS(removed));
-	return CLI_SUCCESS;
-}
-
 static struct ast_cli_entry cli_logger[] = {
 	AST_CLI_DEFINE(handle_logger_show_channels, "List configured log channels"),
-	AST_CLI_DEFINE(handle_logger_show_levels, "List configured log levels"),
 	AST_CLI_DEFINE(handle_logger_reload, "Reopens the log files"),
 	AST_CLI_DEFINE(handle_logger_rotate, "Rotates and reopens the log files"),
 	AST_CLI_DEFINE(handle_logger_set_level, "Enables/Disables a specific logging level for this console"),
 	AST_CLI_DEFINE(handle_logger_add_channel, "Adds a new logging channel"),
 	AST_CLI_DEFINE(handle_logger_remove_channel, "Removes a logging channel"),
-	AST_CLI_DEFINE(handle_logger_chanloggroup_filter, "Filter PBX logs by channel log group"),
-	AST_CLI_DEFINE(handle_logger_filter_show, "Show current PBX channel filtering"),
-	AST_CLI_DEFINE(handle_logger_filter_reset, "Reset PBX channel filtering"),
 };
 
 static void _handle_SIGXFSZ(int sig)
@@ -1904,7 +1550,7 @@ static struct sigaction handle_SIGXFSZ = {
 static void logger_print_normal(struct logmsg *logmsg)
 {
 	struct logchannel *chan = NULL;
-	char buf[LOGMSG_SIZE];
+	char buf[BUFSIZ];
 	int level = 0;
 
 	AST_RWLIST_RDLOCK(&logchannels);
@@ -1937,13 +1583,13 @@ static void logger_print_normal(struct logmsg *logmsg)
 
 					/* Don't use LOG_MAKEPRI because it's broken in glibc<2.17 */
 					syslog_level = chan->facility | syslog_level; /* LOG_MAKEPRI(chan->facility, syslog_level); */
-					if (!chan->formatter.format_log(chan, logmsg, buf, sizeof(buf))) {
+					if (!chan->formatter.format_log(chan, logmsg, buf, BUFSIZ)) {
 						syslog(syslog_level, "%s", buf);
 					}
 				}
 				break;
 			case LOGTYPE_CONSOLE:
-				if (!logmsg->hidecli && !chan->formatter.format_log(chan, logmsg, buf, sizeof(buf))) {
+				if (!chan->formatter.format_log(chan, logmsg, buf, BUFSIZ)) {
 					ast_console_puts_mutable_full(buf, logmsg->level, logmsg->sublevel);
 				}
 				break;
@@ -1955,7 +1601,7 @@ static void logger_print_normal(struct logmsg *logmsg)
 						continue;
 					}
 
-					if (chan->formatter.format_log(chan, logmsg, buf, sizeof(buf))) {
+					if (chan->formatter.format_log(chan, logmsg, buf, BUFSIZ)) {
 						continue;
 					}
 
@@ -2019,7 +1665,7 @@ static struct logmsg * __attribute__((format(printf, 7, 0))) format_log_message_
 	}
 
 	/* Build string */
-	res = ast_str_set_va(&buf, LOGMSG_SIZE, fmt, ap);
+	res = ast_str_set_va(&buf, BUFSIZ, fmt, ap);
 
 	/* If the build failed, then abort and free this structure */
 	if (res == AST_DYNSTR_BUILD_FAILED) {
@@ -2135,6 +1781,8 @@ static void *logger_thread(void *data)
  * \brief Initialize the logger queue.
  *
  * \note Assumes logchannels is write locked on entry.
+ *
+ * \return Nothing
  */
 static void logger_queue_init(void)
 {
@@ -2170,6 +1818,8 @@ int ast_is_logger_initialized(void)
  *
  * \note Called when the system is fully booted after startup
  * so preloaded realtime modules can get up.
+ *
+ * \return Nothing
  */
 void logger_queue_start(void)
 {
@@ -2211,7 +1861,6 @@ int init_logger(void)
 
 	/* register the logger cli commands */
 	ast_cli_register_multiple(cli_logger, ARRAY_LEN(cli_logger));
-	ast_custom_function_register(&log_group_function);
 
 	ast_mkdir(ast_config_AST_LOG_DIR, 0777);
 
@@ -2236,7 +1885,6 @@ void close_logger(void)
 
 	ast_logger_category_unload();
 
-	ast_custom_function_unregister(&log_group_function);
 	ast_cli_unregister_multiple(cli_logger, ARRAY_LEN(cli_logger));
 
 	logger_initialized = 0;
@@ -2265,8 +1913,6 @@ void close_logger(void)
 		}
 		ast_free(f);
 	}
-
-	callid_group_remove_filters();
 
 	closelog(); /* syslog */
 
@@ -2378,23 +2024,9 @@ static void __attribute__((format(printf, 7, 0))) ast_log_full(int level, int su
 	const char *file, int line, const char *function, ast_callid callid,
 	const char *fmt, va_list ap)
 {
-	int hidecli = 0;
 	struct logmsg *logmsg = NULL;
 
 	if (level == __LOG_VERBOSE && ast_opt_remote && ast_opt_exec) {
-		return;
-	}
-
-	if (callid_filtering && !callid_logging_enabled()) {
-		switch (level) {
-		case __LOG_VERBOSE:
-		case __LOG_DEBUG:
-		case __LOG_TRACE:
-		case __LOG_DTMF:
-			hidecli = 1; /* Hide the message from the CLI, but still log to any log files */
-		default: /* Always show NOTICE, WARNING, ERROR, etc. */
-			break;
-		}
 		return;
 	}
 
@@ -2417,8 +2049,6 @@ static void __attribute__((format(printf, 7, 0))) ast_log_full(int level, int su
 	if (!logmsg) {
 		return;
 	}
-
-	logmsg->hidecli = hidecli;
 
 	/* If the logger thread is active, append it to the tail end of the list - otherwise skip that step */
 	if (logthread != AST_PTHREADT_NULL) {
@@ -2470,7 +2100,7 @@ void ast_log_safe(int level, const char *file, int line, const char *function, c
 		return;
 	}
 
-	if (ast_threadstorage_set_ptr(&in_safe_log, &(int) { 1 })) {
+	if (ast_threadstorage_set_ptr(&in_safe_log, (void*)1)) {
 		/* We've failed to set the flag that protects against
 		 * recursion, so bail. */
 		return;
@@ -2609,6 +2239,8 @@ void ast_verb_update(void)
  * \brief Unregister a console verbose level.
  *
  * \param console Which console to unregister.
+ *
+ * \return Nothing
  */
 static void verb_console_unregister(struct verb_console *console)
 {
@@ -2699,13 +2331,18 @@ static void update_logchannels(void)
 {
 	struct logchannel *cur;
 
+	AST_RWLIST_WRLOCK(&logchannels);
+
 	global_logmask = 0;
 
 	AST_RWLIST_TRAVERSE(&logchannels, cur, list) {
 		make_components(cur);
 		global_logmask |= cur->logmask;
 	}
+
+	AST_RWLIST_UNLOCK(&logchannels);
 }
+
 
 #ifdef AST_DEVMODE
 
@@ -2798,11 +2435,12 @@ void __ast_trace(const char *file, int line, const char *func, enum ast_trace_in
 }
 #endif
 
-/* Lock should be held before calling this function */
-static int logger_register_level(const char *name)
+int ast_logger_register_level(const char *name)
 {
 	unsigned int level;
 	unsigned int available = 0;
+
+	AST_RWLIST_WRLOCK(&logchannels);
 
 	for (level = 0; level < ARRAY_LEN(levels); level++) {
 		if ((level >= 16) && !available && !levels[level]) {
@@ -2814,6 +2452,7 @@ static int logger_register_level(const char *name)
 			ast_log(LOG_WARNING,
 				"Unable to register dynamic logger level '%s': a standard logger level uses that name.\n",
 				name);
+			AST_RWLIST_UNLOCK(&logchannels);
 
 			return -1;
 		}
@@ -2823,11 +2462,14 @@ static int logger_register_level(const char *name)
 		ast_log(LOG_WARNING,
 			"Unable to register dynamic logger level '%s'; maximum number of levels registered.\n",
 			name);
+		AST_RWLIST_UNLOCK(&logchannels);
 
 		return -1;
 	}
 
 	levels[available] = ast_strdup(name);
+
+	AST_RWLIST_UNLOCK(&logchannels);
 
 	ast_debug(1, "Registered dynamic logger level '%s' with index %u.\n", name, available);
 
@@ -2836,79 +2478,42 @@ static int logger_register_level(const char *name)
 	return available;
 }
 
-int ast_logger_register_level(const char *name)
+void ast_logger_unregister_level(const char *name)
 {
-	int available = 0;
+	unsigned int found = 0;
+	unsigned int x;
 
 	AST_RWLIST_WRLOCK(&logchannels);
-	available = logger_register_level(name);
-	AST_RWLIST_UNLOCK(&logchannels);
-
-	return available;
-}
-
-static int logger_get_dynamic_level(const char *name)
-{
-	int level = -1;
-	unsigned int x;
 
 	for (x = 16; x < ARRAY_LEN(levels); x++) {
 		if (!levels[x]) {
 			continue;
 		}
-		if (!strcasecmp(levels[x], name)) {
-			level = x;
-			break;
+
+		if (strcasecmp(levels[x], name)) {
+			continue;
 		}
+
+		found = 1;
+		break;
 	}
 
-	return level;
-}
+	if (found) {
+		/* take this level out of the global_logmask, to ensure that no new log messages
+		 * will be queued for it
+		 */
 
-int ast_logger_get_dynamic_level(const char *name)
-{
-	int level = -1;
+		global_logmask &= ~(1 << x);
 
-	AST_RWLIST_RDLOCK(&logchannels);
+		ast_free(levels[x]);
+		levels[x] = NULL;
+		AST_RWLIST_UNLOCK(&logchannels);
 
-	level = logger_get_dynamic_level(name);
-
-	AST_RWLIST_UNLOCK(&logchannels);
-
-	return level;
-}
-
-static int logger_unregister_level(const char *name) {
-	unsigned int x;
-
-	x = logger_get_dynamic_level(name);
-	if (x == -1) {
-		return 0;
-	}
-	/* take this level out of the global_logmask, to ensure that no new log messages
-	 * will be queued for it
-	 */
-	global_logmask &= ~(1 << x);
-	ast_free(levels[x]);
-	levels[x] = NULL;
-	return x;
-}
-
-void ast_logger_unregister_level(const char *name)
-{
-	int x;
-
-	AST_RWLIST_WRLOCK(&logchannels);
-	x = logger_unregister_level(name);
-
-	if (x) {
-		update_logchannels();
-	}
-
-	AST_RWLIST_UNLOCK(&logchannels);
-
-	if (x) {
 		ast_debug(1, "Unregistered dynamic logger level '%s' with index %u.\n", name, x);
+
+		update_logchannels();
+	} else {
+		AST_RWLIST_UNLOCK(&logchannels);
 	}
 }
 

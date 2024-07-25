@@ -451,6 +451,32 @@
 			</see-also>
 		</managerEventInstance>
 	</managerEvent>
+	<managerEvent language="en_US" name="MonitorStart">
+		<managerEventInstance class="EVENT_FLAG_CALL">
+			<synopsis>Raised when monitoring has started on a channel.</synopsis>
+			<syntax>
+				<channel_snapshot/>
+			</syntax>
+			<see-also>
+				<ref type="managerEvent">MonitorStop</ref>
+				<ref type="application">Monitor</ref>
+				<ref type="manager">Monitor</ref>
+			</see-also>
+		</managerEventInstance>
+	</managerEvent>
+	<managerEvent language="en_US" name="MonitorStop">
+		<managerEventInstance class="EVENT_FLAG_CALL">
+		<synopsis>Raised when monitoring has stopped on a channel.</synopsis>
+		<syntax>
+			<channel_snapshot/>
+		</syntax>
+		<see-also>
+			<ref type="managerEvent">MonitorStart</ref>
+			<ref type="application">StopMonitor</ref>
+			<ref type="manager">StopMonitor</ref>
+		</see-also>
+		</managerEventInstance>
+	</managerEvent>
 ***/
 
 /*! \brief The \ref stasis subscription returned by the forwarding of the channel topic
@@ -467,7 +493,7 @@ struct ast_str *ast_manager_build_channel_state_string_prefix(
 	char *connected_name;
 	int res;
 
-	if (!snapshot || (snapshot->base->tech_properties & AST_CHAN_TP_INTERNAL)) {
+	if (snapshot->base->tech_properties & AST_CHAN_TP_INTERNAL) {
 		return NULL;
 	}
 
@@ -865,26 +891,24 @@ static void channel_dtmf_begin_cb(void *data, struct stasis_subscription *sub,
 	}
 
 	/*** DOCUMENTATION
-		<managerEvent language="en_US" name="DTMFBegin">
-			<managerEventInstance class="EVENT_FLAG_DTMF">
-				<synopsis>Raised when a DTMF digit has started on a channel.</synopsis>
-					<syntax>
-						<channel_snapshot/>
-						<parameter name="Digit">
-							<para>DTMF digit received or transmitted (0-9, A-E, # or *</para>
-						</parameter>
-						<parameter name="Direction">
-							<enumlist>
-								<enum name="Received"/>
-								<enum name="Sent"/>
-							</enumlist>
-						</parameter>
-					</syntax>
-					<see-also>
-						<ref type="managerEvent">DTMFEnd</ref>
-					</see-also>
-			</managerEventInstance>
-		</managerEvent>
+		<managerEventInstance>
+			<synopsis>Raised when a DTMF digit has started on a channel.</synopsis>
+				<syntax>
+					<channel_snapshot/>
+					<parameter name="Digit">
+						<para>DTMF digit received or transmitted (0-9, A-E, # or *</para>
+					</parameter>
+					<parameter name="Direction">
+						<enumlist>
+							<enum name="Received"/>
+							<enum name="Sent"/>
+						</enumlist>
+					</parameter>
+				</syntax>
+				<see-also>
+					<ref type="managerEvent">DTMFEnd</ref>
+				</see-also>
+		</managerEventInstance>
 	***/
 	manager_event(EVENT_FLAG_DTMF, "DTMFBegin",
 		"%s"
@@ -913,29 +937,27 @@ static void channel_dtmf_end_cb(void *data, struct stasis_subscription *sub,
 	}
 
 	/*** DOCUMENTATION
-		<managerEvent language="en_US" name="DTMFEnd">
-			<managerEventInstance class="EVENT_FLAG_DTMF">
-				<synopsis>Raised when a DTMF digit has ended on a channel.</synopsis>
-					<syntax>
-						<channel_snapshot/>
-						<parameter name="Digit">
-							<para>DTMF digit received or transmitted (0-9, A-E, # or *</para>
-						</parameter>
-						<parameter name="DurationMs">
-							<para>Duration (in milliseconds) DTMF was sent/received</para>
-						</parameter>
-						<parameter name="Direction">
-							<enumlist>
-								<enum name="Received"/>
-								<enum name="Sent"/>
-							</enumlist>
-						</parameter>
-					</syntax>
-					<see-also>
-						<ref type="managerEvent">DTMFBegin</ref>
-					</see-also>
-			</managerEventInstance>
-		</managerEvent>
+		<managerEventInstance>
+			<synopsis>Raised when a DTMF digit has ended on a channel.</synopsis>
+				<syntax>
+					<channel_snapshot/>
+					<parameter name="Digit">
+						<para>DTMF digit received or transmitted (0-9, A-E, # or *</para>
+					</parameter>
+					<parameter name="DurationMs">
+						<para>Duration (in milliseconds) DTMF was sent/received</para>
+					</parameter>
+					<parameter name="Direction">
+						<enumlist>
+							<enum name="Received"/>
+							<enum name="Sent"/>
+						</enumlist>
+					</parameter>
+				</syntax>
+				<see-also>
+					<ref type="managerEvent">DTMFBegin</ref>
+				</see-also>
+		</managerEventInstance>
 	***/
 	manager_event(EVENT_FLAG_DTMF, "DTMFEnd",
 		"%s"
@@ -944,62 +966,6 @@ static void channel_dtmf_end_cb(void *data, struct stasis_subscription *sub,
 		"Direction: %s\r\n",
 		ast_str_buffer(channel_event_string),
 		digit, duration_ms, direction);
-}
-
-static void channel_flash_cb(void *data, struct stasis_subscription *sub,
-	struct stasis_message *message)
-{
-	struct ast_channel_blob *obj = stasis_message_data(message);
-	struct ast_str *channel_event_string;
-
-	channel_event_string = ast_manager_build_channel_state_string(obj->snapshot);
-	if (!channel_event_string) {
-		return;
-	}
-
-	/*** DOCUMENTATION
-		<managerEvent language="en_US" name="Flash">
-			<managerEventInstance class="EVENT_FLAG_CALL">
-				<synopsis>Raised when a hook flash occurs on a channel.</synopsis>
-					<syntax>
-						<channel_snapshot/>
-					</syntax>
-			</managerEventInstance>
-		</managerEvent>
-	***/
-	manager_event(EVENT_FLAG_CALL, "Flash",
-		"%s",
-		ast_str_buffer(channel_event_string));
-
-	ast_free(channel_event_string);
-}
-
-static void channel_wink_cb(void *data, struct stasis_subscription *sub,
-	struct stasis_message *message)
-{
-	struct ast_channel_blob *obj = stasis_message_data(message);
-	struct ast_str *channel_event_string;
-
-	channel_event_string = ast_manager_build_channel_state_string(obj->snapshot);
-	if (!channel_event_string) {
-		return;
-	}
-
-	/*** DOCUMENTATION
-		<managerEvent language="en_US" name="Wink">
-			<managerEventInstance class="EVENT_FLAG_CALL">
-				<synopsis>Raised when a wink occurs on a channel.</synopsis>
-					<syntax>
-						<channel_snapshot/>
-					</syntax>
-			</managerEventInstance>
-		</managerEvent>
-	***/
-	manager_event(EVENT_FLAG_CALL, "Wink",
-		"%s",
-		ast_str_buffer(channel_event_string));
-
-	ast_free(channel_event_string);
 }
 
 static void channel_hangup_handler_cb(void *data, struct stasis_subscription *sub,
@@ -1134,51 +1100,20 @@ static void channel_moh_stop_cb(void *data, struct stasis_subscription *sub,
 	publish_basic_channel_event("MusicOnHoldStop", EVENT_FLAG_CALL, payload->snapshot);
 }
 
-static void channel_mixmonitor_start_cb(void *data, struct stasis_subscription *sub,
+static void channel_monitor_start_cb(void *data, struct stasis_subscription *sub,
 		struct stasis_message *message)
 {
 	struct ast_channel_blob *payload = stasis_message_data(message);
 
-	publish_basic_channel_event("MixMonitorStart", EVENT_FLAG_CALL, payload->snapshot);
+	publish_basic_channel_event("MonitorStart", EVENT_FLAG_CALL, payload->snapshot);
 }
 
-static void channel_mixmonitor_stop_cb(void *data, struct stasis_subscription *sub,
+static void channel_monitor_stop_cb(void *data, struct stasis_subscription *sub,
 		struct stasis_message *message)
 {
 	struct ast_channel_blob *payload = stasis_message_data(message);
 
-	publish_basic_channel_event("MixMonitorStop", EVENT_FLAG_CALL, payload->snapshot);
-}
-
-static void channel_mixmonitor_mute_cb(void *data, struct stasis_subscription *sub,
-		struct stasis_message *message)
-{
-	RAII_VAR(struct ast_str *, channel_event_string, NULL, ast_free);
-	RAII_VAR(struct ast_str *, event_buffer, ast_str_create(64), ast_free);
-	struct ast_channel_blob *payload = stasis_message_data(message);
-	struct ast_json *direction = ast_json_object_get(payload->blob, "direction");
-	const int state = ast_json_is_true(ast_json_object_get(payload->blob, "state"));
-
-	if (!event_buffer) {
-		return;
-	}
-
-	channel_event_string = ast_manager_build_channel_state_string(payload->snapshot);
-	if (!channel_event_string) {
-		return;
-	}
-
-	if (direction) {
-		ast_str_append(&event_buffer, 0, "Direction: %s\r\n", ast_json_string_get(direction));
-	}
-	ast_str_append(&event_buffer, 0, "State: %s\r\n", state ? "1" : "0");
-
-	manager_event(EVENT_FLAG_CALL, "MixMonitorMute",
-		"%s"
-		"%s",
-		ast_str_buffer(channel_event_string),
-		ast_str_buffer(event_buffer));
-
+	publish_basic_channel_event("MonitorStop", EVENT_FLAG_CALL, payload->snapshot);
 }
 
 static int dial_status_end(const char *dialstatus)
@@ -1346,12 +1281,6 @@ int manager_channels_init(void)
 		ast_channel_dtmf_end_type(), channel_dtmf_end_cb, NULL);
 
 	ret |= stasis_message_router_add(message_router,
-		ast_channel_flash_type(), channel_flash_cb, NULL);
-
-	ret |= stasis_message_router_add(message_router,
-		ast_channel_wink_type(), channel_wink_cb, NULL);
-
-	ret |= stasis_message_router_add(message_router,
 		ast_channel_hangup_request_type(), channel_hangup_request_cb,
 		NULL);
 
@@ -1385,13 +1314,11 @@ int manager_channels_init(void)
 		ast_channel_moh_stop_type(), channel_moh_stop_cb, NULL);
 
 	ret |= stasis_message_router_add(message_router,
-		ast_channel_mixmonitor_start_type(), channel_mixmonitor_start_cb, NULL);
+		ast_channel_monitor_start_type(), channel_monitor_start_cb,
+		NULL);
 
 	ret |= stasis_message_router_add(message_router,
-		ast_channel_mixmonitor_stop_type(), channel_mixmonitor_stop_cb, NULL);
-
-	ret |= stasis_message_router_add(message_router,
-		ast_channel_mixmonitor_mute_type(), channel_mixmonitor_mute_cb, NULL);
+		ast_channel_monitor_stop_type(), channel_monitor_stop_cb, NULL);
 
 	/* If somehow we failed to add any routes, just shut down the whole
 	 * thing and fail it.

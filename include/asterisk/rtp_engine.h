@@ -174,8 +174,6 @@ enum ast_rtp_instance_stat_field {
 	AST_RTP_INSTANCE_STAT_FIELD_QUALITY_LOSS,
 	/*! Retrieve quality information about round trip time */
 	AST_RTP_INSTANCE_STAT_FIELD_QUALITY_RTT,
-	/*! Retrieve quality information about Media Experience Score */
-	AST_RTP_INSTANCE_STAT_FIELD_QUALITY_MES,
 };
 
 /*! Statistics that can be retrieved from an RTP instance */
@@ -252,29 +250,6 @@ enum ast_rtp_instance_stat {
 	AST_RTP_INSTANCE_STAT_TXOCTETCOUNT,
 	/*! Retrieve number of octets received */
 	AST_RTP_INSTANCE_STAT_RXOCTETCOUNT,
-
-	/*! Retrieve ALL statistics relating to Media Experience Score */
-	AST_RTP_INSTANCE_STAT_COMBINED_MES,
-	/*! Retrieve MES on transmitted packets */
-	AST_RTP_INSTANCE_STAT_TXMES,
-	/*! Retrieve MES on received packets */
-	AST_RTP_INSTANCE_STAT_RXMES,
-	/*! Retrieve maximum MES on remote side */
-	AST_RTP_INSTANCE_STAT_REMOTE_MAXMES,
-	/*! Retrieve minimum MES on remote side */
-	AST_RTP_INSTANCE_STAT_REMOTE_MINMES,
-	/*! Retrieve average MES on remote side */
-	AST_RTP_INSTANCE_STAT_REMOTE_NORMDEVMES,
-	/*! Retrieve standard deviation MES on remote side */
-	AST_RTP_INSTANCE_STAT_REMOTE_STDEVMES,
-	/*! Retrieve maximum MES on local side */
-	AST_RTP_INSTANCE_STAT_LOCAL_MAXMES,
-	/*! Retrieve minimum MES on local side */
-	AST_RTP_INSTANCE_STAT_LOCAL_MINMES,
-	/*! Retrieve average MES on local side */
-	AST_RTP_INSTANCE_STAT_LOCAL_NORMDEVMES,
-	/*! Retrieve standard deviation MES on local side */
-	AST_RTP_INSTANCE_STAT_LOCAL_STDEVMES,
 };
 
 enum ast_rtp_instance_rtcp {
@@ -453,27 +428,6 @@ struct ast_rtp_instance_stats {
 	unsigned int txoctetcount;
 	/*! Number of octets received */
 	unsigned int rxoctetcount;
-
-	/*! Media Experience Score on transmitted packets */
-	double txmes;
-	/*! Media Experience Score on received packets */
-	double rxmes;
-	/*! Maximum MES on remote side */
-	double remote_maxmes;
-	/*! Minimum MES on remote side */
-	double remote_minmes;
-	/*! Average MES on remote side */
-	double remote_normdevmes;
-	/*! Standard deviation MES on remote side */
-	double remote_stdevmes;
-	/*! Maximum MES on local side */
-	double local_maxmes;
-	/*! Minimum MES on local side */
-	double local_minmes;
-	/*! Average MES on local side */
-	double local_normdevmes;
-	/*! Standard deviation MES on local side */
-	double local_stdevmes;
 };
 
 #define AST_RTP_STAT_SET(current_stat, combined, placement, value) \
@@ -829,7 +783,7 @@ enum ast_rtp_extension_direction {
  * \brief Allocation routine for \ref ast_rtp_payload_type
  *
  * \retval NULL on error
- * \return An ao2 ref counted \c ast_rtp_payload_type on success.
+ * \retval An ao2 ref counted \c ast_rtp_payload_type on success.
  *
  * \note The \c ast_rtp_payload_type returned by this function is an
  *       ao2 ref counted object.
@@ -1320,7 +1274,7 @@ void ast_rtp_instance_set_prop(struct ast_rtp_instance *instance, enum ast_rtp_p
  * \param instance The RTP instance to get the property from
  * \param property The property to get
  *
- * \return Current value of the property
+ * \retval Current value of the property
  *
  * Example usage:
  *
@@ -1421,7 +1375,7 @@ size_t ast_rtp_instance_extmap_count(struct ast_rtp_instance *instance);
  * \param instance The RTP instance to retrieve the extension from
  * \param id The negotiated RTP extension id
  *
- * \return extension the extension that maps to the id
+ * \retval extension the extension that maps to the id
  *
  * \since 15.5.0
  *
@@ -1436,7 +1390,7 @@ enum ast_rtp_extension ast_rtp_instance_extmap_get_extension(struct ast_rtp_inst
  * \param instance The RTP instance to retrieve the direction from
  * \param id The negotiated RTP extension id
  *
- * \return direction the direction that has been negotiated
+ * \retval direction the direction that has been negotiated
  *
  * \since 15.5.0
  */
@@ -1448,7 +1402,7 @@ enum ast_rtp_extension_direction ast_rtp_instance_extmap_get_direction(struct as
  * \param instance The RTP instance to retrieve the direction from
  * \param id The negotiated RTP extension id
  *
- * \return The URI for the RTP extension
+ * \retval uri The URI for the RTP extension
  *
  * \since 15.5.0
  */
@@ -1534,6 +1488,8 @@ void ast_rtp_codecs_payloads_copy(struct ast_rtp_codecs *src, struct ast_rtp_cod
  * \param src The source codecs structure
  * \param dest The destination codecs structure that the values from src will be copied to
  * \param instance Optionally the instance that the dst codecs structure belongs to
+ *
+ * \return Nothing
  */
 void ast_rtp_codecs_payloads_xover(struct ast_rtp_codecs *src, struct ast_rtp_codecs *dest, struct ast_rtp_instance *instance);
 
@@ -1563,7 +1519,7 @@ void ast_rtp_codecs_payloads_set_m_type(struct ast_rtp_codecs *codecs, struct as
  * \param instance Optionally the instance that the codecs structure belongs to
  * \param payload Numerical payload that was seen in the a=rtpmap: SDP line
  * \param mimetype The string mime type that was seen
- * \param mimesubtype The string mime sub type that was seen
+ * \param mimesubtype The strin mime sub type that was seen
  * \param options Optional options that may change the behavior of this specific payload
  *
  * \retval 0 success
@@ -1642,7 +1598,7 @@ enum ast_media_type ast_rtp_codecs_get_stream_type(struct ast_rtp_codecs *codecs
  * \param codecs Codecs structure to look in
  * \param payload Numerical payload to look up
  *
- * \return Payload information.
+ * \retval Payload information.
  * \retval NULL if payload does not exist.
  *
  * \note The payload returned by this function has its reference count increased.
@@ -1679,7 +1635,7 @@ int ast_rtp_codecs_payload_replace_format(struct ast_rtp_codecs *codecs, int pay
  * \param codecs Codecs structure to look in
  * \param payload Numerical payload type to look up
  *
- * \return pointer to format structure on success
+ * \retval pointer to format structure on success
  * \retval NULL on failure
  *
  * \note The format returned by this function has its reference count increased.
@@ -1704,7 +1660,7 @@ void ast_rtp_codecs_set_framing(struct ast_rtp_codecs *codecs, unsigned int fram
  *
  * \param codecs Codecs structure to get the framing from
  *
- * \return The framing to be used for the media stream associated with these codecs
+ * \retval The framing to be used for the media stream associated with these codecs
  *
  * \since 13.0.0
  */
@@ -1759,13 +1715,13 @@ void ast_rtp_codecs_payload_formats(struct ast_rtp_codecs *codecs, struct ast_fo
  * is an Asterisk format or non-format code.  If one is currently not
  * assigned then create a rx payload type mapping.
  *
- * \return Numerical payload type
+ * \retval Numerical payload type
  * \retval -1 if could not assign.
  *
  * Example usage:
  *
  * \code
- * int payload = ast_rtp_codecs_payload_code(&codecs, 1, ast_format_ulaw, 0);
+ * int payload = ast_rtp_codecs_payload_code(&codecs, 1, ast_format_set(&tmp_fmt, AST_FORMAT_ULAW, 0), 0);
  * \endcode
  *
  * This looks for the numerical payload for ULAW in the codecs structure.
@@ -1797,7 +1753,7 @@ int ast_rtp_codecs_payload_set_rx(struct ast_rtp_codecs *codecs, int code, struc
  * \param format Asterisk format to look for
  * \param code The format to look for
  *
- * \return Numerical payload type
+ * \retval Numerical payload type
  * \retval -1 if not found.
  */
 int ast_rtp_codecs_payload_code_tx(struct ast_rtp_codecs *codecs, int asterisk_format, const struct ast_format *format, int code);
@@ -1808,7 +1764,7 @@ int ast_rtp_codecs_payload_code_tx(struct ast_rtp_codecs *codecs, int asterisk_f
  * \param codecs Codecs structure to look in
  * \param payload The payload type format to look for
  *
- * \return Numerical payload type or -1 if unable to find payload in codecs
+ * \retval Numerical payload type or -1 if unable to find payload in codecs
  *
  * Example usage:
  *
@@ -1828,13 +1784,13 @@ int ast_rtp_codecs_find_payload_code(struct ast_rtp_codecs *codecs, int payload)
  * \param code RTP code to look up
  * \param options Additional options that may change the result
  *
- * \return Mime subtype success
+ * \retval Mime subtype success
  * \retval NULL failure
  *
  * Example usage:
  *
  * \code
- * const char *subtype = ast_rtp_lookup_mime_subtype2(1, ast_format_ulaw, 0, 0);
+ * const char *subtype = ast_rtp_lookup_mime_subtype2(1, ast_format_set(&tmp_fmt, AST_FORMAT_ULAW, 0), 0, 0);
  * \endcode
  *
  * This looks up the mime subtype for the ULAW format.
@@ -1862,8 +1818,8 @@ const char *ast_rtp_lookup_mime_subtype2(const int asterisk_format,
  * char buf[256] = "";
  * struct ast_format tmp_fmt;
  * struct ast_format_cap *cap = ast_format_cap_alloc_nolock();
- * ast_format_cap_append(cap, ast_format_ulaw, 0);
- * ast_format_cap_append(cap, ast_format_ulaw, 0);
+ * ast_format_cap_append(cap, ast_format_set(&tmp_fmt, AST_FORMAT_ULAW, 0));
+ * ast_format_cap_append(cap, ast_format_set(&tmp_fmt, AST_FORMAT_GSM, 0));
  * char *mime = ast_rtp_lookup_mime_multiple2(&buf, sizeof(buf), cap, 0, 1, 0);
  * ast_format_cap_destroy(cap);
  * \endcode
@@ -1944,7 +1900,7 @@ int ast_rtp_instance_dtmf_mode_set(struct ast_rtp_instance *instance, enum ast_r
  *
  * \param instance The RTP instance to get the DTMF mode of
  *
- * \return DTMF mode
+ * \retval DTMF mode
  *
  * Example usage:
  *
@@ -2084,7 +2040,7 @@ struct ast_rtp_glue *ast_rtp_instance_get_glue(const char *type);
  *
  * \param instance The RTP instance
  *
- * \return The unique ID of the channel
+ * \retval The unique ID of the channel
  * \retval Empty string if no channel owns this RTP instance
  *
  * \since 12
@@ -2266,7 +2222,7 @@ char *ast_rtp_instance_get_quality(struct ast_rtp_instance *instance, enum ast_r
  *
  * \code
  * struct ast_format tmp_fmt;
- * ast_rtp_instance_set_read_format(instance, ast_format_ulaw);
+ * ast_rtp_instance_set_read_format(instance, ast_format_set(&tmp_fmt, AST_FORMAT_ULAW, 0));
  * \endcode
  *
  * This requests that the RTP engine provide audio frames in the ULAW format.
@@ -2288,7 +2244,7 @@ int ast_rtp_instance_set_read_format(struct ast_rtp_instance *instance, struct a
  *
  * \code
  * struct ast_format tmp_fmt;
- * ast_rtp_instance_set_write_format(instance, ast_format_ulaw);
+ * ast_rtp_instance_set_write_format(instance, ast_format_set(&tmp_fmt, AST_FORMAT_ULAW, 0));
  * \endcode
  *
  * This tells the underlying RTP engine that audio frames will be provided to it in ULAW format.
@@ -2437,7 +2393,7 @@ void ast_rtp_instance_set_keepalive(struct ast_rtp_instance *instance, int timeo
  *
  * \param instance The RTP instance
  *
- * \return timeout value
+ * \retval timeout value
  *
  * Example usage:
  *
@@ -2456,7 +2412,7 @@ int ast_rtp_instance_get_timeout(struct ast_rtp_instance *instance);
  *
  * \param instance The RTP instance
  *
- * \return timeout value
+ * \retval timeout value
  *
  * Example usage:
  *
@@ -2475,7 +2431,7 @@ int ast_rtp_instance_get_hold_timeout(struct ast_rtp_instance *instance);
  *
  * \param instance The RTP instance
  *
- * \return period Keepalive interval value
+ * \retval period Keepalive interval value
  *
  * Example usage:
  *
@@ -2494,7 +2450,7 @@ int ast_rtp_instance_get_keepalive(struct ast_rtp_instance *instance);
  *
  * \param instance The RTP instance
  *
- * \return pointer to the engine
+ * \retval pointer to the engine
  *
  * Example usage:
  *
@@ -2513,7 +2469,7 @@ struct ast_rtp_engine *ast_rtp_instance_get_engine(struct ast_rtp_instance *inst
  *
  * \param instance The RTP instance
  *
- * \return pointer to the glue
+ * \retval pointer to the glue
  *
  * Example:
  *
@@ -2558,7 +2514,7 @@ int ast_rtp_instance_add_srtp_policy(struct ast_rtp_instance *instance, struct a
  *
  * \param instance the RTP instance
  * \param rtcp 1 to request instance for RTCP
- * \return the SRTP instance on success
+ * \retval the SRTP instance on success
  * \retval NULL if no SRTP instance exists
  */
 struct ast_srtp *ast_rtp_instance_get_srtp(struct ast_rtp_instance *instance, int rtcp);
@@ -2577,7 +2533,7 @@ int ast_rtp_engine_unload_format(struct ast_format *format);
  *
  * \param instance the RTP instance
  *
- * \return ICE support if present
+ * \retval ICE support if present
  * \retval NULL if no ICE support available
  */
 struct ast_rtp_engine_ice *ast_rtp_instance_get_ice(struct ast_rtp_instance *instance);
@@ -2588,7 +2544,7 @@ struct ast_rtp_engine_ice *ast_rtp_instance_get_ice(struct ast_rtp_instance *ins
  *
  * \param instance the RTP instance
  *
- * \return test callbacks if present
+ * \retval test callbacks if present
  * \retval NULL if not present
  */
 struct ast_rtp_engine_test *ast_rtp_instance_get_test(struct ast_rtp_instance *instance);
@@ -2599,7 +2555,7 @@ struct ast_rtp_engine_test *ast_rtp_instance_get_test(struct ast_rtp_instance *i
  *
  * \param instance the RTP instance
  *
- * \return DTLS support if present
+ * \retval DTLS support if present
  * \retval NULL if no DTLS support available
  */
 struct ast_rtp_engine_dtls *ast_rtp_instance_get_dtls(struct ast_rtp_instance *instance);
@@ -2647,7 +2603,7 @@ struct ast_json;
  * \brief Allocate an ao2 ref counted instance of \ref ast_rtp_rtcp_report
  *
  * \param report_blocks The number of report blocks to allocate
- * \return An ao2 ref counted \ref ast_rtp_rtcp_report object on success
+ * \retval An ao2 ref counted \ref ast_rtp_rtcp_report object on success
  * \retval NULL on error
  */
 struct ast_rtp_rtcp_report *ast_rtp_rtcp_report_alloc(unsigned int report_blocks);
@@ -2683,7 +2639,7 @@ time_t ast_rtp_instance_get_last_tx(const struct ast_rtp_instance *rtp);
  */
 void ast_rtp_instance_set_last_tx(struct ast_rtp_instance *rtp, time_t time);
 
-/*!
+/*
  * \brief Get the last RTP reception time
  *
  * \param rtp The instance from which to get the last reception time
@@ -2742,7 +2698,7 @@ void ast_rtp_instance_set_remote_ssrc(struct ast_rtp_instance *rtp, unsigned int
  * \brief Set the stream number for an RTP instance
  * \since 15.0.0
  *
- * \param instance The RTP instance
+ * \param rtp The RTP instance
  * \param stream_num The stream identifier number
  */
 void ast_rtp_instance_set_stream_num(struct ast_rtp_instance *instance, int stream_num);
@@ -2755,7 +2711,7 @@ void ast_rtp_instance_set_stream_num(struct ast_rtp_instance *instance, int stre
  * \since 12
  * \brief Message type for an RTCP message sent from this Asterisk instance
  *
- * \return A stasis message type
+ * \retval A stasis message type
  */
 struct stasis_message_type *ast_rtp_rtcp_sent_type(void);
 
@@ -2763,18 +2719,16 @@ struct stasis_message_type *ast_rtp_rtcp_sent_type(void);
  * \since 12
  * \brief Message type for an RTCP message received from some external source
  *
- * \return A stasis message type
+ * \retval A stasis message type
  */
 struct stasis_message_type *ast_rtp_rtcp_received_type(void);
-
-/*! @} */
 
 #ifdef TEST_FRAMEWORK
 /*!
  * \brief Get the maximum size of the receive buffer
  *
  * \param instance The RTP instance
- * \return The recv_buffer max size if it exists, else 0
+ * \retval The recv_buffer max size if it exists, else 0
  */
 size_t ast_rtp_instance_get_recv_buffer_max(struct ast_rtp_instance *instance);
 
@@ -2782,7 +2736,7 @@ size_t ast_rtp_instance_get_recv_buffer_max(struct ast_rtp_instance *instance);
  * \brief Get the current size of the receive buffer
  *
  * \param instance The RTP instance
- * \return The recv_buffer size if it exists, else 0
+ * \retval The recv_buffer size if it exists, else 0
  */
 size_t ast_rtp_instance_get_recv_buffer_count(struct ast_rtp_instance *instance);
 
@@ -2790,7 +2744,7 @@ size_t ast_rtp_instance_get_recv_buffer_count(struct ast_rtp_instance *instance)
  * \brief Get the current size of the send buffer
  *
  * \param instance The RTP instance
- * \return The send_buffer size if it exists, else 0
+ * \retval The send_buffer size if it exists, else 0
  */
 size_t ast_rtp_instance_get_send_buffer_count(struct ast_rtp_instance *instance);
 
@@ -2836,14 +2790,14 @@ void ast_rtp_instance_reset_test_engine(struct ast_rtp_instance *instance);
 /*!
  * \brief Convert given stat instance into json format
  * \param stats
- * \return A json format stat
+ * \retval A json format stat
  */
 struct ast_json *ast_rtp_convert_stats_json(const struct ast_rtp_instance_stats *stats);
 
 /*!
  * \brief Retrieve statistics about an RTP instance in json format
  * \param instance
- * \return json object of stats
+ * \retval json object of stats
  */
 struct ast_json *ast_rtp_instance_get_stats_all_json(struct ast_rtp_instance *instance);
 
@@ -2854,7 +2808,7 @@ struct ast_json *ast_rtp_instance_get_stats_all_json(struct ast_rtp_instance *in
  *
  * \param format The media format
  *
- * \return The sample rate
+ * \retval The sample rate
  */
 int ast_rtp_get_rate(const struct ast_format *format);
 
@@ -2862,7 +2816,7 @@ int ast_rtp_get_rate(const struct ast_format *format);
  * \since 12
  * \brief \ref stasis topic for RTP and RTCP related messages
  *
- * \return A \ref stasis topic
+ * \retval A \ref stasis topic
  */
 struct stasis_topic *ast_rtp_topic(void);
 
@@ -2906,10 +2860,6 @@ uintmax_t ast_debug_category_ice_id(void);
 #define ast_debug_rtp(sublevel, ...) \
 	ast_debug_category(sublevel, AST_DEBUG_CATEGORY_RTP,  __VA_ARGS__)
 
-/* Allow logging of RTP? */
-#define ast_debug_rtp_is_allowed \
-	ast_debug_category_is_allowed(AST_LOG_CATEGORY_ENABLED, AST_DEBUG_CATEGORY_RTP)
-
 /* Allow logging of RTP packets? */
 #define ast_debug_rtp_packet_is_allowed \
 	ast_debug_category_is_allowed(AST_LOG_CATEGORY_ENABLED, AST_DEBUG_CATEGORY_RTP_PACKET)
@@ -2922,10 +2872,6 @@ uintmax_t ast_debug_category_ice_id(void);
  */
 #define ast_debug_rtcp(sublevel, ...) \
 	ast_debug_category(sublevel, AST_DEBUG_CATEGORY_RTCP, __VA_ARGS__)
-
-/* Allow logging of RTCP? */
-#define ast_debug_rtcp_is_allowed \
-	ast_debug_category_is_allowed(AST_LOG_CATEGORY_ENABLED, AST_DEBUG_CATEGORY_RTCP)
 
 /* Allow logging of RTCP packets? */
 #define ast_debug_rtcp_packet_is_allowed \
@@ -2951,6 +2897,8 @@ uintmax_t ast_debug_category_ice_id(void);
  */
 #define ast_debug_ice(sublevel, ...) \
 	ast_debug_category(sublevel, AST_DEBUG_CATEGORY_ICE, __VA_ARGS__)
+
+/* @} */
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

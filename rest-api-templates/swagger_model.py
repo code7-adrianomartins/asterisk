@@ -332,7 +332,6 @@ class SwaggerType(Stringify):
         self.is_discriminator = None
         self.is_list = None
         self.singular_name = None
-        self.lc_singular_name = None
         self.is_primitive = None
         self.is_binary = None
 
@@ -346,10 +345,8 @@ class SwaggerType(Stringify):
         self.is_list = type_param is not None
         if self.is_list:
             self.singular_name = type_param
-            self.lc_singular_name = type_param.lower()
         else:
             self.singular_name = self.name
-            self.lc_singular_name = self.name.lower()
         self.is_primitive = self.singular_name in SWAGGER_PRIMITIVES
         self.is_binary = (self.singular_name == 'binary')
         processor.process_type(self, context)
@@ -367,7 +364,6 @@ class Operation(Stringify):
     def __init__(self):
         self.http_method = None
         self.nickname = None
-        self.nickname_lc = None
         self.response_class = None
         self.parameters = []
         self.summary = None
@@ -379,7 +375,6 @@ class Operation(Stringify):
         validate_required_fields(op_json, self.required_fields, context)
         self.http_method = op_json.get('httpMethod')
         self.nickname = op_json.get('nickname')
-        self.nickname_lc = self.nickname.lower() 
         response_class = op_json.get('responseClass')
         self.response_class = response_class and SwaggerType().load(
             response_class, processor, context)
@@ -503,7 +498,6 @@ class Model(Stringify):
 
     def __init__(self):
         self.id = None
-        self.id_lc = None
         self.subtypes = []
         self.__subtype_types = []
         self.notes = None
@@ -517,7 +511,6 @@ class Model(Stringify):
         validate_required_fields(model_json, self.required_fields, context)
         # The duplication of the model's id is required by the Swagger spec.
         self.id = model_json.get('id')
-        self.id_lc = self.id.lower() 
         if id != self.id:
             raise SwaggerError("Model id doesn't match name", context)
         self.subtypes = model_json.get('subTypes') or []
@@ -554,9 +547,6 @@ class Model(Stringify):
 
     def extends(self):
         return self.__extends_type and self.__extends_type.id
-
-    def extends_lc(self):
-        return self.__extends_type and self.__extends_type.id_lc
 
     def set_extends_type(self, extends_type):
         self.__extends_type = extends_type

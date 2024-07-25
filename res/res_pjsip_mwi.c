@@ -674,8 +674,8 @@ static int add_mwi_datastore(struct mwi_subscription *sub)
  * \param container The ao2_container to search
  * \param endpoint The endpoint to find
  * \param mailbox The mailbox potentially subscribed
- * \param[out] mwi_sub May contain the located mwi_subscription
- * \param[out] mwi_stasis May contain the located mwi_stasis_subscription
+ * \param mwi_sub [out] May contain the located mwi_subscription
+ * \param mwi_stasis [out] May contain the located mwi_stasis_subscription
  *
  * \retval 1 if a subscription was located, 0 otherwise
  */
@@ -1524,45 +1524,30 @@ static int reload(void)
 
 static int unload_module(void)
 {
-	/*
-	 * pjsip_evsub_register_pkg is called by ast_sip_register_subscription_handler
-	 * but there is no corresponding unregister function, so unloading
-	 * a module does not remove the event package. If this module is ever
-	 * loaded again, then pjproject will assert and cause a crash.
-	 * For that reason, we must only be allowed to unload when
-	 * asterisk is shutting down.  If a pjsip_evsub_unregister_pkg
-	 * API is added in the future then we should go back to unloading
-	 * the module as intended.
-	 */
+	struct ao2_container *unsolicited_mwi;
 
-	if (ast_shutdown_final()) {
-		struct ao2_container *unsolicited_mwi;
+	ast_sorcery_observer_remove(ast_sip_get_sorcery(), "global", &global_observer);
+	ast_sorcery_observer_remove(ast_sip_get_sorcery(), "contact", &mwi_contact_observer);
 
-		ast_sorcery_observer_remove(ast_sip_get_sorcery(), "global", &global_observer);
-		ast_sorcery_observer_remove(ast_sip_get_sorcery(), "contact", &mwi_contact_observer);
+	unsolicited_mwi = ao2_global_obj_replace(mwi_unsolicited, NULL);
+	if (unsolicited_mwi) {
+		ao2_callback(unsolicited_mwi, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, unsubscribe, NULL);
+		ao2_ref(unsolicited_mwi, -1);
+	}
 
-		unsolicited_mwi = ao2_global_obj_replace(mwi_unsolicited, NULL);
-		if (unsolicited_mwi) {
-			ao2_callback(unsolicited_mwi, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, unsubscribe, NULL);
-			ao2_ref(unsolicited_mwi, -1);
-		}
+	ao2_global_obj_release(mwi_solicited);
 
-		ao2_global_obj_release(mwi_solicited);
-
-		if (ast_serializer_pool_destroy(mwi_serializer_pool)) {
-			ast_log(LOG_WARNING, "Unload incomplete. Try again later\n");
-			return -1;
-		}
-		mwi_serializer_pool = NULL;
-
-		ast_sip_unregister_subscription_handler(&mwi_handler);
-
-		ast_free(default_voicemail_extension);
-		default_voicemail_extension = NULL;
-		return 0;
-	} else {
+	if (ast_serializer_pool_destroy(mwi_serializer_pool)) {
+		ast_log(LOG_WARNING, "Unload incomplete. Try again later\n");
 		return -1;
 	}
+	mwi_serializer_pool = NULL;
+
+	ast_sip_unregister_subscription_handler(&mwi_handler);
+
+	ast_free(default_voicemail_extension);
+	default_voicemail_extension = NULL;
+	return 0;
 }
 
 static int load_module(void)

@@ -100,9 +100,6 @@
 						<para>Automatically exit the bridge and return to the PBX after
 						<emphasis>duration</emphasis> seconds.</para>
 					</option>
-					<option name="n">
-						<para>Do not automatically answer the channel.</para>
-					</option>
 				</optionlist>
 			</parameter>
 		</syntax>
@@ -111,7 +108,7 @@
 			The channel will then wait in the holding bridge until some event occurs
 			which removes it from the holding bridge.</para>
 			<note><para>This application will answer calls which haven't already
-			been answered, unless the n option is provided.</para></note>
+			been answered.</para></note>
 		</description>
 	</application>
  ***/
@@ -189,7 +186,6 @@ enum bridgewait_flags {
 	MUXFLAG_MOHCLASS = (1 << 0),
 	MUXFLAG_ENTERTAINMENT = (1 << 1),
 	MUXFLAG_TIMEOUT = (1 << 2),
-	MUXFLAG_NOANSWER = (1 << 3),
 };
 
 enum bridgewait_args {
@@ -203,7 +199,6 @@ AST_APP_OPTIONS(bridgewait_opts, {
 	AST_APP_OPTION_ARG('e', MUXFLAG_ENTERTAINMENT, OPT_ARG_ENTERTAINMENT),
 	AST_APP_OPTION_ARG('m', MUXFLAG_MOHCLASS, OPT_ARG_MOHCLASS),
 	AST_APP_OPTION_ARG('S', MUXFLAG_TIMEOUT, OPT_ARG_TIMEOUT),
-	AST_APP_OPTION('n', MUXFLAG_NOANSWER),
 });
 
 static int bridgewait_timeout_callback(struct ast_bridge_channel *bridge_channel, void *hook_pvt)
@@ -396,17 +391,6 @@ static void wait_wrapper_removal(struct wait_bridge_wrapper *wrapper)
 	ao2_cleanup(wrapper);
 }
 
-static enum wait_bridge_roles validate_role(const char *role)
-{
-	if (!strcmp(role, "participant")) {
-		return ROLE_PARTICIPANT;
-	} else if (!strcmp(role, "announcer")) {
-		return ROLE_ANNOUNCER;
-	} else {
-		return ROLE_INVALID;
-	}
-}
-
 /*!
  * \internal
  * \since 12.0.0
@@ -418,6 +402,17 @@ static enum wait_bridge_roles validate_role(const char *role)
  * \retval 0 Ran successfully and the call didn't hang up
  * \retval -1 Failed or the call was hung up by the time the channel exited the holding bridge
  */
+static enum wait_bridge_roles validate_role(const char *role)
+{
+	if (!strcmp(role, "participant")) {
+		return ROLE_PARTICIPANT;
+	} else if (!strcmp(role, "announcer")) {
+		return ROLE_ANNOUNCER;
+	} else {
+		return ROLE_INVALID;
+	}
+}
+
 static int bridgewait_exec(struct ast_channel *chan, const char *data)
 {
 	char *bridge_name = DEFAULT_BRIDGE_NAME;
@@ -463,7 +458,7 @@ static int bridgewait_exec(struct ast_channel *chan, const char *data)
 	}
 
 	/* Answer the channel if needed */
-	if (ast_channel_state(chan) != AST_STATE_UP && !ast_test_flag(&flags, MUXFLAG_NOANSWER)) {
+	if (ast_channel_state(chan) != AST_STATE_UP) {
 		ast_answer(chan);
 	}
 

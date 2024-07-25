@@ -65,13 +65,13 @@
  *
  * \par stasis_topic
  *
- * A \ref stasis_topic is an object to which stasis_topic_subscriber's may be
+ * A \ref stasis_topic is an object to which \ref stasis_subscriber's may be
  * subscribed, and \ref stasis_message's may be published. Any message published
  * to the topic is dispatched to all of its subscribers. The topic itself may be
  * named, which is useful in debugging.
  *
  * Topics themselves are reference counted objects. Since topics are referred to
- * by their subscribers, they will not be freed until all of their subscribers
+ * by their subscibers, they will not be freed until all of their subscribers
  * have unsubscribed. Topics are also thread safe, so no worries about
  * publishing/subscribing/unsubscribing to a topic concurrently from multiple
  * threads. It's also designed to handle the case of unsubscribing from a topic
@@ -106,7 +106,7 @@
  * cache may be shared amongst different message types, such a usage is probably
  * not a good idea.
  *
- * The \ref stasis_cache can only be written to by \ref stasis_caching_topic.
+ * The \ref stasis_cache can only be written to by \ref stasis_caching_topics.
  * It's a thread safe container, so freely use the stasis_cache_get() and
  * stasis_cache_dump() to query the cache.
  *
@@ -125,7 +125,7 @@
  * The \ref stasis_cache object is a normal AO2 managed object, which can be
  * release with ao2_cleanup().
  *
- * \par stasis_topic_subscriber
+ * \par stasis_subscriber
  *
  * Any topic may be subscribed to by simply providing stasis_subscribe() the
  * \ref stasis_topic to subscribe to, a handler function and \c void pointer to
@@ -247,7 +247,8 @@ struct stasis_message_vtable {
 	 * \param sanitize Snapshot sanitization callback.
 	 *
 	 * \return Newly allocated JSON message.
-	 * \retval NULL if JSON format is not supported.
+	 * \return \c NULL on error.
+	 * \return \c NULL if JSON format is not supported.
 	 */
 	struct ast_json *(*to_json)(struct stasis_message *message, const struct stasis_message_sanitizer *sanitize);
 
@@ -259,7 +260,8 @@ struct stasis_message_vtable {
 	 *
 	 * \param message Message to convert to AMI string.
 	 * \return Newly allocated \ref ast_manager_event_blob.
-	 * \retval NULL if AMI format is not supported.
+	 * \return \c NULL on error.
+	 * \return \c NULL if AMI format is not supported.
 	 */
 	struct ast_manager_event_blob *(*to_ami)(
 		struct stasis_message *message);
@@ -273,7 +275,8 @@ struct stasis_message_vtable {
 	 *
 	 * \param message Message to convert to an \ref ast_event.
 	 * \return Newly allocated \ref ast_event.
-	 * \retval NULL if AMI format is not supported.
+	 * \return \c NULL on error.
+	 * \return \c NULL if AMI format is not supported.
 	 */
 	struct ast_event *(*to_event)(
 		struct stasis_message *message);
@@ -334,7 +337,7 @@ enum stasis_message_type_result stasis_message_type_create(const char *name,
  * \brief Gets the name of a given message type
  * \param type The type to get.
  * \return Name of the type.
- * \retval NULL if \a type is \c NULL.
+ * \return \c NULL if \a type is \c NULL.
  * \since 12
  */
 const char *stasis_message_type_name(const struct stasis_message_type *type);
@@ -376,7 +379,7 @@ int stasis_message_type_declined(const char *name);
  * \param data Immutable data that is the actual contents of the message
  *
  * \return New message
- * \retval NULL on error
+ * \return \c NULL on error
  *
  * \since 12
  */
@@ -401,7 +404,7 @@ struct stasis_message *stasis_message_create(struct stasis_message_type *type, v
  * any remote entities publishing to a mailbox.
  *
  * \retval New message
- * \retval NULL on error
+ * \retval \c NULL on error
  *
  * \since 12.2.0
  */
@@ -414,7 +417,7 @@ struct stasis_message *stasis_message_create_full(struct stasis_message_type *ty
  * \param msg Message to get eid.
  *
  * \retval Entity id of \a msg
- * \retval NULL if \a msg is an aggregate or \a msg is \c NULL.
+ * \retval \c NULL if \a msg is an aggregate or \a msg is \c NULL.
  */
 const struct ast_eid *stasis_message_eid(const struct stasis_message *msg);
 
@@ -422,7 +425,7 @@ const struct ast_eid *stasis_message_eid(const struct stasis_message *msg);
  * \brief Get the message type for a \ref stasis_message.
  * \param msg Message to type
  * \return Type of \a msg
- * \retval NULL if \a msg is \c NULL.
+ * \return \c NULL if \a msg is \c NULL.
  * \since 12
  */
 struct stasis_message_type *stasis_message_type(const struct stasis_message *msg);
@@ -431,7 +434,7 @@ struct stasis_message_type *stasis_message_type(const struct stasis_message *msg
  * \brief Get the data contained in a message.
  * \param msg Message.
  * \return Immutable data pointer
- * \retval NULL if msg is \c NULL.
+ * \return \c NULL if msg is \c NULL.
  * \since 12
  */
 void *stasis_message_data(const struct stasis_message *msg);
@@ -440,7 +443,7 @@ void *stasis_message_data(const struct stasis_message *msg);
  * \brief Get the time when a message was created.
  * \param msg Message.
  * \return Pointer to the \a timeval when the message was created.
- * \retval NULL if msg is \c NULL.
+ * \return \c NULL if msg is \c NULL.
  * \since 12
  */
 const struct timeval *stasis_message_timestamp(const struct stasis_message *msg);
@@ -455,7 +458,8 @@ const struct timeval *stasis_message_timestamp(const struct stasis_message *msg)
  * \param sanitize Snapshot sanitization callback.
  *
  * \return Newly allocated string with JSON message.
- * \retval NULL if JSON format is not supported.
+ * \return \c NULL on error.
+ * \return \c NULL if JSON format is not supported.
  */
 struct ast_json *stasis_message_to_json(struct stasis_message *msg, struct stasis_message_sanitizer *sanitize);
 
@@ -466,7 +470,8 @@ struct ast_json *stasis_message_to_json(struct stasis_message *msg, struct stasi
  * be ao2_cleanup()'ed.
  *
  * \param msg Message to convert to AMI.
- * \retval NULL if AMI format is not supported.
+ * \return \c NULL on error.
+ * \return \c NULL if AMI format is not supported.
  */
 struct ast_manager_event_blob *stasis_message_to_ami(struct stasis_message *msg);
 
@@ -487,7 +492,8 @@ int stasis_message_can_be_ami(struct stasis_message *msg);
  * be disposed of via \ref ast_event_destroy.
  *
  * \param msg Message to convert to AMI.
- * \retval NULL if AMI format is not supported.
+ * \return \c NULL on error.
+ * \return \c NULL if AMI format is not supported.
  */
 struct ast_event *stasis_message_to_event(struct stasis_message *msg);
 
@@ -501,7 +507,7 @@ struct stasis_topic;
  * \brief Create a new topic.
  * \param name Name of the new topic.
  * \return New topic instance.
- * \retval NULL on error.
+ * \return \c NULL on error.
  * \since 12
  *
  * \note There is no explicit ability to unsubscribe all subscribers
@@ -509,8 +515,7 @@ struct stasis_topic;
  * the last subscriber unsubscribes itself even if there is no
  * publisher.
  *
- * \note Topic names should be in the form of
- * \verbatim <subsystem>:<functionality>[/<object>] \endverbatim
+ * \note Topic names should be in the form of <subsystem>:<functionality>[/<object>]
  */
 struct stasis_topic *stasis_topic_create(const char *name);
 
@@ -519,7 +524,7 @@ struct stasis_topic *stasis_topic_create(const char *name);
  * \param name Name of the new topic.
  * \param detail Detail description of the new topic. i.e. "Queue main topic for subscribing every queue event"
  * \return New topic instance.
- * \retval NULL on error.
+ * \return \c NULL on error.
  *
  * \note There is no explicit ability to unsubscribe all subscribers
  * from a topic and destroy it. As a result the topic can persist until
@@ -533,7 +538,7 @@ struct stasis_topic *stasis_topic_create_with_detail(
  * \brief Get a topic of the given name.
  * \param name Topic's name.
  * \return Name of the topic.
- * \retval NULL on error or not exist.
+ * \return \c NULL on error or not exist.
  *
  * \note This SHOULD NOT be used in normal operation for publishing messages.
  */
@@ -543,7 +548,7 @@ struct stasis_topic *stasis_topic_get(const char *name);
  * \brief Return the uniqueid of a topic.
  * \param topic Topic.
  * \return Uniqueid of the topic.
- * \retval NULL if topic is \c NULL.
+ * \return \c NULL if topic is \c NULL.
  */
 const char *stasis_topic_uniqueid(const struct stasis_topic *topic);
 
@@ -551,7 +556,7 @@ const char *stasis_topic_uniqueid(const struct stasis_topic *topic);
  * \brief Return the name of a topic.
  * \param topic Topic.
  * \return Name of the topic.
- * \retval NULL if topic is \c NULL.
+ * \return \c NULL if topic is \c NULL.
  */
 const char *stasis_topic_name(const struct stasis_topic *topic);
 
@@ -559,7 +564,7 @@ const char *stasis_topic_name(const struct stasis_topic *topic);
  * \brief Return the detail of a topic.
  * \param topic Topic.
  * \return Detail of the topic.
- * \retval NULL if topic is \c NULL.
+ * \return \c NULL if topic is \c NULL.
  * \since 12
  */
 const char *stasis_topic_detail(const struct stasis_topic *topic);
@@ -593,7 +598,7 @@ void stasis_publish(struct stasis_topic *topic, struct stasis_message *message);
  * The caller of stasis_publish_sync will block until the specified
  * subscriber completes handling of the message.
  *
- * All other subscribers to the topic the \ref stasis_subscription
+ * All other subscribers to the topic the \ref stasis_subpscription
  * is subscribed to are also delivered the message; this delivery however
  * happens asynchronously.
  *
@@ -604,7 +609,6 @@ void stasis_publish_sync(struct stasis_subscription *sub, struct stasis_message 
 /*!
  * \brief Callback function type for Stasis subscriptions.
  * \param data Data field provided with subscription.
- * \param sub Subscription published on.
  * \param message Published message.
  * \since 12
  */
@@ -635,9 +639,8 @@ void stasis_subscription_cb_noop(void *data, struct stasis_subscription *sub, st
  * \param topic Topic to subscribe to.
  * \param callback Callback function for subscription messages.
  * \param data Data to be passed to the callback, in addition to the message.
- * \param file, lineno, func
  * \return New \ref stasis_subscription object.
- * \retval NULL on error.
+ * \return \c NULL on error.
  * \since 12
  *
  * \note This callback will receive a callback with a message indicating it
@@ -666,9 +669,8 @@ struct stasis_subscription *__stasis_subscribe(struct stasis_topic *topic,
  * \param topic Topic to subscribe to.
  * \param callback Callback function for subscription messages.
  * \param data Data to be passed to the callback, in addition to the message.
- * \param file, lineno, func
  * \return New \ref stasis_subscription object.
- * \retval NULL on error.
+ * \return \c NULL on error.
  * \since 12.8.0
  *
  * \note This callback will receive a callback with a message indicating it
@@ -766,7 +768,7 @@ enum stasis_subscription_message_formatters stasis_message_type_available_format
  * delivery of the final message.
  *
  * \param subscription Subscription to cancel.
- * \retval NULL for convenience
+ * \return \c NULL for convenience
  * \since 12
  */
 struct stasis_subscription *stasis_unsubscribe(
@@ -821,7 +823,7 @@ int stasis_subscription_is_done(struct stasis_subscription *subscription);
  * a function in a shared module that no longer exists).
  *
  * \param subscription Subscription to cancel.
- * \retval NULL for convenience
+ * \return \c NULL for convenience
  * \since 12
  */
 struct stasis_subscription *stasis_unsubscribe_and_join(
@@ -839,7 +841,7 @@ struct stasis_forward;
  * \param from_topic Topic to forward.
  * \param to_topic Destination topic of forwarded messages.
  * \return New forwarding subscription.
- * \retval NULL on error.
+ * \return \c NULL on error.
  * \since 12
  */
 struct stasis_forward *stasis_forward_all(struct stasis_topic *from_topic,
@@ -911,7 +913,7 @@ struct stasis_topic_pool;
  * \brief Create a topic pool that routes messages from dynamically generated topics to the given topic
  * \param pooled_topic Topic to which messages will be routed
  * \return the new stasis_topic_pool
- * \retval NULL on failure
+ * \return \c NULL on failure
  */
 struct stasis_topic_pool *stasis_topic_pool_create(struct stasis_topic *pooled_topic);
 
@@ -920,7 +922,7 @@ struct stasis_topic_pool *stasis_topic_pool_create(struct stasis_topic *pooled_t
  * \param pool Pool for which to get the topic
  * \param topic_name Name of the topic to get
  * \return The already stored or newly allocated topic
- * \retval NULL if the topic was not found and could not be allocated
+ * \return \c NULL if the topic was not found and could not be allocated
  */
 struct stasis_topic *stasis_topic_pool_get_topic(struct stasis_topic_pool *pool, const char *topic_name);
 
@@ -929,7 +931,7 @@ struct stasis_topic *stasis_topic_pool_get_topic(struct stasis_topic_pool *pool,
  *
  * \param pool Pool from which to delete the topic
  * \param topic_name Name of the topic to delete in the form of
- * \verbatim [<pool_topic_name>/]<topic_name> \endverbatim
+ *                   <pool_topic_name>/<topic_name> or just <topic_name>
  *
  * \since 13.24
  * \since 15.6
@@ -1003,7 +1005,7 @@ struct stasis_caching_topic;
  *
  * \param message Message to extract id from.
  * \return String representing the snapshot's id.
- * \retval NULL if the message_type of the message isn't a handled snapshot.
+ * \return \c NULL if the message_type of the message isn't a handled snapshot.
  * \since 12
  */
 typedef const char *(*snapshot_get_id)(struct stasis_message *message);
@@ -1051,6 +1053,8 @@ typedef struct stasis_message *(*cache_aggregate_calc_fn)(struct stasis_cache_en
  * any remote entities publishing state for a device.  e.g., An aggregate
  * MWI message is the old/new MWI counts accumulated from the local and
  * any remote entities publishing to a mailbox.
+ *
+ * \return Nothing
  */
 typedef void (*cache_aggregate_publish_fn)(struct stasis_topic *topic, struct stasis_message *aggregate);
 
@@ -1111,8 +1115,8 @@ struct stasis_message *stasis_cache_entry_get_remote(struct stasis_cache_entry *
  *
  * \param id_fn Callback to extract the id from a snapshot message.
  *
- * \return New cache indexed by \a id_fn.
- * \retval NULL on error
+ * \retval New cache indexed by \a id_fn.
+ * \retval \c NULL on error
  *
  * \since 12
  */
@@ -1137,8 +1141,8 @@ struct stasis_cache *stasis_cache_create(snapshot_get_id id_fn);
  * MWI message is the old/new MWI counts accumulated from the local and
  * any remote entities publishing to a mailbox.
  *
- * \return New cache indexed by \a id_fn.
- * \retval NULL on error
+ * \retval New cache indexed by \a id_fn.
+ * \retval \c NULL on error
  *
  * \since 12.2.0
  */
@@ -1158,7 +1162,7 @@ struct stasis_cache *stasis_cache_create_full(snapshot_get_id id_fn, cache_aggre
  * \param cache Backend cache in which to keep snapshots.
  * \return New topic which changes snapshot messages to stasis_cache_update()
  *         messages, and forwards all other messages from the original topic.
- * \retval NULL on error
+ * \return \c NULL on error
  * \since 12
  */
 struct stasis_caching_topic *stasis_caching_topic_create(
@@ -1171,7 +1175,7 @@ struct stasis_caching_topic *stasis_caching_topic_create(
  * stasis_subscription_final_message() is received.
  *
  * \param caching_topic Caching topic to unsubscribe
- * \retval NULL for convenience
+ * \return \c NULL for convenience
  * \since 12
  */
 struct stasis_caching_topic *stasis_caching_unsubscribe(
@@ -1181,11 +1185,11 @@ struct stasis_caching_topic *stasis_caching_unsubscribe(
  * \brief Unsubscribes a caching topic from its upstream topic, blocking until
  * all messages have been forwarded.
  *
- * See stasis_unsubscribe_and_join() for more info on when to use this as
+ * See stasis_unsubscriben_and_join() for more info on when to use this as
  * opposed to stasis_caching_unsubscribe().
  *
  * \param caching_topic Caching topic to unsubscribe
- * \retval NULL for convenience
+ * \return \c NULL for convenience
  * \since 12
  */
 struct stasis_caching_topic *stasis_caching_unsubscribe_and_join(
@@ -1196,7 +1200,7 @@ struct stasis_caching_topic *stasis_caching_unsubscribe_and_join(
  * \param caching_topic The caching topic.
  * \return The topic that publishes cache update events, along with passthrough
  *         events from the underlying topic.
- * \retval NULL if \a caching_topic is \c NULL.
+ * \return \c NULL if \a caching_topic is \c NULL.
  * \since 12
  */
 struct stasis_topic *stasis_caching_get_topic(
@@ -1247,7 +1251,7 @@ int stasis_caching_set_filter(struct stasis_caching_topic *caching_topic,
  *
  * \return Message which, when sent to a \ref stasis_caching_topic, will clear
  *         the item from the cache.
- * \retval NULL on error.
+ * \return \c NULL on error.
  * \since 12
  */
 struct stasis_message *stasis_cache_clear_create(struct stasis_message *message);
@@ -1261,8 +1265,8 @@ struct stasis_message *stasis_cache_clear_create(struct stasis_message *message)
  * \param type Type of message to retrieve.
  * \param id Identity of the snapshot to retrieve.
  *
- * \return Message from the cache.
- * \retval NULL if message is not found.
+ * \retval Message from the cache.
+ * \retval \c NULL if message is not found.
  *
  * \since 12
  */
@@ -1285,8 +1289,8 @@ struct stasis_message *stasis_cache_get(struct stasis_cache *cache, struct stasi
  * MWI message is the old/new MWI counts accumulated from the local and
  * any remote entities publishing to a mailbox.
  *
- * \return Message from the cache.
- * \retval NULL if message is not found.
+ * \retval Message from the cache.
+ * \retval \c NULL if message is not found.
  *
  * \since 12.2.0
  */
@@ -1300,8 +1304,8 @@ struct stasis_message *stasis_cache_get_by_eid(struct stasis_cache *cache, struc
  * \param type Type of message to retrieve.
  * \param id Identity of the snapshot to retrieve.
  *
- * \return Container of matching items found.
- * \retval NULL if error.
+ * \retval Container of matching items found.
+ * \retval \c NULL if error.
  */
 struct ao2_container *stasis_cache_get_all(struct stasis_cache *cache, struct stasis_message_type *type, const char *id);
 
@@ -1311,8 +1315,8 @@ struct ao2_container *stasis_cache_get_all(struct stasis_cache *cache, struct st
  * \param cache The cache to query.
  * \param type Type of message to dump (any type if \c NULL).
  *
- * \return ao2_container containing all matches (must be unreffed by caller)
- * \retval NULL on allocation error
+ * \retval ao2_container containing all matches (must be unreffed by caller)
+ * \retval \c NULL on allocation error
  *
  * \since 12
  */
@@ -1326,8 +1330,8 @@ struct ao2_container *stasis_cache_dump(struct stasis_cache *cache, struct stasi
  * \param type Type of message to dump (any type if \c NULL).
  * \param eid Specific entity id to retrieve.  NULL for aggregate.
  *
- * \return ao2_container containing all matches (must be unreffed by caller)
- * \retval NULL on allocation error
+ * \retval ao2_container containing all matches (must be unreffed by caller)
+ * \retval \c NULL on allocation error
  */
 struct ao2_container *stasis_cache_dump_by_eid(struct stasis_cache *cache, struct stasis_message_type *type, const struct ast_eid *eid);
 
@@ -1338,8 +1342,8 @@ struct ao2_container *stasis_cache_dump_by_eid(struct stasis_cache *cache, struc
  * \param cache The cache to query.
  * \param type Type of message to dump (any type if \c NULL).
  *
- * \return ao2_container containing all matches (must be unreffed by caller)
- * \retval NULL on allocation error
+ * \retval ao2_container containing all matches (must be unreffed by caller)
+ * \retval \c NULL on allocation error
  */
 struct ao2_container *stasis_cache_dump_all(struct stasis_cache *cache, struct stasis_message_type *type);
 
@@ -1395,6 +1399,8 @@ struct ast_multi_object_blob *ast_multi_object_blob_create(struct ast_json *blob
  * \param multi The multi object blob previously created
  * \param type Type code for the object such as channel, bridge, etc.
  * \param object Snapshot object of the type supplied to typename
+ *
+ * \return Nothing
  */
 void ast_multi_object_blob_add(struct ast_multi_object_blob *multi, enum stasis_user_multi_object_snapshot_type type, void *object);
 
@@ -1410,6 +1416,8 @@ void ast_multi_object_blob_add(struct ast_multi_object_blob *multi, enum stasis_
  * \param chan The channel to snapshot and publish event to
  * \param type The message type
  * \param blob A json blob to publish with the snapshot
+ *
+ * \return Nothing
  */
 void ast_multi_object_blob_single_channel_publish(struct ast_channel *chan, struct stasis_message_type *type, struct ast_json *blob);
 

@@ -43,7 +43,7 @@ struct ast_data_buffer;
 /*!
  * \brief A callback function to free a data payload in a data buffer
  *
- * \param data The data payload
+ * \param The data payload
  */
 typedef void (*ast_data_buffer_free_callback)(void *data);
 
@@ -153,7 +153,7 @@ void ast_data_buffer_free(struct ast_data_buffer *buffer);
  *
  * \param buffer The data buffer
  *
- * \return the number of data payloads
+ * \retval the number of data payloads
  *
  * \since 15.4.0
  */
@@ -164,7 +164,7 @@ size_t ast_data_buffer_count(const struct ast_data_buffer *buffer);
  *
  * \param buffer The data buffer
  *
- * \return the maximum number of data payloads
+ * \retval the maximum number of data payloads
  *
  * \since 15.4.0
  */

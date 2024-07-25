@@ -35,7 +35,7 @@
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/app.h"
-/* This file provides config-file based 'say' functions, and implements
+/* This file provides config-file based 'say' functions, and implenents
  * some CLI commands.
  */
 #include "asterisk/say.h"	/*!< provides config-file based 'say' functions */
@@ -48,13 +48,6 @@
 		</synopsis>
 		<syntax>
 			<parameter name="filenames" required="true" argsep="&amp;">
-				<para>Ampersand separated list of filenames. If the filename
-				is a relative filename (it does not begin with a slash), it
-				will be searched for in the Asterisk sounds directory. If the
-				filename is able to be parsed as a URL, Asterisk will
-				download the file and then begin playback on it. To include a
-				literal <literal>&amp;</literal> in the URL you can enclose
-				the URL in single quotes.</para>
 				<argument name="filename" required="true" />
 				<argument name="filename2" multiple="true" />
 			</parameter>
@@ -69,19 +62,13 @@
 						be answered before the sound is played.</para>
 						<note><para>Not all channel types support playing messages while still on hook.</para></note>
 					</option>
-					<option name="say">
-						<para>Play using the say.conf file.</para>
-					</option>
-					<option name="mix">
-						<para>Play using a mix of filename and the say.conf file.</para>
-					</option>
 				</optionlist>
 			</parameter>
 		</syntax>
 		<description>
 			<para>Plays back given filenames (do not put extension of wav/alaw etc).
-			The Playback application answers the channel if no options are specified.
-			If the file is non-existent it will fail.</para>
+			The playback command answer the channel if no options are specified.
+			If the file is non-existant it will fail</para>
 			<para>This application sets the following channel variable upon completion:</para>
 			<variablelist>
 				<variable name="PLAYBACKSTATUS">
@@ -459,7 +446,6 @@ static int playback_exec(struct ast_channel *chan, const char *data)
 	char *tmp;
 	int option_skip=0;
 	int option_say=0;
-	int option_mix=0;
 	int option_noanswer = 0;
 
 	AST_DECLARE_APP_ARGS(args,
@@ -480,8 +466,6 @@ static int playback_exec(struct ast_channel *chan, const char *data)
 			option_skip = 1;
 		if (strcasestr(args.options, "say"))
 			option_say = 1;
-		if (strcasestr(args.options, "mix"))
-			option_mix = 1;
 		if (strcasestr(args.options, "noanswer"))
 			option_noanswer = 1;
 	}
@@ -499,22 +483,16 @@ static int playback_exec(struct ast_channel *chan, const char *data)
 		char *front;
 
 		ast_stopstream(chan);
-		while (!res && (front = ast_strsep(&back, '&', AST_STRSEP_STRIP | AST_STRSEP_TRIM))) {
+		while (!res && (front = strsep(&back, "&"))) {
 			if (option_say)
 				res = say_full(chan, front, "", ast_channel_language(chan), NULL, -1, -1);
-			else if (option_mix){
-				/* Check if it is in say format but not remote audio file */
-				if (strcasestr(front, ":") && !strcasestr(front, "://"))
-					res = say_full(chan, front, "", ast_channel_language(chan), NULL, -1, -1);
-				else
-					res = ast_streamfile(chan, front, ast_channel_language(chan));
-			}
 			else
 				res = ast_streamfile(chan, front, ast_channel_language(chan));
 			if (!res) {
 				res = ast_waitstream(chan, "");
 				ast_stopstream(chan);
-			} else {
+			}
+			if (res) {
 				if (!ast_check_hangup(chan)) {
 					ast_log(LOG_WARNING, "Playback failed on %s for %s\n", ast_channel_name(chan), (char *)data);
 				}

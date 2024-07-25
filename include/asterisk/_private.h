@@ -37,7 +37,6 @@ int ast_term_init(void);		/*!< Provided by term.c */
 int astdb_init(void);			/*!< Provided by db.c */
 int ast_channels_init(void);		/*!< Provided by channel.c */
 void ast_builtins_init(void);		/*!< Provided by cli.c */
-void ast_cli_channels_init(void);	/*!< Provided by cli.c */
 int ast_cli_perms_init(int reload);	/*!< Provided by cli.c */
 void dnsmgr_start_refresh(void);	/*!< Provided by dnsmgr.c */
 int ast_dns_system_resolver_init(void); /*!< Provided by dns_system_resolver.c */
@@ -57,17 +56,20 @@ int ast_msg_init(void);             /*!< Provided by message.c */
 void ast_msg_shutdown(void);        /*!< Provided by message.c */
 int aco_init(void);             /*!< Provided by config_options.c */
 int dns_core_init(void);        /*!< Provided by dns_core.c */
-int ast_refer_init(void);             /*!< Provided by refer.c */
 
 /*!
  * \brief Initialize malloc debug phase 1.
  *
  * \note Must be called first thing after forking.
+ *
+ * \return Nothing
  */
 void load_astmm_phase_1(void);
 
 /*!
  * \brief Initialize malloc debug phase 2.
+ *
+ * \return Nothing
  */
 void load_astmm_phase_2(void);
 

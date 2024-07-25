@@ -58,6 +58,7 @@
 		</description>
 		<see-also>
 			<ref type="application">GosubIf</ref>
+			<ref type="application">Macro</ref>
 			<ref type="application">Goto</ref>
 			<ref type="application">Return</ref>
 			<ref type="application">StackPop</ref>
@@ -92,6 +93,7 @@
 		<see-also>
 			<ref type="application">Gosub</ref>
 			<ref type="application">Return</ref>
+			<ref type="application">MacroIf</ref>
 			<ref type="function">IF</ref>
 			<ref type="application">GotoIf</ref>
 			<ref type="application">Goto</ref>
@@ -588,8 +590,8 @@ static int gosub_exec(struct ast_channel *chan, const char *data)
 	ast_channel_unlock(chan);
 
 	if (!ast_exists_extension(chan, dest_context, dest_exten, dest_priority, caller_id)) {
-		ast_log(LOG_ERROR, "%s attempted to reach non-existent destination '%s,%s,%d' from '%s,%s,%d'",
-			app_gosub, dest_context, dest_exten, dest_priority, orig_context, orig_exten, orig_priority);
+		ast_log(LOG_ERROR, "Attempt to reach a non-existent destination for %s: (Context:%s, Extension:%s, Priority:%d)\n",
+			app_gosub, dest_context, dest_exten, dest_priority);
 		goto error_exit;
 	}
 
@@ -922,6 +924,8 @@ static struct ast_custom_function stackpeek_function = {
  * \param chan Channel to balance stack on.
  *
  * \note The channel is already locked when called.
+ *
+ * \return Nothing
  */
 static void balance_stack(struct ast_channel *chan)
 {
@@ -1074,7 +1078,7 @@ static int gosub_run(struct ast_channel *chan, const char *sub_args, int ignore_
 				ast_channel_name(chan), app_gosub, sub_args,
 				S_OR(pbx_builtin_getvar_helper(chan, "GOSUB_RETVAL"), ""));
 		} else {
-			ast_log(LOG_WARNING, "%s Abnormal '%s(%s)' exit.  Popping routine return locations.\n",
+			ast_log(LOG_NOTICE, "%s Abnormal '%s(%s)' exit.  Popping routine return locations.\n",
 				ast_channel_name(chan), app_gosub, sub_args);
 			balance_stack(chan);
 			pbx_builtin_setvar_helper(chan, "GOSUB_RETVAL", "");

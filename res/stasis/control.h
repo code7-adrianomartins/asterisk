@@ -36,7 +36,7 @@
  * \param app stasis_app for which this control is being created.
  *
  * \return New control object.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct stasis_app_control *control_create(struct ast_channel *channel, struct stasis_app *app);
 
@@ -45,17 +45,10 @@ struct stasis_app_control *control_create(struct ast_channel *channel, struct st
  * \since 13.9.0
  *
  * \param control Control object to flush command queue.
+ *
+ * \return Nothing
  */
 void control_flush_queue(struct stasis_app_control *control);
-
-/*!
- * \brief set the control's thread id
- * \since 18
- *
- * \param control Control object on which to set the thread id.
- * \param threadid id to set
- */
-void control_set_thread(struct stasis_app_control *control, pthread_t threadid);
 
 /*!
  * \brief Dispatch all commands enqueued to this control.
@@ -79,7 +72,7 @@ void control_wait(struct stasis_app_control *control);
  *
  * \param control Control to count commands on
  *
- * \return number of commands in the command que
+ * \retval number of commands in the command que
  */
 int control_command_count(struct stasis_app_control *control);
 
@@ -87,8 +80,8 @@ int control_command_count(struct stasis_app_control *control);
  * \brief Returns true if control_continue() has been called on this \a control.
  *
  * \param control Control to query.
- * \retval True (non-zero) if control_continue() has been called.
- * \retval False (zero) otherwise.
+ * \return True (non-zero) if control_continue() has been called.
+ * \return False (zero) otherwise.
  */
 int control_is_done(struct stasis_app_control *control);
 
@@ -98,7 +91,7 @@ void control_mark_done(struct stasis_app_control *control);
  * \brief Dispatch all queued prestart commands
  *
  * \param control The control for chan
- * \param chan The channel on which commands should be executed
+ * \param channel The channel on which commands should be executed
  *
  * \return The number of commands executed
  */
@@ -110,7 +103,7 @@ int control_prestart_dispatch_all(struct stasis_app_control *control,
  *
  * \param control Control to query.
  *
- * \return A pointer to the associated stasis_app
+ * \returns A pointer to the associated stasis_app
  */
 struct stasis_app *control_app(struct stasis_app_control *control);
 

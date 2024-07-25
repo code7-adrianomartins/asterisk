@@ -59,7 +59,7 @@ enum ast_waitstream_fr_cb_values {
 
 /*!
  * \brief callback used during dtmf controlled file playback to indicate
- * location of playback in a file after rewinding or fastforwarding
+ * location of playback in a file after rewinding or fastfowarding
  * a file.
  */
 typedef void (ast_waitstream_fr_cb)(struct ast_channel *chan, long ms, enum ast_waitstream_fr_cb_values val);
@@ -80,8 +80,7 @@ int ast_streamfile(struct ast_channel *c, const char *filename, const char *pref
  * \brief stream file until digit
  * If the file name is non-empty, try to play it.
  * \note If digits == "" then we can simply check for non-zero.
- * \note If a failure is encountered, the stream will be closed before returning.
- * \retval 0 if success.
+ * \return 0 if success.
  * \retval -1 if error.
  * \retval digit if interrupted by a digit.
  */
@@ -106,8 +105,8 @@ int ast_stopstream(struct ast_channel *c);
  * \param fmt the format you wish to check (the extension)
  * \param preflang (the preferred language you wisht to find the file in)
  * See if a given file exists in a given format.  If fmt is NULL,  any format is accepted.
- * \retval 0 The file does not exist
- * \retval 1 The file does exist.
+ * \retval 0, false. The file does not exist
+ * \retval 1, true. The file does exist.
  */
 int ast_fileexists(const char *filename, const char *fmt, const char *preflang);
 
@@ -117,7 +116,7 @@ int ast_fileexists(const char *filename, const char *fmt, const char *preflang);
  * \param newname the name you wish to rename the file to (minus the extension)
  * \param fmt the format of the file
  * Rename a given file in a given format, or if fmt is NULL, then do so for all
- * \retval -1 on failure
+ * \return -1 on failure
  */
 int ast_filerename(const char *oldname, const char *newname, const char *fmt);
 
@@ -139,37 +138,11 @@ int ast_filedelete(const char *filename, const char *fmt);
 int ast_filecopy(const char *oldname, const char *newname, const char *fmt);
 
 /*!
- * \brief same as mkstemp, but return a FILE
- * \param template The template for the unique file name to generate. Modified in place to return the file name.
- * \param mode The mode for file permissions
- *
- * \return FILE handle to the temporary file on success or NULL if creation failed
- */
-FILE *ast_file_mkftemp(char *template, mode_t mode);
-
-/*!
- * \brief Create a temporary file located at path
- *
- * \note The directory containing path will be created if it does not exist
- * \note This function assumes path does not end with a '/'
- *
- * \param path The directory path to create the file in
- * \param filename Function allocates memory and stores full filename (including path) here
- * \param template_name mkstemp template to use. Must end with XXXXXX.
- *
- * \note filename will need to be freed with ast_free if this function succeeds
- *
- * \retval -1 on failure
- * \return file descriptor on success
- */
-int ast_file_fdtemp(const char *path, char **filename, const char *template_name);
-
-/*!
  * \brief Callback called for each file found when reading directories
  * \param dir_name the name of the directory
  * \param filename the name of the file
  * \param obj user data object
- * \retval non-zero to stop reading, otherwise zero to continue
+ * \return non-zero to stop reading, otherwise zero to continue
  *
  * \note dir_name is not processed by realpath or other functions,
  *       symbolic links are not resolved.  This ensures dir_name
@@ -184,9 +157,7 @@ typedef int (*ast_file_on_file)(const char *dir_name, const char *filename, void
  * \param on_file callback called on each file
  * \param obj user data object
  * \param max_depth re-curse into sub-directories up to a given maximum (-1 = infinite)
- * \retval -1 on failure
- * \retval errno on failure
- * \retval 0 otherwise
+ * \return -1 or errno on failure, otherwise 0
  */
 int ast_file_read_dirs(const char *dir_name, ast_file_on_file on_file, void *obj, int max_depth);
 
@@ -195,9 +166,7 @@ int ast_file_read_dirs(const char *dir_name, ast_file_on_file on_file, void *obj
  * \param dir_name the name of the directory to search
  * \param on_file callback called on each file
  * \param obj user data object
- * \return -1
- * \retval errno on failure
- * \retval 0 otherwise
+ * \return -1 or errno on failure, otherwise 0
  */
 #define ast_file_read_dir(dir_name, on_file, obj) ast_file_read_dirs(dir_name, on_file, obj, 1)
 
@@ -208,7 +177,7 @@ int ast_file_read_dirs(const char *dir_name, ast_file_on_file on_file, void *obj
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a given digit to arrive,
  * \retval 0 if the stream finishes
- * \retval character if it was interrupted by the channel.
+ * \retval the character if it was interrupted by the channel.
  * \retval -1 on error
  */
 int ast_waitstream(struct ast_channel *c, const char *breakon);
@@ -220,7 +189,7 @@ int ast_waitstream(struct ast_channel *c, const char *breakon);
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a valid extension digit to arrive,
  * \retval 0 if the stream finishes.
- * \retval character if it was interrupted.
+ * \retval the character if it was interrupted.
  * \retval -1 on error.
  */
 int ast_waitstream_exten(struct ast_channel *c, const char *context);
@@ -235,8 +204,8 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context);
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a given digit to arrive,
  * \retval 0 if the stream finishes.
- * \retval character if it was interrupted,
- * \return the value of the control frame if it was interrupted by some other party,
+ * \retval the character if it was interrupted,
+ * \retval the value of the control frame if it was interrupted by some other party,
  * \retval -1 on error.
  */
 int ast_waitstream_fr(struct ast_channel *c, const char *breakon, const char *forward, const char *rewind, int ms);
@@ -249,12 +218,12 @@ int ast_waitstream_fr(struct ast_channel *c, const char *breakon, const char *fo
  * \param forward DTMF digit to fast forward upon
  * \param rewind DTMF digit to rewind upon
  * \param ms How many milliseconds to skip forward/back
- * \param cb to call when rewind or fastforward occurs.
+ * \param cb to call when rewind or fastfoward occurs.
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a given digit to arrive,
  * \retval 0 if the stream finishes.
- * \retval character if it was interrupted,
- * \return the value of the control frame if it was interrupted by some other party,
+ * \retval the character if it was interrupted,
+ * \retval the value of the control frame if it was interrupted by some other party,
  * \retval -1 on error.
  */
 int ast_waitstream_fr_w_cb(struct ast_channel *c,
@@ -267,7 +236,7 @@ int ast_waitstream_fr_w_cb(struct ast_channel *c,
 /*!
  * Same as waitstream, but with audio output to fd and monitored fd checking.
  *
- * \retval 1 if monfd is ready for reading
+ * \return 1 if monfd is ready for reading
  */
 int ast_waitstream_full(struct ast_channel *c, const char *breakon, int audiofd, int monfd);
 
@@ -283,7 +252,7 @@ int ast_waitstream_full(struct ast_channel *c, const char *breakon, int audiofd,
  * if check is non-zero, then it will not read a file if there are any files that
  * start with that name and have an extension
  * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
- * \return a struct ast_filestream on success.
+ * \retval a struct ast_filestream on success.
  * \retval NULL on failure.
  */
 struct ast_filestream *ast_readfile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode);
@@ -300,7 +269,7 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
  * if check is non-zero, then it will not write a file if there are any files that
  * start with that name and have an extension
  * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
- * \return a struct ast_filestream on success.
+ * \retval a struct ast_filestream on success.
  * \retval NULL on failure.
  */
 struct ast_filestream *ast_writefile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode);
@@ -329,7 +298,7 @@ int ast_closestream(struct ast_filestream *f);
  * \param chan channel to work with
  * \param filename to use
  * \param preflang prefered language to use
- * \return a ast_filestream pointer if it opens the file.
+ * \retval a ast_filestream pointer if it opens the file.
  * \retval NULL on error.
  */
 struct ast_filestream *ast_openstream(struct ast_channel *chan, const char *filename, const char *preflang);
@@ -349,13 +318,13 @@ struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char 
  * \param chan channel to work with
  * \param filename to use
  * \param preflang prefered language to use
- * \return a ast_filestream pointer if it opens the file.
+ * \retval a ast_filestream pointer if it opens the file.
  * \retval NULL on error.
  */
 struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *filename, const char *preflang);
 
 /*!
- * \brief Applies a open stream to a channel.
+ * \brief Applys a open stream to a channel.
  * \param chan channel to work
  * \param s ast_filestream to apply
  * \retval 0 on success.
@@ -454,7 +423,7 @@ char *ast_format_str_reduce(char *fmts);
  * \param file_ext The file extension for which to find the format
  *
  * \retval NULL if not found
- * \return A pointer to the ast_format associated with this file extension
+ * \retval A pointer to the ast_format associated with this file extension
  */
 struct ast_format *ast_get_format_for_file_ext(const char *file_ext);
 

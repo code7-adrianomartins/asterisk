@@ -1399,7 +1399,7 @@ static void sorcery_memory_cache_retrieve_regex(const struct ast_sorcery *sorcer
  * \param data The sorcery memory cache
  * \param type The type of the object to retrieve
  * \param objects Container to place the objects into
- * \param prefix, prefix_len Prefix to match against the object id
+ * \param prefix Prefix to match against the object id
  */
 static void sorcery_memory_cache_retrieve_prefix(const struct ast_sorcery *sorcery, void *data, const char *type,
 	struct ao2_container *objects, const char *prefix, const size_t prefix_len)
@@ -1507,7 +1507,7 @@ static int age_cmp(void *a, void *b)
  */
 static void *sorcery_memory_cache_open(const char *data)
 {
-	char *options = ast_strdupa(data), *option;
+	char *options = ast_strdup(data), *option;
 	RAII_VAR(struct sorcery_memory_cache *, cache, NULL, ao2_cleanup);
 
 	cache = ao2_alloc_options(sizeof(*cache), sorcery_memory_cache_destructor, AO2_ALLOC_OPT_LOCK_NOLOCK);

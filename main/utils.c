@@ -36,10 +36,8 @@
 #include <unistd.h>
 #if defined(__APPLE__)
 #include <mach/mach.h>
-#elif defined(__FreeBSD__)
+#elif defined(HAVE_SYS_THR_H)
 #include <sys/thr.h>
-#elif defined(__NetBSD__)
-#include <lwp.h>
 #endif
 
 #include "asterisk/network.h"
@@ -72,15 +70,8 @@
 #define AST_API_MODULE
 #include "asterisk/alertpipe.h"
 
-/* These arrays are global static variables because they are only modified
- * once - in base64_init. The only purpose they have is to serve as a dictionary
- * for encoding and decoding base64 and base64 URL, so there's no harm in
- * accessing these arrays in multiple threads.
- */
 static char base64[64];
-static char base64url[64];
 static char b2a[256];
-static char b2a_url[256];
 
 AST_THREADSTORAGE(inet_ntoa_buf);
 
@@ -426,294 +417,28 @@ char *ast_base64encode_string(const char *src)
 	return encoded_string;
 }
 
-int ast_base64url_decode(unsigned char *dst, const char *src, int max)
-{
-	int cnt = 0;
-	unsigned int byte = 0;
-	unsigned int bits = 0;
-
-	while (*src && (cnt < max)) {
-		byte <<= 6;
-		byte |= (b2a_url[(int)(*src)]) & 0x3f;
-		bits += 6;
-		src++;
-		if (bits >= 8) {
-			bits -= 8;
-			*dst = (byte >> bits) & 0xff;
-			dst++;
-			cnt++;
-		}
-	}
-	return cnt;
-}
-
-char *ast_base64url_decode_string(const char *src)
-{
-	size_t decoded_len;
-	unsigned char *decoded_string;
-
-	if (ast_strlen_zero(src)) {
-		return NULL;
-	}
-
-	decoded_len = strlen(src) * 3 / 4;
-	decoded_string = ast_malloc(decoded_len + 1);
-	if (!decoded_string) {
-		return NULL;
-	}
-
-	ast_base64url_decode(decoded_string, src, decoded_len);
-	decoded_string[decoded_len] = '\0';
-
-	return (char *)decoded_string;
-}
-
-int ast_base64url_encode_full(char *dst, const unsigned char *src, int srclen, int max, int linebreaks)
-{
-	int cnt = 0;
-	int col = 0;
-	unsigned int byte = 0;
-	int bits = 0;
-	int cntin = 0;
-
-	max--;
-	while ((cntin < srclen) && (cnt < max)) {
-		byte <<= 8;
-		byte |= *(src++);
-		bits += 8;
-		cntin++;
-		if ((bits == 24) && (cnt + 4 <= max)) {
-			*dst++ = base64url[(byte >> 18) & 0x3f];
-			*dst++ = base64url[(byte >> 12) & 0x3f];
-			*dst++ = base64url[(byte >> 6) & 0x3f];
-			*dst++ = base64url[(byte) & 0x3f];
-			cnt += 4;
-			col += 4;
-			bits = 0;
-			byte = 0;
-		}
-		if (linebreaks && (cnt < max) && (col == 64)) {
-			*dst++ = '\n';
-			cnt++;
-			col = 0;
-		}
-	}
-	if (bits && (cnt + 4 <= max)) {
-		byte <<= 24 - bits;
-		*dst++ = base64url[(byte >> 18) & 0x3f];
-		*dst++ = base64url[(byte >> 12) & 0x3f];
-		if (bits == 16) {
-			*dst++ = base64url[(byte >> 6) & 0x3f];
-		}
-		cnt += 4;
-	}
-	if (linebreaks && (cnt < max)) {
-		*dst++ = '\n';
-		cnt++;
-	}
-	*dst = '\0';
-	return cnt;
-}
-
-int ast_base64url_encode(char *dst, const unsigned char *src, int srclen, int max)
-{
-	return ast_base64url_encode_full(dst, src, srclen, max, 0);
-}
-
-char *ast_base64url_encode_string(const char *src)
-{
-	size_t encoded_len;
-	char *encoded_string;
-
-	if (ast_strlen_zero(src)) {
-		return NULL;
-	}
-
-	encoded_len = ((strlen(src) * 4 / 3 + 3) & ~3) + 1;
-	encoded_string = ast_malloc(encoded_len);
-
-	ast_base64url_encode(encoded_string, (const unsigned char *)src, strlen(src), encoded_len);
-
-	return encoded_string;
-}
-
 static void base64_init(void)
 {
 	int x;
 	memset(b2a, -1, sizeof(b2a));
-	memset(b2a_url, -1, sizeof(b2a_url));
 	/* Initialize base-64 Conversion table */
 	for (x = 0; x < 26; x++) {
 		/* A-Z */
 		base64[x] = 'A' + x;
-		base64url[x] = 'A' + x;
 		b2a['A' + x] = x;
-		b2a_url['A' + x] = x;
 		/* a-z */
 		base64[x + 26] = 'a' + x;
-		base64url[x + 26] = 'a' + x;
 		b2a['a' + x] = x + 26;
-		b2a_url['a' + x] = x + 26;
 		/* 0-9 */
 		if (x < 10) {
 			base64[x + 52] = '0' + x;
-			base64url[x + 52] = '0' + x;
 			b2a['0' + x] = x + 52;
-			b2a_url['0' + x] = x + 52;
 		}
 	}
 	base64[62] = '+';
 	base64[63] = '/';
-	base64url[62] = '-';
-	base64url[63] = '_';
 	b2a[(int)'+'] = 62;
 	b2a[(int)'/'] = 63;
-	b2a_url[(int)'-'] = 62;
-	b2a_url[(int)'_'] = 63;
-}
-
-#define BASELINELEN    72  /*!< Line length for Base 64 encoded messages */
-#define BASEMAXINLINE  256 /*!< Buffer size for Base 64 attachment encoding */
-
-/*! \brief Structure used for base64 encoding */
-struct baseio {
-	int iocp;
-	int iolen;
-	int linelength;
-	int ateof;
-	unsigned char iobuf[BASEMAXINLINE];
-};
-
-/*!
- * \brief utility used by inchar(), for base_encode()
- */
-static int inbuf(struct baseio *bio, FILE *fi)
-{
-	int l;
-
-	if (bio->ateof) {
-		return 0;
-	}
-
-	if ((l = fread(bio->iobuf, 1, BASEMAXINLINE, fi)) != BASEMAXINLINE) {
-		bio->ateof = 1;
-		if (l == 0) {
-			/* Assume EOF */
-			return 0;
-		}
-	}
-
-	bio->iolen = l;
-	bio->iocp = 0;
-
-	return 1;
-}
-
-/*!
- * \brief utility used by base_encode()
- */
-static int inchar(struct baseio *bio, FILE *fi)
-{
-	if (bio->iocp >= bio->iolen) {
-		if (!inbuf(bio, fi)) {
-			return EOF;
-		}
-	}
-
-	return bio->iobuf[bio->iocp++];
-}
-
-/*!
- * \brief utility used by base_encode()
- */
-static int ochar(struct baseio *bio, int c, FILE *so, const char *endl)
-{
-	if (bio->linelength >= BASELINELEN) {
-		if (fputs(endl, so) == EOF) {
-			return -1;
-		}
-
-		bio->linelength = 0;
-	}
-
-	if (putc(((unsigned char) c), so) == EOF) {
-		return -1;
-	}
-
-	bio->linelength++;
-
-	return 1;
-}
-
-int ast_base64_encode_file(FILE *inputfile, FILE *outputfile, const char *endl)
-{
-	static const unsigned char dtable[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K',
-		'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-		'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0',
-		'1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
-	int i, hiteof = 0;
-	struct baseio bio;
-
-	memset(&bio, 0, sizeof(bio));
-	bio.iocp = BASEMAXINLINE;
-
-	while (!hiteof){
-		unsigned char igroup[3], ogroup[4];
-		int c, n;
-
-		memset(igroup, 0, sizeof(igroup));
-
-		for (n = 0; n < 3; n++) {
-			if ((c = inchar(&bio, inputfile)) == EOF) {
-				hiteof = 1;
-				break;
-			}
-
-			igroup[n] = (unsigned char) c;
-		}
-
-		if (n > 0) {
-			ogroup[0]= dtable[igroup[0] >> 2];
-			ogroup[1]= dtable[((igroup[0] & 3) << 4) | (igroup[1] >> 4)];
-			ogroup[2]= dtable[((igroup[1] & 0xF) << 2) | (igroup[2] >> 6)];
-			ogroup[3]= dtable[igroup[2] & 0x3F];
-
-			if (n < 3) {
-				ogroup[3] = '=';
-
-				if (n < 2) {
-					ogroup[2] = '=';
-				}
-			}
-
-			for (i = 0; i < 4; i++) {
-				ochar(&bio, ogroup[i], outputfile, endl);
-			}
-		}
-	}
-
-	if (fputs(endl, outputfile) == EOF) {
-		return 0;
-	}
-
-	return 1;
-}
-
-int ast_base64_encode_file_path(const char *filename, FILE *outputfile, const char *endl)
-{
-	FILE *fi;
-	int res;
-
-	if (!(fi = fopen(filename, "rb"))) {
-		ast_log(AST_LOG_WARNING, "Failed to open file: %s: %s\n", filename, strerror(errno));
-		return -1;
-	}
-
-	res = ast_base64_encode_file(fi, outputfile, endl);
-
-	fclose(fi);
-
-	return res;
 }
 
 const struct ast_flags ast_uri_http = {AST_URI_UNRESERVED};
@@ -971,9 +696,6 @@ struct thr_lock_info {
 		const char *lock_name;
 		void *lock_addr;
 		int times_locked;
-		int times_lock_attempted;
-		struct timeval last_locked;
-		struct timeval last_unlocked;
 		int line_num;
 		enum ast_lock_type type;
 		/*! This thread is waiting on this lock */
@@ -1066,8 +788,6 @@ void ast_store_lock_info(enum ast_lock_type type, const char *filename,
 	for (i = 0; i < lock_info->num_locks; i++) {
 		if (lock_info->locks[i].lock_addr == lock_addr) {
 			lock_info->locks[i].times_locked++;
-			lock_info->locks[i].times_lock_attempted++;
-			lock_info->locks[i].last_locked = ast_tvnow();
 #ifdef HAVE_BKTR
 			lock_info->locks[i].backtrace = bt;
 #endif
@@ -1099,8 +819,6 @@ void ast_store_lock_info(enum ast_lock_type type, const char *filename,
 	lock_info->locks[i].lock_name = lock_name;
 	lock_info->locks[i].lock_addr = lock_addr;
 	lock_info->locks[i].times_locked = 1;
-	lock_info->locks[i].times_lock_attempted = 1;
-	lock_info->locks[i].last_locked = ast_tvnow();
 	lock_info->locks[i].type = type;
 	lock_info->locks[i].pending = 1;
 #ifdef HAVE_BKTR
@@ -1140,7 +858,6 @@ void ast_mark_lock_failed(void *lock_addr)
 	if (lock_info->locks[lock_info->num_locks - 1].lock_addr == lock_addr) {
 		lock_info->locks[lock_info->num_locks - 1].pending = -1;
 		lock_info->locks[lock_info->num_locks - 1].times_locked--;
-		lock_info->locks[lock_info->num_locks - 1].last_unlocked = ast_tvnow();
 	}
 	pthread_mutex_unlock(&lock_info->lock);
 #endif /* ! LOW_MEMORY */
@@ -1263,7 +980,6 @@ void ast_remove_lock_info(void *lock_addr, struct ast_bt *bt)
 
 	if (lock_info->locks[i].times_locked > 1) {
 		lock_info->locks[i].times_locked--;
-		lock_info->locks[i].last_unlocked = ast_tvnow();
 #ifdef HAVE_BKTR
 		lock_info->locks[i].backtrace = bt;
 #endif
@@ -1331,36 +1047,16 @@ static void append_lock_information(struct ast_str **str, struct thr_lock_info *
 	int j;
 	ast_mutex_t *lock;
 	struct ast_lock_track *lt;
-	struct timeval held_for;
-	struct timeval now = ast_tvnow();
-	char lock_time[32], unlock_time[32], held_time[32];
 
-	held_for = ast_tvsub(now, lock_info->locks[i].last_locked);
-	/* format time duration strings */
-	ast_format_duration_hh_mm_ss(lock_info->locks[i].last_locked.tv_sec,
-									lock_time, sizeof(lock_time));
-	ast_format_duration_hh_mm_ss(lock_info->locks[i].last_unlocked.tv_sec,
-									unlock_time, sizeof(unlock_time));
-	ast_format_duration_hh_mm_ss(held_for.tv_sec, held_time, sizeof(held_time));
-
-	ast_str_append(str, 0, "=== ---> %sLock #%d (%s): %s %d %s %s %p\n"
-						"===      %s.%06ld, %s.%06ld, %s.%06ld (%d, %d%s)\n",
+	ast_str_append(str, 0, "=== ---> %sLock #%d (%s): %s %d %s %s %p (%d%s)\n",
 				   lock_info->locks[i].pending > 0 ? "Waiting for " :
 				   lock_info->locks[i].pending < 0 ? "Tried and failed to get " : "", i,
 				   lock_info->locks[i].file,
 				   locktype2str(lock_info->locks[i].type),
 				   lock_info->locks[i].line_num,
-				   lock_info->locks[i].func,
-				   lock_info->locks[i].lock_name,
+				   lock_info->locks[i].func, lock_info->locks[i].lock_name,
 				   lock_info->locks[i].lock_addr,
-				   lock_time,
-				   lock_info->locks[i].last_locked.tv_usec,
-				   unlock_time,
-				   lock_info->locks[i].last_unlocked.tv_usec,
-				   held_time,
-				   held_for.tv_usec,
 				   lock_info->locks[i].times_locked,
-				   lock_info->locks[i].times_lock_attempted,
 				   lock_info->locks[i].suspended ? " - suspended" : "");
 #ifdef HAVE_BKTR
 	append_backtrace_information(str, lock_info->locks[i].backtrace);
@@ -1390,11 +1086,11 @@ static void append_lock_information(struct ast_str **str, struct thr_lock_info *
     with for this lock?
 
 	To answer such questions, just call this routine before you would normally try
-	to acquire a lock. It doesn't do anything if the lock is not acquired. If the
+	to aquire a lock. It doesn't do anything if the lock is not acquired. If the
 	lock is taken, it will publish a line or two to the console via ast_log().
 
 	Sometimes, the lock message is pretty uninformative. For instance, you might
-	find that the lock is being acquired deep within the astobj2 code; this tells
+	find that the lock is being aquired deep within the astobj2 code; this tells
 	you little about higher level routines that call the astobj2 routines.
 	But, using gdb, you can set a break at the ast_log below, and for that
 	breakpoint, you can set the commands:
@@ -1441,24 +1137,20 @@ struct ast_str *ast_dump_locks(void)
 #if !defined(LOW_MEMORY)
 	struct thr_lock_info *lock_info;
 	struct ast_str *str;
-	char print_time[32];
-	struct timeval now = ast_tvnow();
 
 	if (!(str = ast_str_create(4096))) {
 		return NULL;
 	}
 
-	ast_format_duration_hh_mm_ss(now.tv_sec, print_time, sizeof(print_time));
-
 	ast_str_append(&str, 0, "\n"
 	               "=======================================================================\n"
 	               "=== %s\n"
-	               "=== Currently Held Locks at Time: %s.%06ld =================\n"
+	               "=== Currently Held Locks\n"
 	               "=======================================================================\n"
 	               "===\n"
-	               "=== <pending> <lock#> (<file>): <lock type> <line num> <function> <lock name> <lock addr>\n"
-	               "=== <locked at>, <failed at>, <held for> (attempts, times locked)\n"
-	               "===\n", ast_get_version(), print_time, now.tv_usec);
+	               "=== <pending> <lock#> (<file>): <lock type> <line num> <function> <lock name> <lock addr> (times locked)\n"
+	               "===\n", ast_get_version());
+
 	if (!str) {
 		return NULL;
 	}
@@ -1882,74 +1574,7 @@ char *ast_strsep(char **iss, const char sep, uint32_t flags)
 	}
 
 	if (flags & AST_STRSEP_TRIM) {
-		char *trimmed = ast_strip(st);
-		if (!ast_strlen_zero(trimmed)) {
-			st = trimmed;
-		}
-	}
-
-	if (flags & AST_STRSEP_UNESCAPE) {
-		ast_unescape_quoted(st);
-	}
-
-	return st;
-}
-
-char *ast_strsep_quoted(char **iss, const char sep, const char quote, uint32_t flags)
-{
-	char *st = *iss;
-	char *is;
-	int inquote = 0;
-	int found = 0;
-	char stack[8];
-	const char qstr[] = { quote };
-
-	if (ast_strlen_zero(st)) {
-		return NULL;
-	}
-
-	memset(stack, 0, sizeof(stack));
-
-	for(is = st; *is; is++) {
-		if (*is == '\\') {
-			if (*++is != '\0') {
-				is++;
-			} else {
-				break;
-			}
-		}
-
-		if (*is == quote) {
-			if (*is == stack[inquote]) {
-				stack[inquote--] = '\0';
-			} else {
-				if (++inquote >= sizeof(stack)) {
-					return NULL;
-				}
-				stack[inquote] = *is;
-			}
-		}
-
-		if (*is == sep && !inquote) {
-			*is = '\0';
-			found = 1;
-			*iss = is + 1;
-			break;
-		}
-	}
-	if (!found) {
-		*iss = NULL;
-	}
-
-	if (flags & AST_STRSEP_STRIP) {
-		st = ast_strip_quoted(st, qstr, qstr);
-	}
-
-	if (flags & AST_STRSEP_TRIM) {
-		char *trimmed = ast_strip(st);
-		if (!ast_strlen_zero(trimmed)) {
-			st = trimmed;
-		}
+		st = ast_strip(st);
 	}
 
 	if (flags & AST_STRSEP_UNESCAPE) {
@@ -2700,7 +2325,7 @@ int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request,
 			if (i->field) {
 				ast_string_field_ptr_set(d, i->field, src);
 			} else {
-				/* Special cases that require additional processing */
+				/* Special cases that require additional procesing */
 				if (!strcasecmp(i->key, "algorithm=")) {
 					if (strcasecmp(src, "MD5")) {
 						ast_log(LOG_WARNING, "Digest algorithm: \"%s\" not supported.\n", src);
@@ -2757,14 +2382,10 @@ int ast_get_tid(void)
 #elif defined(__APPLE__)
 	ret = mach_thread_self();
 	mach_port_deallocate(mach_task_self(), ret);
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) && defined(HAVE_SYS_THR_H)
 	long lwpid;
-	thr_self(&lwpid);
+	thr_self(&lwpid); /* available since sys/thr.h creation 2003 */
 	ret = lwpid;
-#elif defined(__NetBSD__)
-	ret = _lwp_self();
-#elif defined(__OpenBSD__)
-	ret = getthrid();
 #endif
 	return ret;
 }
@@ -3257,38 +2878,3 @@ int ast_thread_is_user_interface(void)
 
 	return *thread_user_interface;
 }
-
-int ast_check_command_in_path(const char *cmd)
-{
-	char *token, *saveptr, *path = getenv("PATH");
-	char filename[PATH_MAX];
-	int len;
-
-	if (path == NULL) {
-		return 0;
-	}
-
-	path = ast_strdup(path);
-	if (path == NULL) {
-		return 0;
-	}
-
-	token = strtok_r(path, ":", &saveptr);
-	while (token != NULL) {
-		len = snprintf(filename, sizeof(filename), "%s/%s", token, cmd);
-		if (len < 0 || len >= sizeof(filename)) {
-			ast_log(LOG_WARNING, "Path constructed with '%s' too long; skipping\n", token);
-			continue;
-		}
-
-		if (access(filename, X_OK) == 0) {
-			ast_free(path);
-			return 1;
-		}
-
-		token = strtok_r(NULL, ":", &saveptr);
-	}
-	ast_free(path);
-	return 0;
-}
-

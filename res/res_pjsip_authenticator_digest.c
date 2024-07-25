@@ -24,7 +24,6 @@
 #include "asterisk/logger.h"
 #include "asterisk/module.h"
 #include "asterisk/strings.h"
-#include "asterisk/test.h"
 
 /*** MODULEINFO
 	<depend>pjproject</depend>
@@ -32,7 +31,9 @@
 	<support_level>core</support_level>
  ***/
 
-static char default_realm[AST_SIP_AUTH_MAX_REALM_LENGTH + 1];
+/* From the auth/realm realtime column size */
+#define MAX_REALM_LENGTH 40
+static char default_realm[MAX_REALM_LENGTH + 1];
 
 AO2_GLOBAL_OBJ_STATIC(entity_id);
 
@@ -197,8 +198,7 @@ static pj_status_t digest_lookup(pj_pool_t *pool, const pj_str_t *realm,
  * is from the same source that the nonce was calculated for. Including the realm
  * ensures that multiple challenges to the same request have different nonces.
  *
- * \param nonce
- * \param timestamp A UNIX timestamp expressed as a string
+ * \param A UNIX timestamp expressed as a string
  * \param rdata The incoming request
  * \param realm The realm for which authentication should occur
  */
@@ -296,7 +296,7 @@ static void setup_auth_srv(pj_pool_t *pool, pjsip_auth_srv *auth_server, const c
  */
 enum digest_verify_result {
 	/*! Authentication credentials incorrect */
-	AUTH_FAIL = 0,
+	AUTH_FAIL,
 	/*! Authentication credentials correct */
 	AUTH_SUCCESS,
 	/*! Authentication credentials correct but nonce mismatch */
@@ -305,12 +305,6 @@ enum digest_verify_result {
 	AUTH_NOAUTH,
 };
 
-static char *verify_result_str[] = {
-	"FAIL",
-	"SUCCESS",
-	"STALE",
-	"NOAUTH"
-};
 /*!
  * \brief astobj2 callback for verifying incoming credentials
  *
@@ -326,7 +320,6 @@ static int verify(const struct ast_sip_auth *auth, pjsip_rx_data *rdata, pj_pool
 	int response_code;
 	pjsip_auth_srv auth_server;
 	int stale = 0;
-	int res = AUTH_FAIL;
 
 	if (!find_challenge(rdata, auth)) {
 		/* Couldn't find a challenge with a sane nonce.
@@ -343,26 +336,17 @@ static int verify(const struct ast_sip_auth *auth, pjsip_rx_data *rdata, pj_pool
 
 	if (authed == PJ_SUCCESS) {
 		if (stale) {
-			res = AUTH_STALE;
+			return AUTH_STALE;
 		} else {
-			res = AUTH_SUCCESS;
+			return AUTH_SUCCESS;
 		}
 	}
 
 	if (authed == PJSIP_EAUTHNOAUTH) {
-		res = AUTH_NOAUTH;
+		return AUTH_NOAUTH;
 	}
 
-	ast_debug(3, "Realm: %s  Username: %s  Result: %s\n",
-		auth->realm, auth->auth_user, verify_result_str[res]);
-
-	ast_test_suite_event_notify("INCOMING_AUTH_VERIFY_RESULT",
-		"Realm: %s\r\n"
-		"Username: %s\r\n"
-		"Status: %s",
-		auth->realm, auth->auth_user, verify_result_str[res]);
-
-	return res;
+	return AUTH_FAIL;
 }
 
 /*!

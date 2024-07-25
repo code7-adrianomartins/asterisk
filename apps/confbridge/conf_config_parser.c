@@ -97,9 +97,6 @@
 				<configOption name="quiet">
 					<synopsis>Silence enter/leave prompts and user intros for this user</synopsis>
 				</configOption>
-				<configOption name="hear_own_join_sound">
-					<synopsis>Determines if the user also hears the join sound when they enter a conference</synopsis>
-				</configOption>
 				<configOption name="announce_user_count">
 					<synopsis>Sets if the number of users should be announced to the user</synopsis>
 				</configOption>
@@ -119,9 +116,6 @@
 				</configOption>
 				<configOption name="end_marked">
 					<synopsis>Kick the user from the conference when the last marked user leaves</synopsis>
-				</configOption>
-				<configOption name="end_marked_any">
-					<synopsis>Kick the user from the conference when any marked user leaves</synopsis>
 				</configOption>
 				<configOption name="talk_detection_events">
 					<synopsis>Set whether or not notifications of when a user begins and ends talking should be sent out as events over AMI</synopsis>
@@ -252,9 +246,6 @@
 					text messages will be sent to it. These may be events or from other
 					participants in the conference bridge. If disabled then no text
 					messages are sent to the user.</para></description>
-				</configOption>
-				<configOption name="answer_channel" default="yes">
-					<synopsis>Sets if a user's channel should be answered if currently unanswered.</synopsis>
 				</configOption>
 			</configObject>
 			<configObject name="bridge_profile">
@@ -390,7 +381,7 @@
 						specific conference bridge.
 						You should be aware that there are potential races between testing for the
 						existence of a bridge, and taking action upon that information, consider
-						for example two callers executing the check simultaneously, and then taking
+						for example two callers executing the check simultaniously, and then taking
 						special action as "first caller" into the bridge.  The same for exiting,
 						directly after the check the bridge can be destroyed before the new caller
 						enters (creating a new bridge), for example, and the "first member" actions
@@ -465,7 +456,7 @@
 							<enum name="sound_kicked"><para>The sound played to a user who has been kicked from the conference.</para></enum>
 							<enum name="sound_muted"><para>The sound played when the mute option it toggled on.</para></enum>
 							<enum name="sound_unmuted"><para>The sound played when the mute option it toggled off.</para></enum>
-							<enum name="sound_binaural_on"><para>The sound played when binaural audio is turned on.</para></enum>
+							<enum name="sound_binaural_on"><para>The sound played when binaural auudio is turned on.</para></enum>
 							<enum name="sound_binaural_off"><para>The sound played when the binaural audio is turned off.</para></enum>
 							<enum name="sound_only_person"><para>The sound played when the user is the only person in the conference.</para></enum>
 							<enum name="sound_only_one"><para>The sound played to a user when there is only one other
@@ -1359,7 +1350,7 @@ static int add_menu_entry(struct conf_menu *menu, const char *dtmf, const char *
 		comma = strchr(tmp_action_names, ',');
 
 		/* If the next action has brackets with comma delimited arguments in it,
-		 * make the delimeter ')' instead of a comma to preserve the arguments */
+		 * make the delimeter ')' instead of a comma to preserve the argments */
 		if (startbrace && endbrace && comma && (comma > startbrace && comma < endbrace)) {
 			delimiter = ")";
 		} else {
@@ -1443,7 +1434,10 @@ static int add_menu_entry(struct conf_menu *menu, const char *dtmf, const char *
 
 	/* if adding any of the actions failed, bail */
 	if (res) {
-		conf_menu_entry_destroy(menu_entry);
+		struct conf_menu_action *menu_action;
+		while ((menu_action = AST_LIST_REMOVE_HEAD(&menu_entry->actions, action))) {
+			ast_free(menu_action);
+		}
 		ast_free(menu_entry);
 		return -1;
 	}
@@ -1452,7 +1446,6 @@ static int add_menu_entry(struct conf_menu *menu, const char *dtmf, const char *
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&menu->entries, cur, entry) {
 		if (!strcasecmp(cur->dtmf, menu_entry->dtmf)) {
 			AST_LIST_REMOVE_CURRENT(entry);
-			conf_menu_entry_destroy(cur);
 			ast_free(cur);
 			break;
 		}
@@ -1578,17 +1571,11 @@ static char *handle_cli_confbridge_show_user_profile(struct ast_cli_entry *e, in
 	ast_cli(a->fd,"Quiet:                   %s\n",
 		u_profile.flags & USER_OPT_QUIET ?
 		"enabled" : "disabled");
-	ast_cli(a->fd,"Hear Join:               %s\n",
-		u_profile.flags & USER_OPT_HEAR_OWN_JOIN_SOUND ?
-		"enabled" : "disabled");
 	ast_cli(a->fd,"Wait Marked:             %s\n",
 		u_profile.flags & USER_OPT_WAITMARKED ?
 		"enabled" : "disabled");
-	ast_cli(a->fd,"END Marked (All):        %s\n",
+	ast_cli(a->fd,"END Marked:              %s\n",
 		u_profile.flags & USER_OPT_ENDMARKED ?
-		"enabled" : "disabled");
-	ast_cli(a->fd,"END Marked (Any):        %s\n",
-		u_profile.flags & USER_OPT_ENDMARKEDANY ?
 		"enabled" : "disabled");
 	ast_cli(a->fd,"Drop_silence:            %s\n",
 		u_profile.flags & USER_OPT_DROP_SILENCE ?
@@ -1622,12 +1609,9 @@ static char *handle_cli_confbridge_show_user_profile(struct ast_cli_entry *e, in
 	ast_cli(a->fd,"Announce User Count all: %s\n",
 		u_profile.flags & USER_OPT_ANNOUNCEUSERCOUNTALL ?
 		"enabled" : "disabled");
-	ast_cli(a->fd,"Text Messaging:          %s\n",
-			u_profile.flags & USER_OPT_TEXT_MESSAGING ?
-			"enabled" : "disabled");
-	ast_cli(a->fd,"Answer Channel:          %s\n",
-			u_profile.flags & USER_OPT_ANSWER_CHANNEL ?
-			"true" : "false");
+        ast_cli(a->fd,"Text Messaging:          %s\n",
+                u_profile.flags & USER_OPT_TEXT_MESSAGING ?
+                "enabled" : "disabled");
 	ast_cli(a->fd, "\n");
 
 	return CLI_SUCCESS;
@@ -2220,30 +2204,6 @@ static int user_template_handler(const struct aco_option *opt, struct ast_variab
 	return conf_find_user_profile(NULL, var->value, u_profile) ? 0 : -1;
 }
 
-static int sample_rate_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
-{
-	struct bridge_profile *b_profile = obj;
-	unsigned int *slot;
-
-	if (!strcasecmp(var->name, "internal_sample_rate")) {
-		slot = &b_profile->internal_sample_rate;
-		if (!strcasecmp(var->value, "auto")) {
-			*slot = 0;
-			return 0;
-		}
-	} else if (!strcasecmp(var->name, "maximum_sample_rate")) {
-		slot = &b_profile->maximum_sample_rate;
-		if (!strcasecmp(var->value, "none")) {
-			*slot = 0;
-			return 0;
-		}
-	} else {
-		return -1;
-	}
-
-	return ast_parse_arg(var->value, PARSE_UINT32 | PARSE_IN_RANGE, slot, 8000, 192000);
-}
-
 static int bridge_template_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
 {
 	struct bridge_profile *b_profile = obj;
@@ -2430,14 +2390,12 @@ int conf_load_config(void)
 	aco_option_register(&cfg_info, "startmuted", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_STARTMUTED);
 	aco_option_register(&cfg_info, "music_on_hold_when_empty", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_MUSICONHOLD);
 	aco_option_register(&cfg_info, "quiet", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_QUIET);
-	aco_option_register(&cfg_info, "hear_own_join_sound", ACO_EXACT, user_types, "yes", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_HEAR_OWN_JOIN_SOUND);
 	aco_option_register_custom(&cfg_info, "announce_user_count_all", ACO_EXACT, user_types, "no", announce_user_count_all_handler, 0);
 	aco_option_register(&cfg_info, "announce_user_count", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_ANNOUNCEUSERCOUNT);
 	/* Negative logic. Defaults to "yes" and evaluates with ast_false(). If !ast_false(), USER_OPT_NOONLYPERSON is cleared */
 	aco_option_register(&cfg_info, "announce_only_user", ACO_EXACT, user_types, "yes", OPT_BOOLFLAG_T, 0, FLDSET(struct user_profile, flags), USER_OPT_NOONLYPERSON);
 	aco_option_register(&cfg_info, "wait_marked", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_WAITMARKED);
 	aco_option_register(&cfg_info, "end_marked", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_ENDMARKED);
-	aco_option_register(&cfg_info, "end_marked_any", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_ENDMARKEDANY);
 	aco_option_register(&cfg_info, "talk_detection_events", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_TALKER_DETECT);
 	aco_option_register(&cfg_info, "dtmf_passthrough", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_DTMF_PASS);
 	aco_option_register(&cfg_info, "announce_join_leave", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_ANNOUNCE_JOIN_LEAVE);
@@ -2452,7 +2410,6 @@ int conf_load_config(void)
 	aco_option_register(&cfg_info, "jitterbuffer", ACO_EXACT, user_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_JITTERBUFFER);
 	aco_option_register(&cfg_info, "timeout", ACO_EXACT, user_types, "0", OPT_UINT_T, 0, FLDSET(struct user_profile, timeout));
 	aco_option_register(&cfg_info, "text_messaging", ACO_EXACT, user_types, "yes", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_TEXT_MESSAGING);
-	aco_option_register(&cfg_info, "answer_channel", ACO_EXACT, user_types, "yes", OPT_BOOLFLAG_T, 1, FLDSET(struct user_profile, flags), USER_OPT_ANSWER_CHANNEL);
 
 	/* This option should only be used with the CONFBRIDGE dialplan function */
 	aco_option_register_custom(&cfg_info, "template", ACO_EXACT, user_types, NULL, user_template_handler, 0);
@@ -2461,9 +2418,10 @@ int conf_load_config(void)
 	/* Bridge options */
 	aco_option_register(&cfg_info, "type", ACO_EXACT, bridge_types, NULL, OPT_NOOP_T, 0, 0);
 	aco_option_register(&cfg_info, "jitterbuffer", ACO_EXACT, bridge_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct bridge_profile, flags), USER_OPT_JITTERBUFFER);
-	aco_option_register_custom(&cfg_info, "internal_sample_rate", ACO_EXACT, bridge_types, "auto", sample_rate_handler, 0);
+	/* "auto" will fail to parse as a uint, but we use PARSE_DEFAULT to set the value to 0 in that case, which is the value that auto resolves to */
+	aco_option_register(&cfg_info, "internal_sample_rate", ACO_EXACT, bridge_types, "0", OPT_UINT_T, PARSE_DEFAULT, FLDSET(struct bridge_profile, internal_sample_rate), 0);
 	aco_option_register(&cfg_info, "binaural_active", ACO_EXACT, bridge_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct bridge_profile, flags), BRIDGE_OPT_BINAURAL_ACTIVE);
-	aco_option_register_custom(&cfg_info, "maximum_sample_rate", ACO_EXACT, bridge_types, "none", sample_rate_handler, 0);
+	aco_option_register(&cfg_info, "maximum_sample_rate", ACO_EXACT, bridge_types, "0", OPT_UINT_T, PARSE_DEFAULT, FLDSET(struct bridge_profile, maximum_sample_rate), 0);
 	aco_option_register_custom(&cfg_info, "mixing_interval", ACO_EXACT, bridge_types, "20", mix_interval_handler, 0);
 	aco_option_register(&cfg_info, "record_conference", ACO_EXACT, bridge_types, "no", OPT_BOOLFLAG_T, 1, FLDSET(struct bridge_profile, flags), BRIDGE_OPT_RECORD_CONFERENCE);
 	aco_option_register_custom(&cfg_info, "video_mode", ACO_EXACT, bridge_types, NULL, video_mode_handler, 0);

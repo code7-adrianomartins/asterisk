@@ -158,7 +158,7 @@ def set_dtmfmode(key, val, section, pjsip, nmapped):
     """
     key = 'dtmf_mode'
     # available pjsip.conf values: rfc4733, inband, info, none
-    if val == 'inband' or val == 'info' or val == 'auto':
+    if val == 'inband' or val == 'info':
         set_value(key, val, section, pjsip, nmapped)
     elif val == 'rfc2833':
         set_value(key, 'rfc4733', section, pjsip, nmapped)
@@ -500,7 +500,6 @@ peer_map = [
     ['tonezone',           set_value('tone_zone')],
     ['language',           set_value],
     ['allowsubscribe',     set_value('allow_subscribe')],
-    ['subscribecontext',   set_value('subscribe_context')],
     ['subminexpiry',       set_value('sub_min_expiry')],
     ['rtp_engine',         set_value],
     ['mailbox',            from_mailbox],
@@ -774,11 +773,6 @@ def set_tls_private_key(val, pjsip, section, nmapped):
 
 def set_tls_cipher(val, pjsip, section, nmapped):
     """Sets cipher based on sip.conf tlscipher or sslcipher"""
-    if val == 'ALL':
-        return
-    print('chan_sip ciphers do not match 1:1 with PJSIP ciphers.' \
-          ' You should manually review and adjust this.', file=sys.stderr)
-
     set_value('cipher', val, section, pjsip, nmapped, 'transport')
 
 
@@ -1321,7 +1315,7 @@ if __name__ == "__main__":
     # configuration parser for sip.conf
     sip = astconfigparser.MultiOrderedConfigParser()
     info('Please, report any issue at:')
-    info('    https://github.com/asterisk/asterisk/issues/')
+    info('    https://issues.asterisk.org/')
     info('Reading ' + sip_filename)
     sip.read(sip_filename)
     info('Converting to PJSIP...')

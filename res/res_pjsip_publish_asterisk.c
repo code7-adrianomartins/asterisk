@@ -166,8 +166,9 @@ static const struct ast_datastore_info asterisk_mwi_publisher_state_datastore = 
 
 /*!
  * \brief Callback function for device state events
+ * \param ast_event
  * \param data void pointer to ast_client structure
- * \param sub, msg
+ * \return void
  */
 static void asterisk_publisher_devstate_cb(void *data, struct stasis_subscription *sub, struct stasis_message *msg)
 {
@@ -224,8 +225,9 @@ static void asterisk_publisher_devstate_cb(void *data, struct stasis_subscriptio
 
 /*!
  * \brief Callback function for mailbox state events
+ * \param ast_event
  * \param data void pointer to ast_client structure
- * \param sub, msg
+ * \return void
  */
 static void asterisk_publisher_mwistate_cb(void *data, struct stasis_subscription *sub, struct stasis_message *msg)
 {

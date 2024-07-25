@@ -150,7 +150,7 @@ extern "C" {
  *
  * <b>Sample Usage:</b>
  * \code
- * struct sample_struct_components {
+ * struct sample_struct_componets {
  *    ASTOBJ_COMPONENTS_NOLOCK(struct sample_struct);
  * };
  * \endcode

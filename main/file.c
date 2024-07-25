@@ -184,41 +184,6 @@ int ast_format_def_unregister(const char *name)
 	return res;
 }
 
-FILE *ast_file_mkftemp(char *template, mode_t mode)
-{
-	FILE *p = NULL;
-	int pfd = mkstemp(template);
-	chmod(template, mode);
-	if (pfd > -1) {
-		p = fdopen(pfd, "w+");
-		if (!p) {
-			close(pfd);
-			pfd = -1;
-		}
-	}
-	return p;
-}
-
-int ast_file_fdtemp(const char *path, char **filename, const char *template_name)
-{
-	int fd;
-
-	if (ast_asprintf(filename, "%s/%s", path, template_name) < 0) {
-		ast_log(LOG_ERROR, "Failed to set up temporary file path\n");
-		return -1;
-	}
-
-	ast_mkdir(path, 0644);
-
-	if ((fd = mkstemp(*filename)) < 0) {
-		ast_log(LOG_NOTICE, "Failed to create temporary file\n");
-		ast_free(*filename);
-		return -1;
-	}
-
-	return fd;
-}
-
 int ast_stopstream(struct ast_channel *tmp)
 {
 	ast_channel_lock(tmp);
@@ -306,7 +271,7 @@ int ast_writestream(struct ast_filestream *fs, struct ast_frame *f)
 static int copy(const char *infile, const char *outfile)
 {
 	int ifd, ofd, len;
-	char buf[4096];	/* XXX make it larger. */
+	char buf[4096];	/* XXX make it lerger. */
 
 	if ((ifd = open(infile, O_RDONLY)) < 0) {
 		ast_log(LOG_WARNING, "Unable to open %s in read-only mode\n", infile);
@@ -685,8 +650,8 @@ static int is_remote_path(const char *filename)
 /*!
  * \brief test if a file exists for a given format.
  * \note result_cap is OPTIONAL
- * \retval 1 true and result_cap represents format capabilities file exists in.
- * \retval 0 false
+ * \retval 1, true and result_cap represents format capabilities file exists in.
+ * \retval 0, false
  */
 static int fileexists_test(const char *filename, const char *fmt, const char *lang,
 			   char *buf, int buflen, struct ast_format_cap *result_cap)
@@ -735,8 +700,8 @@ static int fileexists_test(const char *filename, const char *fmt, const char *la
  * \param result_cap OPTIONAL format capabilities result structure
  *        returns what formats the file was found in.
  *
- * \retval 1 true. file exists and result format is set
- * \retval 0 false. file does not exist.
+ * \retval 1, true. file exists and result format is set
+ * \retval 0, false. file does not exist.
  */
 static int fileexists_core(const char *filename, const char *fmt, const char *preflang,
 			   char *buf, int buflen, struct ast_format_cap *result_cap)
@@ -792,8 +757,7 @@ struct ast_filestream *ast_openstream(struct ast_channel *chan, const char *file
 	return ast_openstream_full(chan, filename, preflang, 0);
 }
 
-struct ast_filestream *ast_openstream_full(struct ast_channel *chan,
-	const char *filename, const char *preflang, int asis)
+struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char *filename, const char *preflang, int asis)
 {
 	/*
 	 * Use fileexists_core() to find a file in a compatible
@@ -845,8 +809,7 @@ struct ast_filestream *ast_openstream_full(struct ast_channel *chan,
 	return NULL;
 }
 
-struct ast_filestream *ast_openvstream(struct ast_channel *chan,
-	const char *filename, const char *preflang)
+struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *filename, const char *preflang)
 {
 	/* As above, but for video. But here we don't have translators
 	 * so we must enforce a format.
@@ -1099,12 +1062,6 @@ int ast_stream_fastforward(struct ast_filestream *fs, off_t ms)
 
 int ast_stream_rewind(struct ast_filestream *fs, off_t ms)
 {
-	off_t offset = ast_tellstream(fs);
-	if (ms * DEFAULT_SAMPLES_PER_MS > offset) {
-		/* Don't even bother asking the file format to seek to a negative offset... */
-		ast_debug(1, "Restarting, rather than seeking to negative offset %ld\n", (long) (offset - (ms * DEFAULT_SAMPLES_PER_MS)));
-		return ast_seekstream(fs, 0, SEEK_SET);
-	}
 	return ast_seekstream(fs, -ms * DEFAULT_SAMPLES_PER_MS, SEEK_CUR);
 }
 
@@ -1290,41 +1247,22 @@ int ast_file_read_dirs(const char *dir_name, ast_file_on_file on_file, void *obj
 	return res;
 }
 
-int ast_streamfile(struct ast_channel *chan, const char *filename,
-	const char *preflang)
+int ast_streamfile(struct ast_channel *chan, const char *filename, const char *preflang)
 {
-	struct ast_filestream *fs = NULL;
-	struct ast_filestream *vfs = NULL;
+	struct ast_filestream *fs;
+	struct ast_filestream *vfs=NULL;
 	off_t pos;
 	int seekattempt;
 	int res;
-	char custom_filename[256];
-	char *tmp_filename;
 
-	/* If file with the same name exists in /var/lib/asterisk/sounds/custom directory, use that file.
-	 * Otherwise, use the original file*/
-
-	if (ast_opt_sounds_search_custom && !is_absolute_path(filename)) {
-		memset(custom_filename, 0, sizeof(custom_filename));
-		snprintf(custom_filename, sizeof(custom_filename), "custom/%s", filename);
-		fs = ast_openstream(chan, custom_filename, preflang);
-		if (fs) {
-			tmp_filename = custom_filename;
-			ast_debug(3, "Found file %s in custom directory\n", filename);
-		}
-	}
-
+	fs = ast_openstream(chan, filename, preflang);
 	if (!fs) {
-		fs = ast_openstream(chan, filename, preflang);
-		if (!fs) {
-			struct ast_str *codec_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
-			ast_channel_lock(chan);
-			ast_log(LOG_WARNING, "Unable to open %s (format %s): %s\n",
-					filename, ast_format_cap_get_names(ast_channel_nativeformats(chan), &codec_buf), strerror(errno));
-			ast_channel_unlock(chan);
-			return -1;
-		}
-		tmp_filename = (char *)filename;
+		struct ast_str *codec_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
+		ast_channel_lock(chan);
+		ast_log(LOG_WARNING, "Unable to open %s (format %s): %s\n",
+			filename, ast_format_cap_get_names(ast_channel_nativeformats(chan), &codec_buf), strerror(errno));
+		ast_channel_unlock(chan);
+		return -1;
 	}
 
 	/* check to see if there is any data present (not a zero length file),
@@ -1343,7 +1281,7 @@ int ast_streamfile(struct ast_channel *chan, const char *filename,
 		fseeko(fs->f, pos, SEEK_SET);
 	}
 
-	vfs = ast_openvstream(chan, tmp_filename, preflang);
+	vfs = ast_openvstream(chan, filename, preflang);
 	if (vfs) {
 		ast_debug(1, "Ooh, found a video stream, too, format %s\n", ast_format_get_name(vfs->fmt->format));
 	}
@@ -1354,14 +1292,14 @@ int ast_streamfile(struct ast_channel *chan, const char *filename,
 		return -1;
 	if (vfs && ast_applystream(chan, vfs))
 		return -1;
-	ast_test_suite_event_notify("PLAYBACK", "Message: %s\r\nChannel: %s", tmp_filename, ast_channel_name(chan));
+	ast_test_suite_event_notify("PLAYBACK", "Message: %s\r\nChannel: %s", filename, ast_channel_name(chan));
 	res = ast_playstream(fs);
 	if (!res && vfs)
 		res = ast_playstream(vfs);
 
 	if (VERBOSITY_ATLEAST(3)) {
 		ast_channel_lock(chan);
-		ast_verb(3, "<%s> Playing '%s.%s' (language '%s')\n", ast_channel_name(chan), tmp_filename, ast_format_get_name(ast_channel_writeformat(chan)), preflang ? preflang : "default");
+		ast_verb(3, "<%s> Playing '%s.%s' (language '%s')\n", ast_channel_name(chan), filename, ast_format_get_name(ast_channel_writeformat(chan)), preflang ? preflang : "default");
 		ast_channel_unlock(chan);
 	}
 
@@ -1764,8 +1702,6 @@ static int waitstream_core(struct ast_channel *c,
 				case AST_CONTROL_AOC:
 				case AST_CONTROL_UPDATE_RTP_PEER:
 				case AST_CONTROL_PVT_CAUSE_CODE:
-				case AST_CONTROL_FLASH:
-				case AST_CONTROL_WINK:
 				case -1:
 					/* Unimportant */
 					break;
@@ -1883,10 +1819,6 @@ int ast_stream_and_wait(struct ast_channel *chan, const char *file, const char *
 			res = ast_waitstream(chan, digits);
 		}
 	}
-	if (res == -1) {
-		ast_stopstream(chan);
-	}
-
 	return res;
 }
 

@@ -39,7 +39,7 @@
  * \brief Callback function to get an endpoint's current state
  *
  * \param metric The metric to populate
- * \param snapshot Endpoint snapshot
+ * \snapshot Endpoint snapshot
  */
 static void get_endpoint_state(struct prometheus_metric *metric, struct ast_endpoint_snapshot *snapshot)
 {
@@ -96,7 +96,6 @@ struct endpoint_metric_defs {
  */
 static void endpoints_scrape_cb(struct ast_str **response)
 {
-	struct ao2_container *endpoint_cache;
 	struct ao2_container *endpoints;
 	struct ao2_iterator it_endpoints;
 	struct stasis_message *message;
@@ -112,16 +111,10 @@ static void endpoints_scrape_cb(struct ast_str **response)
 
 	ast_eid_to_str(eid_str, sizeof(eid_str), &ast_eid_default);
 
-	endpoint_cache = stasis_cache_dump(ast_endpoint_cache(), ast_endpoint_snapshot_type());
-	if (!endpoint_cache) {
-		return;
-	}
-	endpoints = ao2_container_clone(endpoint_cache, 0);
-	ao2_ref(endpoint_cache, -1);
+	endpoints = stasis_cache_dump(ast_endpoint_cache(), ast_endpoint_snapshot_type());
 	if (!endpoints) {
 		return;
 	}
-
 	num_endpoints = ao2_container_count(endpoints);
 
 	/* Current endpoint count */

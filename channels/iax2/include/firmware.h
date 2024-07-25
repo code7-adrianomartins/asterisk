@@ -32,12 +32,16 @@
  *
  * Searches the IAX firmware directory, adding new firmware that is available
  * and removing firmware that is no longer available.
+ *
+ * \return Nothing
  */
 void iax_firmware_reload(void);
 
 /*!
  * \internal
  * \brief Unload all of the currently loaded firmware.
+ *
+ * return Nothing
  */
 void iax_firmware_unload(void);
 
@@ -58,7 +62,7 @@ int iax_firmware_get_version(const char *device_name,
 
 /*!
  * \internal
- * \brief Add firmware related IEs to an IAX2 IE buffer.
+ * \brief Add firwmare related IEs to an IAX2 IE buffer.
  *
  * \param ie_data     The IE buffer being appended to.
  * \param device_name The name of the requested firmware.
@@ -91,6 +95,8 @@ int iax_firmware_append(struct iax_ie_data *ie_data,
  *
  * The \c callback function receives a pointer to the firmware header and the
  * value of the \c user_data argument that was passed in, which may be \c NULL.
+ *
+ * \return Nothing
  */
 void iax_firmware_traverse(const char *prefix,
 	int (*callback)(struct ast_iax2_firmware_header *header, void *user_data),

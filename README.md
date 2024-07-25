@@ -1,7 +1,7 @@
 # The Asterisk(R) Open Source PBX
 ```text
         By Mark Spencer <markster@digium.com> and the Asterisk.org developer community.
-        Copyright (C) 2001-2021 Sangoma Technologies Corporation and other copyright holders.
+        Copyright (C) 2001-2019 Digium, Inc. and other copyright holders.
 ```
 ## SECURITY
 
@@ -20,7 +20,7 @@ more telephony interfaces than just Internet telephony.  Asterisk also has a
 vast amount of support for traditional PSTN telephony, as well.
 
   For more information on the project itself, please visit the Asterisk
-[home page] and the official [documentation].  In addition you'll find lots
+[home page] and the official [wiki].  In addition you'll find lots
 of information compiled by the Asterisk community at [voip-info.org].
 
   There is a book on Asterisk published by O'Reilly under the Creative Commons
@@ -47,7 +47,7 @@ and the BSD variants.
 ANY special hardware, not even a sound card) to install and run Asterisk.
 
 Supported telephony hardware includes:
-* All Analog and Digital Interface cards from [Sangoma]
+* All Analog and Digital Interface cards from [Digium]
 * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
 * any full duplex sound card supported by ALSA, OSS, or PortAudio
 * any ISDN card supported by mISDN on Linux
@@ -91,10 +91,7 @@ guides in the [configs] directory.
 2. Run `./configure`
 
   Execute the configure script to guess values for system-dependent
-variables used during compilation. If the script indicates that some required 
-components are missing, you can run `./contrib/scripts/install_prereq install`
-to install the necessary components. Note that this will install all dependencies for every functionality of Asterisk. After running the script, you will need
-to rerun `./configure`.
+variables used during compilation.
 
 3. Run `make menuselect` _\[optional]_
 
@@ -254,19 +251,19 @@ Welcome to the growing worldwide community of Asterisk users!
 
 ---
 
-Asterisk is a trademark of Sangoma Technologies Corporation
+Asterisk is a trademark of Digium, Inc.
 
 [home page]: https://www.asterisk.org
 [support]: https://www.asterisk.org/support
-[documentation]: https://docs.asterisk.org/
+[wiki]: https://wiki.asterisk.org/
 [mailing list]: http://lists.digium.com/mailman/listinfo/asterisk-users
 [chan_dahdi.conf]: configs/samples/chan_dahdi.conf.sample
 [voip-info.org]: http://www.voip-info.org/wiki-Asterisk
 [asteriskdocs.org]: http://www.asteriskdocs.org
 [NTP]: http://www.ntp.org/
-[Sangoma]: https://www.sangoma.com/
+[Digium]: https://www.digium.com/
 [UPGRADE.txt]: UPGRADE.txt
 [CHANGES]: CHANGES
 [configs]: configs
 [doc]: doc
-[Important Security Considerations]: https://docs.asterisk.org/Deployment/Important-Security-Considerations/
+[Important Security Considerations]: https://wiki.asterisk.org/wiki/display/AST/Important+Security+Considerations

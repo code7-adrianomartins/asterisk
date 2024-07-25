@@ -44,7 +44,7 @@
 ;
 
 ;
-; Disable UDP checksums (if nochecksums is set, then no checksums will
+; Disable UDP checksums (if nochecksums is set, then no checkums will
 ; be calculated/checked on systems supporting this feature)
 ;
 ; Accepted values: yes, no
@@ -65,7 +65,7 @@
 ;
 
 ;
-; You may specify a global default AMA flag for iax calls.  These flags are
+; You may specify a global default AMA flag for iaxtel calls.  These flags are
 ; used in the generation of call detail records.
 ;
 ; Accepted values: default, omit, billing, documentation
@@ -140,13 +140,9 @@
 
 ;
 ; Specify bandwidth of low, medium, or high to control which codecs are used
-; in general. This setting will restrict codecs used to only those that comply
-; with the bandwidth setting. In most cases, you should set this to 'high' so
-; that high-quality codecs may be used; if set to a lower value, this will
-; degrade call quality, so you probably only want to do this if you have
-; actual significant bandwidth constraints.
+; in general.
 ;
-bandwidth=high
+bandwidth=low
 ;
 
 ;
@@ -205,25 +201,15 @@ jitterbuffer=no
 ;resyncthreshold=1000
 ;jittertargetextra=40
 
-; There are three authentication methods that are supported:  md5, plaintext,
-; and rsa.  The least secure is "plaintext", which sends passwords cleartext
-; across the net.  "md5" uses a challenge/response md5 sum arrangement, but
-; still requires both ends have plain text access to the secret.  "rsa" allows
-; unidirectional secret knowledge through public/private keys.  There is no
-; default unless set here in the [general] section. Only md5 and rsa support
-; media encryption.
-;
-;auth=md5
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; IAX2 Encryption
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;
-; Enable IAX2 encryption.  The default is no. This option does not force
-; encryption for calls, it merely allows it to be used for calls.
+; Enable IAX2 encryption.  The default is no.
 ;
-encryption=yes
+;encryption=yes
+;
 
 ;
 ; Force encryption insures no connection is established unless both sides
@@ -312,6 +298,25 @@ encryption=yes
 ;
 ;register => marko:[torkey]@tormenta.linux-support.net
 ;
+; Sample Registration for iaxtel
+;
+; Visit http://www.iaxtel.com to register with iaxtel.  Replace "user"
+; and "pass" with your username and password for iaxtel.  Incoming
+; calls arrive at the "s" extension of "default" context.
+;
+;register => user:pass@iaxtel.com
+;
+; Sample Registration for IAX2 + FWD
+;
+; To register using IAX2 with FWD, it must be enabled by visiting the URL
+; http://www.fwdnet.net/index.php?section_id=112
+;
+; Note that you need an extension in you default context which matches
+; your free world dialup number.  Please replace "FWDNumber" with your
+; FWD number and "passwd" with your password.
+;
+;register => FWDNumber:passwd@iax.fwdnet.net
+;
 ; Through the use of the res_stun_monitor module, Asterisk has the ability to detect when the
 ; perceived external network address has changed.  When the stun_monitor is installed and
 ; configured, chan_iax will renew all outbound registrations when the monitor detects any sort
@@ -327,7 +332,7 @@ encryption=yes
 ;
 ;authdebug = yes
 ;
-; See https://docs.asterisk.org/Configuration/Channel-Drivers/IP-Quality-of-Service for a description of these parameters.
+; See https://wiki.asterisk.org/wiki/display/AST/IP+Quality+of+Service for a description of these parameters.
 ;tos=ef
 ;cos=5
 ;
@@ -371,7 +376,7 @@ autokill=yes
 ; IAX2 clients which request it.  This has only been used for the IAXy,
 ; and it has been recently proven that this firmware distribution method
 ; can be used as a source of traffic amplification attacks.  Also, the
-; IAXy firmware has not been updated since at least 2012, so unless
+; IAXy firmware has not been updated for at least 18 months, so unless
 ; you are provisioning IAXys in a secure network, we recommend that you
 ; leave this option to the default, off.
 ;
@@ -484,6 +489,24 @@ context=public
 callerid="Guest IAX User"
 
 ;
+; Trust Caller*ID Coming from iaxtel.com
+;
+[iaxtel]
+type=user
+context=default
+auth=rsa
+inkeys=iaxtel
+
+;
+; Trust Caller*ID Coming from iax.fwdnet.net
+;
+[iaxfwd]
+type=user
+context=default
+auth=rsa
+inkeys=freeworlddialup
+
+;
 ; Trust Caller*ID delivered over DUNDi/e164
 ;
 ;[dundi]
@@ -510,8 +533,7 @@ callerid="Guest IAX User"
 ; the ":" character.  "outkey" is a single, private key to use to authenticate
 ; to the other side.  Public keys are named /var/lib/asterisk/keys/<name>.pub
 ; while private keys are named /var/lib/asterisk/keys/<name>.key.  Private
-; keys should always be 3DES encrypted. If encryption is used (applicable to
-; md5 and rsa only), a secret must be provided.
+; keys should always be 3DES encrypted.
 ;
 ;
 ; NOTE: All hostnames and IP addresses in this file are for example purposes

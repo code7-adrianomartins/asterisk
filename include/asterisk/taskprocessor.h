@@ -17,8 +17,7 @@
  */
 
 /*!
- * \file
- *
+ * \file taskprocessor.h
  * \brief An API for managing task processing threads that can be shared across modules
  *
  * \author Dwayne M. Hubbard <dhubbard@digium.com>
@@ -178,7 +177,7 @@ struct ast_taskprocessor *ast_taskprocessor_get(const char *name, enum ast_tps_o
  * \param name The name of the taskprocessor to create
  * \param listener The listener for operations on this taskprocessor
  * \retval NULL Failure
- * \retval non-NULL success
+ * \reval non-NULL success
  */
 struct ast_taskprocessor *ast_taskprocessor_create_with_listener(const char *name, struct ast_taskprocessor_listener *listener);
 
@@ -325,6 +324,8 @@ void ast_taskprocessor_name_append(char *buf, unsigned int size, const char *nam
  * \note The user supplied part of the taskprocessor name is truncated
  * to allow the full sequence number to be appended within the supplied
  * buffer size.
+ *
+ * \return Nothing
  */
 void __attribute__((format(printf, 3, 4))) ast_taskprocessor_build_name(char *buf, unsigned int size, const char *format, ...);
 
@@ -351,7 +352,7 @@ unsigned int ast_taskprocessor_alert_get(void);
 
 
 /*!
- * \brief Get the current taskprocessor high water alert count by subsystem.
+ * \brief Get the current taskprocessor high water alert count by sybsystem.
  * \since 13.26.0
  * \since 16.3.0
  *

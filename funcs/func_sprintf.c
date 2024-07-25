@@ -21,7 +21,7 @@
  * \brief String manipulation dialplan functions
  *
  * \author Tilghman Lesher
- * \author Anthony Minessale II
+ * \author Anothony Minessale II
  * \ingroup functions
  */
 

@@ -66,10 +66,9 @@
 			analog lines, but could be useful for other channels as well. The target volume
 			is set with a number between <literal>1-32768</literal>. The larger the number
 			the louder (more gain) the channel will receive.</para>
-			<example title="Apply automatic gain control">
-			exten => 1,1,Set(AGC(rx)=8000)
-			exten => 1,2,Set(AGC(tx)=off)
-			</example>
+			<para>Examples:</para>
+			<para>exten => 1,1,Set(AGC(rx)=8000)</para>
+			<para>exten => 1,2,Set(AGC(tx)=off)</para>
 		</description>
 	</function>
 	<function name="DENOISE" language="en_US">
@@ -88,10 +87,9 @@
 			that it is executed on. It is very useful for noisy analog lines, especially
 			when adjusting gains or using AGC. Use <literal>rx</literal> for audio received from the channel
 			and <literal>tx</literal> to apply the filter to the audio being sent to the channel.</para>
-			<example title="Apply noise reduction">
-			exten => 1,1,Set(DENOISE(rx)=on)
-			exten => 1,2,Set(DENOISE(tx)=off)
-			</example>
+			<para>Examples:</para>
+			<para>exten => 1,1,Set(DENOISE(rx)=on)</para>
+			<para>exten => 1,2,Set(DENOISE(tx)=off)</para>
 		</description>
 	</function>
  ***/

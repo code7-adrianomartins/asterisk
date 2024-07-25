@@ -20,7 +20,7 @@
 #define _ASTERISK_IOSTREAM_H
 
 /*!
- * \file
+ * \file iostream.h
  *
  * \brief Generic abstraction for input/output streams.
  */
@@ -43,6 +43,8 @@ struct ast_iostream;            /* forward declaration */
  * \brief Disable the iostream timeout timer.
  *
  * \param stream A pointer to an iostream
+ *
+ * \return Nothing
  */
 void ast_iostream_set_timeout_disable(struct ast_iostream *stream);
 
@@ -57,6 +59,8 @@ void ast_iostream_set_timeout_disable(struct ast_iostream *stream);
  *
  * \note Setting timeout to -1 disables the timeout.
  * \note Setting this timeout replaces the I/O sequence timeout timer.
+ *
+ * \return Nothing
  */
 void ast_iostream_set_timeout_inactivity(struct ast_iostream *stream, int timeout);
 
@@ -75,6 +79,8 @@ void ast_iostream_set_timeout_inactivity(struct ast_iostream *stream, int timeou
  *          \a timeout_reset to \c 30000.
  *
  * \note Setting either of these timeouts to -1 will disable them.
+ *
+ * \return Nothing
  */
 void ast_iostream_set_timeout_idle_inactivity(struct ast_iostream *stream, int timeout, int timeout_reset);
 
@@ -91,6 +97,8 @@ void ast_iostream_set_timeout_idle_inactivity(struct ast_iostream *stream, int t
  *
  * \note Setting timeout to -1 disables the timeout.
  * \note Setting this timeout replaces the inactivity timeout timer.
+ *
+ * \return Nothing
  */
 void ast_iostream_set_timeout_sequence(struct ast_iostream *stream, struct timeval start, int timeout);
 
@@ -103,6 +111,8 @@ void ast_iostream_set_timeout_sequence(struct ast_iostream *stream, struct timev
  * trying to send data.
  *
  * \note The stream timeouts still need to be set.
+ *
+ * \return Nothing
  */
 void ast_iostream_set_exclusive_input(struct ast_iostream *stream, int exclusive_input);
 
@@ -111,8 +121,8 @@ void ast_iostream_set_exclusive_input(struct ast_iostream *stream, int exclusive
  *
  * \param stream A pointer to an iostream
  *
- * \return The file descriptor for the given iostream
- * \retval -1 if the iostream has no open file descriptor.
+ * \return The file descriptor for the given iostream, or -1 if the iostream has no open
+ *         file descriptor.
  */
 int ast_iostream_get_fd(struct ast_iostream *stream);
 
@@ -134,6 +144,8 @@ int ast_iostream_wait_for_input(struct ast_iostream *stream, int timeout);
  * \brief Make an iostream non-blocking.
  *
  * \param stream A pointer to an iostream
+ *
+ * \return Nothing
  */
 void ast_iostream_nonblock(struct ast_iostream *stream);
 
@@ -142,8 +154,8 @@ void ast_iostream_nonblock(struct ast_iostream *stream);
  *
  * \param stream A pointer to an iostream
  *
- * \return A pointer to the OpenSSL \c SSL structure for the given iostream
- * \retval NULL if TLS has not been initiated.
+ * \return A pointer to the OpenSSL \c SSL structure for the given iostream, or
+ *         \c NULL if TLS has not been initiated.
  *
  * \note If OpenSSL support is not included in the build, this will always return
  *       \c NULL.

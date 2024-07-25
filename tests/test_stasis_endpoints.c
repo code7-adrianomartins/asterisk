@@ -212,11 +212,7 @@ AST_TEST_DEFINE(channel_messages)
 	struct stasis_message *msg;
 	struct stasis_message_type *type;
 	struct ast_endpoint_snapshot *actual_snapshot;
-	int expected_count;
 	int actual_count;
-	int i;
-	int channel_index = -1;
-	int endpoint_index = -1;
 
 	switch (cmd) {
 	case TEST_INIT:
@@ -259,23 +255,19 @@ AST_TEST_DEFINE(channel_messages)
 	ast_hangup(chan);
 	chan = NULL;
 
-	expected_count = 3;
-	actual_count = stasis_message_sink_wait_for_count(sink, expected_count,
+	actual_count = stasis_message_sink_wait_for_count(sink, 3,
 		STASIS_SINK_DEFAULT_WAIT);
-	ast_test_validate(test, expected_count == actual_count);
+	ast_test_validate(test, 3 == actual_count);
 
-	for (i = 0; i < expected_count; i++) {
-		msg = sink->messages[i];
-		type = stasis_message_type(msg);
-		if (type == ast_channel_snapshot_type()) {
-			channel_index = i;
-		}
-		if (type == ast_endpoint_snapshot_type()) {
-			endpoint_index = i;
-		}
-	}
-	ast_test_validate(test, channel_index >= 0 && endpoint_index >= 0);
-	actual_snapshot = stasis_message_data(sink->messages[endpoint_index]);
+	msg = sink->messages[1];
+	type = stasis_message_type(msg);
+	ast_test_validate(test, ast_channel_snapshot_type() == type);
+
+	msg = sink->messages[2];
+	type = stasis_message_type(msg);
+	ast_test_validate(test, ast_endpoint_snapshot_type() == type);
+
+	actual_snapshot = stasis_message_data(msg);
 	ast_test_validate(test, 0 == actual_snapshot->num_channels);
 
 	return AST_TEST_PASS;

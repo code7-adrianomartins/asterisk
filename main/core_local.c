@@ -315,6 +315,12 @@ static int local_devicestate(const char *data)
 	struct local_pvt *lp;
 	struct ao2_iterator it;
 
+	/* Strip options if they exist */
+	opts = strchr(exten, '/');
+	if (opts) {
+		*opts = '\0';
+	}
+
 	context = strchr(exten, '@');
 	if (!context) {
 		ast_log(LOG_WARNING,
@@ -322,16 +328,6 @@ static int local_devicestate(const char *data)
 		return AST_DEVICE_INVALID;
 	}
 	*context++ = '\0';
-
-	/* Strip options if they exist.
-	 * However, don't strip '/' before an '@' (exten could contain slashes).
-	 * So only start looking for '/' in context, because options would be past
-	 * this point if they exist, but anything before would be a '/' in the exten,
-	 * not options. */
-	opts = strchr(context, '/');
-	if (opts) {
-		*opts = '\0';
-	}
 
 	it = ao2_iterator_init(locals, 0);
 	for (; (lp = ao2_iterator_next(&it)); ao2_ref(lp, -1)) {
@@ -390,7 +386,7 @@ static struct ast_multi_channel_blob *local_channel_optimization_blob(struct loc
 	return payload;
 }
 
-/*! \brief Callback for \ref ast_unreal_pvt_callbacks \p optimization_started */
+/*! \brief Callback for \ref ast_unreal_pvt_callbacks \ref optimization_started_cb */
 static void local_optimization_started_cb(struct ast_unreal_pvt *base, struct ast_channel *source,
 		enum ast_unreal_channel_indicator dest, unsigned int id)
 {
@@ -433,7 +429,7 @@ static void local_optimization_started_cb(struct ast_unreal_pvt *base, struct as
 	stasis_publish(ast_channel_topic(p->base.owner), msg);
 }
 
-/*! \brief Callback for \ref ast_unreal_pvt_callbacks \p optimization_finished */
+/*! \brief Callback for \ref ast_unreal_pvt_callbacks \ref optimization_finished_cb */
 static void local_optimization_finished_cb(struct ast_unreal_pvt *base, int success, unsigned int id)
 {
 	RAII_VAR(struct ast_json *, json_object, ast_json_null(), ast_json_unref);
@@ -538,6 +534,8 @@ static struct ast_manager_event_blob *local_message_to_ami(struct stasis_message
  * \since 12.0.0
  *
  * \param p local_pvt to raise the local bridge message
+ *
+ * \return Nothing
  */
 static void publish_local_bridge_message(struct local_pvt *p)
 {
@@ -842,6 +840,8 @@ static int local_hangup(struct ast_channel *ast)
  * \brief struct local_pvt destructor.
  *
  * \param vdoomed Object to destroy.
+ *
+ * \return Nothing
  */
 static void local_pvt_destructor(void *vdoomed)
 {
@@ -888,9 +888,8 @@ static struct local_pvt *local_alloc(const char *data, struct ast_stream_topolog
 	 */
 	ast_set_flag(&pvt->base, AST_UNREAL_MOH_INTERCEPT);
 
-	/* Look for options.
-	 * Slashes can appear in channel names, so options are after the last match. */
-	if ((opts = strrchr(parse, '/'))) {
+	/* Look for options */
+	if ((opts = strchr(parse, '/'))) {
 		*opts++ = '\0';
 		if (strchr(opts, 'n')) {
 			ast_set_flag(&pvt->base, AST_UNREAL_NO_OPTIMIZATION);
@@ -968,8 +967,7 @@ static struct ast_channel *local_request_with_stream_topology(const char *type, 
 
 		stream = ast_stream_topology_get_stream(audio_filtered_topology, i);
 
-		if (ast_stream_get_type(stream) != AST_MEDIA_TYPE_AUDIO ||
-			ast_stream_get_state(stream) == AST_STREAM_STATE_REMOVED) {
+		if (ast_stream_get_type(stream) != AST_MEDIA_TYPE_AUDIO) {
 			continue;
 		}
 
@@ -1117,6 +1115,8 @@ static int locals_cmp_cb(void *obj, void *arg, int flags)
  * \internal
  * \brief Shutdown the local proxy channel.
  * \since 12.0.0
+ *
+ * \return Nothing
  */
 static void local_shutdown(void)
 {

@@ -20,18 +20,14 @@ if [ ! -d "$sourcedir" ] ; then
 	exit 1
 fi
 
-# Patterns used in filename expansion (globs) are sorted according to the
-# current locale, so there is no need to do it explicitly.
-for patchfile in "$patchdir"/*.patch ; do
-	# A glob that doesn't match is not replaced, so we handle that here. We
-	# should only fail this test if there are no patch files.
-	[ -f "$patchfile" ] || {
-		echo "No patches in $patchdir" >&2
-		exit 0
-	}
+if [ ! "$(ls -A $patchdir/*.patch 2>/dev/null)" ] ; then
+	echo "No patches in $patchdir"  >&2
+	exit 0
+fi
 
-	[ -z "$quiet" ] && echo "Applying patch $(basename "$patchfile")"
-	${PATCH} -d "$sourcedir" -p1 -i "$patchfile" >/dev/null || exit 1
+for patchfile in "$patchdir"/*.patch ; do
+	[ -z $quiet ] && echo "Applying patch $(basename $patchfile)"
+	${PATCH} -d "$sourcedir" -p1 -s -i "$patchfile" || exit 1
 done
 
 exit 0

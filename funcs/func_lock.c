@@ -42,7 +42,6 @@
 #include "asterisk/linkedlists.h"
 #include "asterisk/astobj2.h"
 #include "asterisk/utils.h"
-#include "asterisk/cli.h"
 
 /*** DOCUMENTATION
 	<function name="LOCK" language="en_US">
@@ -64,10 +63,6 @@
 				dialplan, and not directly from external protocols.</para>
 			</note>
 		</description>
-		<see-also>
-			<ref type="function">TRYLOCK</ref>
-			<ref type="function">UNLOCK</ref>
-		</see-also>
 	</function>
 	<function name="TRYLOCK" language="en_US">
 		<synopsis>
@@ -86,10 +81,6 @@
 				dialplan, and not directly from external protocols.</para>
 			</note>
 		</description>
-		<see-also>
-			<ref type="function">LOCK</ref>
-			<ref type="function">UNLOCK</ref>
-		</see-also>
 	</function>
 	<function name="UNLOCK" language="en_US">
 		<synopsis>
@@ -109,10 +100,6 @@
 				dialplan, and not directly from external protocols.</para>
 			</note>
 		</description>
-		<see-also>
-			<ref type="function">LOCK</ref>
-			<ref type="function">TRYLOCK</ref>
-		</see-also>
 	</function>
  ***/
 
@@ -170,8 +157,6 @@ static void lock_free(void *data)
 	AST_LIST_UNLOCK(oldlist);
 	AST_LIST_HEAD_DESTROY(oldlist);
 	ast_free(oldlist);
-
-	ast_module_unref(ast_module_info->self);
 }
 
 static void lock_fixup(void *data, struct ast_channel *oldchan, struct ast_channel *newchan)
@@ -206,12 +191,7 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 	struct timeval now;
 
 	if (!lock_store) {
-		if (unloading) {
-			ast_log(LOG_ERROR, "%sLOCK has no datastore and func_lock is unloading, failing.\n",
-					trylock ? "TRY" : "");
-			return -1;
-		}
-
+		ast_debug(1, "Channel %s has no lock datastore, so we're allocating one.\n", ast_channel_name(chan));
 		lock_store = ast_datastore_alloc(&lock_info, NULL);
 		if (!lock_store) {
 			ast_log(LOG_ERROR, "Unable to allocate new datastore.  No locks will be obtained.\n");
@@ -230,9 +210,6 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 		lock_store->data = list;
 		AST_LIST_HEAD_INIT(list);
 		ast_channel_datastore_add(chan, lock_store);
-
-		/* We cannot unload until this channel has released the lock_store */
-		ast_module_ref(ast_module_info->self);
 	} else
 		list = lock_store->data;
 
@@ -246,9 +223,6 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 
 	if (!current) {
 		if (unloading) {
-			ast_log(LOG_ERROR,
-				"Lock doesn't exist whilst unloading.  %sLOCK will fail.\n",
-				trylock ? "TRY" : "");
 			/* Don't bother */
 			AST_LIST_UNLOCK(&locklist);
 			return -1;
@@ -275,6 +249,7 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 			AST_LIST_UNLOCK(&locklist);
 			return -1;
 		}
+		current->requesters = 0;
 		AST_LIST_INSERT_TAIL(&locklist, current, entries);
 	}
 	/* Add to requester list */
@@ -293,13 +268,7 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 
 	if (!clframe) {
 		if (unloading) {
-			ast_log(LOG_ERROR,
-				"Busy unloading.  %sLOCK will fail.\n",
-				trylock ? "TRY" : "");
 			/* Don't bother */
-			ast_mutex_lock(&current->mutex);
-			current->requesters--;
-			ast_mutex_unlock(&current->mutex);
 			AST_LIST_UNLOCK(list);
 			return -1;
 		}
@@ -308,9 +277,6 @@ static int get_lock(struct ast_channel *chan, char *lockname, int trylock)
 			ast_log(LOG_ERROR,
 				"Unable to allocate channel lock frame.  %sLOCK will fail.\n",
 				trylock ? "TRY" : "");
-			ast_mutex_lock(&current->mutex);
-			current->requesters--;
-			ast_mutex_unlock(&current->mutex);
 			AST_LIST_UNLOCK(list);
 			return -1;
 		}
@@ -443,37 +409,6 @@ static int trylock_read(struct ast_channel *chan, const char *cmd, char *data, c
 	return 0;
 }
 
-static char *handle_cli_locks_show(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	int c = 0;
-	struct lock_frame* current;
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "dialplan locks show";
-		e->usage =
-			"Usage: dialplan locks show\n"
-			"       List all locks known to func_lock, along with their current status.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	ast_cli(a->fd, "func_lock locks:\n");
-	ast_cli(a->fd, "%-40s Requesters Owner\n", "Name");
-	AST_LIST_LOCK(&locklist);
-	AST_LIST_TRAVERSE(&locklist, current, entries) {
-		ast_mutex_lock(&current->mutex);
-		ast_cli(a->fd, "%-40s %-10d %s\n", current->name, current->requesters,
-				current->owner ? ast_channel_name(current->owner) : "(unlocked)");
-		ast_mutex_unlock(&current->mutex);
-		c++;
-	}
-	AST_LIST_UNLOCK(&locklist);
-	ast_cli(a->fd, "%d total locks listed.\n", c);
-
-	return 0;
-}
-
 static struct ast_custom_function lock_function = {
 	.name = "LOCK",
 	.read = lock_read,
@@ -492,8 +427,6 @@ static struct ast_custom_function unlock_function = {
 	.read_max = 2,
 };
 
-static struct ast_cli_entry cli_locks_show = AST_CLI_DEFINE(handle_cli_locks_show, "List func_lock locks.");
-
 static int unload_module(void)
 {
 	struct lock_frame *current;
@@ -506,19 +439,10 @@ static int unload_module(void)
 	ast_custom_function_unregister(&lock_function);
 	ast_custom_function_unregister(&trylock_function);
 
-	ast_cli_unregister(&cli_locks_show);
-
 	AST_LIST_LOCK(&locklist);
-	while ((current = AST_LIST_REMOVE_HEAD(&locklist, entries))) {
-		int warned = 0;
+	AST_LIST_TRAVERSE(&locklist, current, entries) {
 		ast_mutex_lock(&current->mutex);
 		while (current->owner || current->requesters) {
-			if (!warned) {
-				ast_log(LOG_WARNING, "Waiting for %d requesters for %s lock %s.\n",
-						current->requesters, current->owner ? "locked" : "unlocked",
-						current->name);
-				warned = 1;
-			}
 			/* either the mutex is locked, or other parties are currently in get_lock,
 			 * we need to wait for all of those to clear first */
 			ast_cond_wait(&current->cond, &current->mutex);
@@ -546,7 +470,6 @@ static int load_module(void)
 	int res = ast_custom_function_register_escalating(&lock_function, AST_CFE_READ);
 	res |= ast_custom_function_register_escalating(&trylock_function, AST_CFE_READ);
 	res |= ast_custom_function_register_escalating(&unlock_function, AST_CFE_READ);
-	res |= ast_cli_register(&cli_locks_show);
 
 	return res;
 }

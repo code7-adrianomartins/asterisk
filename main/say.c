@@ -29,8 +29,6 @@
  *						Next Generation Networks (NGN).
  * \note 2007-03-20 : Support for Thai added by Dome C. <dome@tel.co.th>,
  *						IP Crossing Co., Ltd.
- * \note 2021-07-26 : Refactoring to separate string buildup and playback
- *						by Naveen Albert <asterisk@phreaknet.org>
  */
 
 /*** MODULEINFO
@@ -60,7 +58,9 @@
 /* Forward declaration */
 static int wait_file(struct ast_channel *chan, const char *ints, const char *file, const char *lang);
 
-struct ast_str* ast_get_character_str(const char *str, const char *lang, enum ast_say_case_sensitivity sensitivity) {
+
+static int say_character_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, enum ast_say_case_sensitivity sensitivity, int audiofd, int ctrlfd)
+{
 	const char *fn;
 	char fnbuf[10], asciibuf[20] = "letters/ascii";
 	char ltr;
@@ -68,12 +68,6 @@ struct ast_str* ast_get_character_str(const char *str, const char *lang, enum as
 	int res = 0;
 	int upper = 0;
 	int lower = 0;
-
-	struct ast_str *filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
 
 	while (str[num] && !res) {
 		fn = NULL;
@@ -160,7 +154,14 @@ struct ast_str* ast_get_character_str(const char *str, const char *lang, enum as
 		}
 		if ((fn && ast_fileexists(fn, NULL, lang) > 0) ||
 			(snprintf(asciibuf + 13, sizeof(asciibuf) - 13, "%d", str[num]) > 0 && ast_fileexists(asciibuf, NULL, lang) > 0 && (fn = asciibuf))) {
-			ast_str_append(&filenames, 0, "%s%s", ast_str_strlen(filenames) ? "&" : "", fn);
+			res = ast_streamfile(chan, fn, lang);
+			if (!res) {
+				if ((audiofd  > -1) && (ctrlfd > -1))
+					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+				else
+					res = ast_waitstream(chan, ints);
+			}
+			ast_stopstream(chan);
 		}
 		if (upper || lower) {
 			continue;
@@ -168,64 +169,18 @@ struct ast_str* ast_get_character_str(const char *str, const char *lang, enum as
 		num++;
 	}
 
-	return filenames;
-}
-
-static int say_filenames(struct ast_channel *chan, const char *ints, const char *lang, int audiofd, int ctrlfd, struct ast_str *filenames)
-{
-	int res = 0;
-	char *files;
-	const char *fn;
-
-	if (!filenames) {
-		return -1;
-	}
-
-	/* No filenames to play? Return success so we don't hang up erroneously */
-	if (ast_str_strlen(filenames) == 0) {
-		ast_free(filenames);
-		return 0;
-	}
-
-	files = ast_str_buffer(filenames);
-
-	while (!res && (fn = strsep(&files, "&"))) {
-		res = ast_streamfile(chan, fn, lang);
-		if (!res) {
-			if ((audiofd  > -1) && (ctrlfd > -1)) {
-				res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
-			} else {
-				res = ast_waitstream(chan, ints);
-			}
-		}
-		ast_stopstream(chan);
-	}
-
-	ast_free(filenames);
-
 	return res;
 }
 
-static int say_character_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, enum ast_say_case_sensitivity sensitivity, int audiofd, int ctrlfd)
-{
-	struct ast_str *filenames = ast_get_character_str(str, lang, sensitivity);
-	return say_filenames(chan, ints, lang, audiofd, ctrlfd, filenames);
-}
-
-struct ast_str* ast_get_phonetic_str(const char *str, const char *lang)
+static int say_phonetic_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, int audiofd, int ctrlfd)
 {
 	const char *fn;
 	char fnbuf[256];
 	char ltr;
 	int num = 0;
+	int res = 0;
 
-	struct ast_str *filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
-
-	while (str[num]) {
+	while (str[num] && !res) {
 		fn = NULL;
 		switch (str[num]) {
 		case ('*'):
@@ -282,33 +237,29 @@ struct ast_str* ast_get_phonetic_str(const char *str, const char *lang)
 			fn = fnbuf;
 		}
 		if (fn && ast_fileexists(fn, NULL, lang) > 0) {
-			ast_str_append(&filenames, 0, "%s%s", ast_str_strlen(filenames) ? "&" : "", fn);
+			res = ast_streamfile(chan, fn, lang);
+			if (!res) {
+				if ((audiofd  > -1) && (ctrlfd > -1))
+					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+				else
+					res = ast_waitstream(chan, ints);
+			}
+			ast_stopstream(chan);
 		}
 		num++;
 	}
 
-	return filenames;
+	return res;
 }
 
-static int say_phonetic_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, int audiofd, int ctrlfd)
-{
-	struct ast_str *filenames = ast_get_phonetic_str(str, lang);
-	return say_filenames(chan, ints, lang, audiofd, ctrlfd, filenames);
-}
-
-struct ast_str* ast_get_digit_str(const char *str, const char *lang)
+static int say_digit_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, int audiofd, int ctrlfd)
 {
 	const char *fn;
 	char fnbuf[256];
 	int num = 0;
+	int res = 0;
 
-	struct ast_str *filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
-
-	while (str[num]) {
+	while (str[num] && !res) {
 		fn = NULL;
 		switch (str[num]) {
 		case ('*'):
@@ -336,340 +287,19 @@ struct ast_str* ast_get_digit_str(const char *str, const char *lang)
 			break;
 		}
 		if (fn && ast_fileexists(fn, NULL, lang) > 0) {
-			ast_str_append(&filenames, 0, "%s%s", ast_str_strlen(filenames) ? "&" : "", fn);
+			res = ast_streamfile(chan, fn, lang);
+			if (!res) {
+				if ((audiofd  > -1) && (ctrlfd > -1))
+					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+				else
+					res = ast_waitstream(chan, ints);
+			}
+			ast_stopstream(chan);
 		}
 		num++;
 	}
 
-	return filenames;
-}
-
-static int say_digit_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, int audiofd, int ctrlfd)
-{
-	struct ast_str *filenames = ast_get_digit_str(str, lang);
-	return say_filenames(chan, ints, lang, audiofd, ctrlfd, filenames);
-}
-
-static struct ast_str* ast_get_money_en_dollars_str(const char *str, const char *lang)
-{
-	const char *fnr;
-
-	double dollars = 0;
-	int amt, cents;
-	struct ast_str *fnrecurse = NULL;
-
-	struct ast_str *filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
-
-	if (sscanf(str, "%30lf", &dollars) != 1) {
-		amt = 0;
-	} else { /* convert everything to cents */
-		amt = dollars * 100;
-	}
-
-	/* Just the cents after the dollar decimal point */
-	cents = amt - (((int) dollars) * 100);
-	ast_debug(1, "Cents is %d, amount is %d\n", cents, amt);
-
-	if (amt >= 100) {
-		fnrecurse = ast_get_number_str((amt / 100), lang);
-		if (!fnrecurse) {
-			ast_log(LOG_WARNING, "Couldn't get string for dollars\n");
-		} else {
-			fnr = ast_str_buffer(fnrecurse);
-			ast_str_append(&filenames, 0, "%s", fnr);
-		}
-
-		/* If this is it, end on a down pitch, otherwise up pitch */
-		if (amt < 200) {
-			ast_str_append(&filenames, 0, "&%s", (cents > 0) ? "letters/dollar_" : "letters/dollar");
-		} else {
-			ast_str_append(&filenames, 0, "&%s", "dollars");
-		}
-
-		/* If dollars and cents, add "and" in the middle */
-		if (cents > 0) {
-			ast_str_append(&filenames, 0, "&%s", "and");
-		}
-	}
-
-	if (cents > 0) {
-		fnrecurse = ast_get_number_str(cents, lang);
-		if (!fnrecurse) {
-			ast_log(LOG_ERROR, "Couldn't get string for cents\n");
-		} else {
-			fnr = ast_str_buffer(fnrecurse);
-			ast_str_append(&filenames, 0, (amt < 100 ? "%s" : "&%s"), fnr);
-		}
-		ast_str_append(&filenames, 0, "&%s", (cents == 1) ? "cent" : "cents");
-	} else if (amt == 0) {
-		fnrecurse = ast_get_digit_str("0", lang);
-		if (!fnrecurse) {
-			ast_log(LOG_ERROR, "Couldn't get string for cents\n");
-		} else {
-			fnr = ast_str_buffer(fnrecurse);
-			ast_str_append(&filenames, 0, "%s", fnr);
-		}
-		ast_str_append(&filenames, 0, "&%s", "cents");
-	}
-
-	if (fnrecurse) {
-		ast_free(fnrecurse);
-	}
-
-	return filenames;
-}
-
-/*! \brief  ast_get_money_str: call language-specific functions */
-struct ast_str* ast_get_money_str(const char *str, const char *lang)
-{
-	if (!strncasecmp(lang, "en", 2)) { /* English syntax */
-		return ast_get_money_en_dollars_str(str, lang);
-	}
-
-	ast_log(LOG_WARNING, "Language %s not currently supported, defaulting to US Dollars\n", lang);
-	/* Default to english */
-	return ast_get_money_en_dollars_str(str, lang);
-}
-
-static int say_money_str_full(struct ast_channel *chan, const char *str, const char *ints, const char *lang, int audiofd, int ctrlfd)
-{
-	struct ast_str *filenames = ast_get_money_str(str, lang);
-	return say_filenames(chan, ints, lang, audiofd, ctrlfd, filenames);
-}
-
-static struct ast_str* get_number_str_en(int num, const char *lang)
-{
-	const char *fnr;
-	int loops = 0;
-
-	int res = 0;
-	int playh = 0;
-	char fn[256] = "";
-
-	struct ast_str *filenames;
-
-	if (!num) {
-		return ast_get_digit_str("0", lang);
-	}
-
-	filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
-
-	while (!res && (num || playh)) {
-		if (num < 0) {
-			ast_copy_string(fn, "digits/minus", sizeof(fn));
-			if ( num > INT_MIN ) {
-				num = -num;
-			} else {
-				num = 0;
-			}
-		} else if (playh) {
-			ast_copy_string(fn, "digits/hundred", sizeof(fn));
-			playh = 0;
-		} else if (num < 20) {
-			snprintf(fn, sizeof(fn), "digits/%d", num);
-			num = 0;
-		} else if (num < 100) {
-			snprintf(fn, sizeof(fn), "digits/%d", (num /10) * 10);
-			num %= 10;
-		} else {
-			if (num < 1000){
-				snprintf(fn, sizeof(fn), "digits/%d", (num/100));
-				playh++;
-				num %= 100;
-			} else {
-				struct ast_str *fnrecurse = NULL;
-				if (num < 1000000) { /* 1,000,000 */
-					fnrecurse = get_number_str_en((num / 1000), lang);
-					if (!fnrecurse) {
-						ast_log(LOG_ERROR, "Couldn't get string for num\n");
-					} else {
-						fnr = ast_str_buffer(fnrecurse);
-						ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-					}
-					num %= 1000;
-					snprintf(fn, sizeof(fn), "&digits/thousand");
-				} else {
-					if (num < 1000000000) {	/* 1,000,000,000 */
-						fnrecurse = get_number_str_en((num / 1000000), lang);
-						if (!fnrecurse) {
-							ast_log(LOG_ERROR, "Couldn't get string for num\n");
-						} else {
-							fnr = ast_str_buffer(fnrecurse);
-							ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-						}
-						num %= 1000000;
-						ast_copy_string(fn, "&digits/million", sizeof(fn));
-					} else {
-						if (num < INT_MAX) {
-							fnrecurse = get_number_str_en((num / 1000000000), lang);
-							if (!fnrecurse) {
-								ast_log(LOG_ERROR, "Couldn't get string for num\n");
-							} else {
-								fnr = ast_str_buffer(fnrecurse);
-								ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-							}
-							num %= 1000000000;
-							ast_copy_string(fn, "&digits/billion", sizeof(fn));
-						} else {
-							ast_log(LOG_WARNING, "Number '%d' is too big for me\n", num);
-							res = -1;
-						}
-					}
-				}
-				if (fnrecurse) {
-					ast_free(fnrecurse);
-				}
-				/* we already decided whether or not to add an &, don't add another one immediately */
-				loops = 0;
-			}
-		}
-		if (!res) {
-			ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fn);
-			loops++;
-		}
-	}
-
-	return filenames;
-}
-
-/*! \brief  ast_get_number_str: call language-specific functions */
-struct ast_str* ast_get_number_str(int num, const char *lang)
-{
-	if (!strncasecmp(lang, "en", 2)) { /* English syntax */
-		return get_number_str_en(num, lang);
-	}
-
-	ast_log(LOG_WARNING, "Language %s not currently supported, defaulting to English\n", lang);
-	/* Default to english */
-	return get_number_str_en(num, lang);
-}
-
-static struct ast_str* get_ordinal_str_en(int num, const char *lang)
-{
-	const char *fnr;
-	int loops = 0;
-
-	int res = 0;
-	int playh = 0;
-	char fn[256] = "";
-
-	struct ast_str *filenames;
-
-	if (!num) {
-		num = 0;
-	}
-
-	filenames = ast_str_create(20);
-	if (!filenames) {
-		return NULL;
-	}
-	ast_str_reset(filenames);
-
-	while (!res && (num || playh)) {
-		if (num < 0) {
-			ast_copy_string(fn, "digits/minus", sizeof(fn));
-			if ( num > INT_MIN ) {
-				num = -num;
-			} else {
-				num = 0;
-			}
-		} else if (playh) {
-			ast_copy_string(fn, (num % 100 == 0) ? "digits/h-hundred" : "digits/hundred", sizeof(fn));
-			playh = 0;
-		} else if (num < 20) {
-			if (num > 0) {
-				snprintf(fn, sizeof(fn), "digits/h-%d", num);
-			} else {
-				ast_log(LOG_ERROR, "Unsupported ordinal number: %d\n", num);
-			}
-			num = 0;
-		} else if (num < 100) {
-			int base = (num / 10) * 10;
-			if (base != num) {
-				snprintf(fn, sizeof(fn), "digits/%d", base);
-			} else {
-				snprintf(fn, sizeof(fn), "digits/h-%d", base);
-			}
-			num %= 10;
-		} else {
-			if (num < 1000){
-				snprintf(fn, sizeof(fn), "digits/%d", (num/100));
-				playh++;
-				num %= 100;
-			} else {
-				struct ast_str *fnrecurse = NULL;
-				if (num < 1000000) { /* 1,000,000 */
-					fnrecurse = get_number_str_en((num / 1000), lang);
-					if (!fnrecurse) {
-						ast_log(LOG_ERROR, "Couldn't get string for num\n");
-					} else {
-						fnr = ast_str_buffer(fnrecurse);
-						ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-					}
-					num %= 1000;
-					snprintf(fn, sizeof(fn), (num % 1000 == 0) ? "&digits/h-thousand" : "&digits/thousand");
-				} else {
-					if (num < 1000000000) {	/* 1,000,000,000 */
-						fnrecurse = get_number_str_en((num / 1000000), lang);
-						if (!fnrecurse) {
-							ast_log(LOG_ERROR, "Couldn't get string for num\n");
-						} else {
-							fnr = ast_str_buffer(fnrecurse);
-							ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-						}
-						num %= 1000000;
-						ast_copy_string(fn, (num % 1000000 == 0) ? "&digits/h-million" : "&digits/million", sizeof(fn));
-					} else {
-						if (num < INT_MAX) {
-							fnrecurse = get_number_str_en((num / 1000000000), lang);
-							if (!fnrecurse) {
-								ast_log(LOG_ERROR, "Couldn't get string for num\n");
-							} else {
-								fnr = ast_str_buffer(fnrecurse);
-								ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fnr);
-							}
-							num %= 1000000000;
-							ast_copy_string(fn, (num % 1000000000 == 0) ? "&digits/h-billion" : "&digits/billion", sizeof(fn));
-						} else {
-							ast_log(LOG_WARNING, "Number '%d' is too big for me\n", num);
-							res = -1;
-						}
-					}
-				}
-				if (fnrecurse) {
-					ast_free(fnrecurse);
-				}
-				/* we already decided whether or not to add an &, don't add another one immediately */
-				loops = 0;
-			}
-		}
-		if (!res) {
-			ast_str_append(&filenames, 0, (loops == 0 ? "%s" : "&%s"), fn);
-			loops++;
-		}
-	}
-
-	return filenames;
-}
-
-/*! \brief  ast_get_ordinal_str: call language-specific functions */
-struct ast_str* ast_get_ordinal_str(int num, const char *lang)
-{
-	if (!strncasecmp(lang, "en", 2)) { /* English syntax */
-		return get_ordinal_str_en(num, lang);
-	}
-
-	ast_log(LOG_WARNING, "Language %s not currently supported, defaulting to English\n", lang);
-	/* Default to english */
-	return get_ordinal_str_en(num, lang);
+	return res;
 }
 
 /* Forward declarations */
@@ -910,15 +540,66 @@ static int say_number_full(struct ast_channel *chan, int num, const char *ints, 
 	\note This is the default syntax, if no other syntax defined in this file is used */
 static int ast_say_number_full_en(struct ast_channel *chan, int num, const char *ints, const char *language, int audiofd, int ctrlfd)
 {
-	struct ast_str *filenames = ast_get_number_str(num, language);
-	return say_filenames(chan, ints, language, audiofd, ctrlfd, filenames);
-}
+	int res = 0;
+	int playh = 0;
+	char fn[256] = "";
+	if (!num)
+		return ast_say_digits_full(chan, 0, ints, language, audiofd, ctrlfd);
 
-/*! \brief  say_ordinal_full */
-static int say_ordinal_full(struct ast_channel *chan, int num, const char *ints, const char *language, const char *options, int audiofd, int ctrlfd)
-{
-	struct ast_str *filenames = ast_get_ordinal_str(num, language);
-	return say_filenames(chan, ints, language, audiofd, ctrlfd, filenames);
+	while (!res && (num || playh)) {
+		if (num < 0) {
+			ast_copy_string(fn, "digits/minus", sizeof(fn));
+			if ( num > INT_MIN ) {
+				num = -num;
+			} else {
+				num = 0;
+			}
+		} else if (playh) {
+			ast_copy_string(fn, "digits/hundred", sizeof(fn));
+			playh = 0;
+		} else if (num < 20) {
+			snprintf(fn, sizeof(fn), "digits/%d", num);
+			num = 0;
+		} else if (num < 100) {
+			snprintf(fn, sizeof(fn), "digits/%d", (num /10) * 10);
+			num %= 10;
+		} else {
+			if (num < 1000){
+				snprintf(fn, sizeof(fn), "digits/%d", (num/100));
+				playh++;
+				num %= 100;
+			} else {
+				if (num < 1000000) { /* 1,000,000 */
+					res = ast_say_number_full_en(chan, num / 1000, ints, language, audiofd, ctrlfd);
+					if (res)
+						return res;
+					num %= 1000;
+					snprintf(fn, sizeof(fn), "digits/thousand");
+				} else {
+					if (num < 1000000000) {	/* 1,000,000,000 */
+						res = ast_say_number_full_en(chan, num / 1000000, ints, language, audiofd, ctrlfd);
+						if (res)
+							return res;
+						num %= 1000000;
+						ast_copy_string(fn, "digits/million", sizeof(fn));
+					} else {
+						ast_debug(1, "Number '%d' is too big for me\n", num);
+						res = -1;
+					}
+				}
+			}
+		}
+		if (!res) {
+			if (!ast_streamfile(chan, fn, language)) {
+				if ((audiofd  > -1) && (ctrlfd > -1))
+					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+				else
+					res = ast_waitstream(chan, ints);
+			}
+			ast_stopstream(chan);
+		}
+	}
+	return res;
 }
 
 static int exp10_int(int power)
@@ -937,18 +618,18 @@ static int exp10_int(int power)
  * - 3,4,...,20
  * - 30,40,...,90
  *
- * - hundreds - 100 - sto, 200 - 2ste, 300,400 3,4sta, 500,600,...,900 5,6,...9set
+ * - hundereds - 100 - sto, 200 - 2ste, 300,400 3,4sta, 500,600,...,900 5,6,...9set
  *
  * for each number 10^(3n + 3) exist 3 files represented as:
- *		1 thousand = jeden tisic = 1_E3
- *		2,3,4 thousands = dva,tri,ctyri tisice = 2-3_E3
- *		5,6,... thousands = pet,sest,... tisic = 5_E3
+ *		1 tousand = jeden tisic = 1_E3
+ *		2,3,4 tousands = dva,tri,ctyri tisice = 2-3_E3
+ *		5,6,... tousands = pet,sest,... tisic = 5_E3
  *
  *		million = _E6
  *		miliard = _E9
  *		etc...
  *
- * thousand, milion are  gender male, so 1 and 2 is 1m 2m
+ * tousand, milion are  gender male, so 1 and 2 is 1m 2m
  * miliard is gender female, so 1 and 2 is 1w 2w
  */
 static int ast_say_number_full_cs(struct ast_channel *chan, int num, const char *ints, const char *language, const char *options, int audiofd, int ctrlfd)
@@ -957,7 +638,7 @@ static int ast_say_number_full_cs(struct ast_channel *chan, int num, const char 
 	int playh = 0;
 	char fn[256] = "";
 
-	int hundred = 0;
+	int hundered = 0;
 	int left = 0;
 	int length = 0;
 
@@ -988,22 +669,22 @@ static int ast_say_number_full_cs(struct ast_channel *chan, int num, const char 
 			snprintf(fn, sizeof(fn), "digits/%d", (num /10) * 10);
 			num %= 10;
 		} else if (num < 1000) {
-			hundred = num / 100;
-			if ( hundred == 1 ) {
+			hundered = num / 100;
+			if ( hundered == 1 ) {
 				ast_copy_string(fn, "digits/1sto", sizeof(fn));
-			} else if ( hundred == 2 ) {
+			} else if ( hundered == 2 ) {
 				ast_copy_string(fn, "digits/2ste", sizeof(fn));
 			} else {
-				res = ast_say_number_full_cs(chan, hundred, ints, language, options, audiofd, ctrlfd);
+				res = ast_say_number_full_cs(chan, hundered, ints, language, options, audiofd, ctrlfd);
 				if (res)
 					return res;
-				if (hundred == 3 || hundred == 4) {
+				if (hundered == 3 || hundered == 4) {
 					ast_copy_string(fn, "digits/sta", sizeof(fn));
-				} else if ( hundred > 4 ) {
+				} else if ( hundered > 4 ) {
 					ast_copy_string(fn, "digits/set", sizeof(fn));
 				}
 			}
-			num -= (hundred * 100);
+			num -= (hundered * 100);
 		} else { /* num > 1000 */
 			length = (int)log10(num)+1;
 			while ( (length % 3 ) != 1 ) {
@@ -1022,7 +703,7 @@ static int ast_say_number_full_cs(struct ast_channel *chan, int num, const char 
 				if (res)
 					return res;
 			}
-			if ( left >= 5 ) { /* >= 5 have the same declension */
+			if ( left >= 5 ) { /* >= 5 have the same declesion */
 				snprintf(fn, sizeof(fn), "digits/5_E%d", length - 1);
 			} else if ( left >= 2 && left <= 4 ) {
 				snprintf(fn, sizeof(fn), "digits/2-4_E%d", length - 1);
@@ -1960,7 +1641,7 @@ static int ast_say_number_full_it(struct ast_channel *chan, int num, const char 
 		Like english, numbers up to 20 are a single 'word', and others
 		compound, but with exceptions.
 		For example 21 is not twenty-one, but there is a single word in 'it'.
-		Idem for 28 (ie when a the 2nd part of a compound number
+		Idem for 28 (ie when a the 2nd part of a compund number
 		starts with a vowel)
 
 		There are exceptions also for hundred, thousand and million.
@@ -4518,22 +4199,7 @@ int ast_say_date_with_format_en(struct ast_channel *chan, time_t t, const char *
 					/* This might be slightly off, if we transcend a leap second, but never more off than 1 second */
 					/* In any case, it saves not having to do ast_mktime() */
 					beg_today = now.tv_sec - (tmnow.tm_hour * 3600) - (tmnow.tm_min * 60) - (tmnow.tm_sec);
-					if (beg_today + 15768000 < t) {
-						/* More than 6 months from now - "April nineteenth two thousand three" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "BdY", tzone);
-					} else if (beg_today + 2628000 < t) {
-						/* Less than 6 months from now - "August seventh" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "Bd", tzone);
-					} else if (beg_today + 86400 * 6 < t) {
-						/* Less than a month from now - "Sunday, October third" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "ABd", tzone);
-					} else if (beg_today + 172800 < t) {
-						/* Within the next week */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "A", tzone);
-					} else if (beg_today + 86400 < t) {
-						/* Tomorrow */
-						res = wait_file(chan, ints, "digits/tomorrow", lang);
-					} else if (beg_today < t) {
+					if (beg_today < t) {
 						/* Today */
 						res = wait_file(chan, ints, "digits/today", lang);
 					} else if (beg_today - 86400 < t) {
@@ -4569,25 +4235,9 @@ int ast_say_date_with_format_en(struct ast_channel *chan, time_t t, const char *
 					/* This might be slightly off, if we transcend a leap second, but never more off than 1 second */
 					/* In any case, it saves not having to do ast_mktime() */
 					beg_today = now.tv_sec - (tmnow.tm_hour * 3600) - (tmnow.tm_min * 60) - (tmnow.tm_sec);
-					if (beg_today + 15768000 < t) {
-						/* More than 6 months from now - "April nineteenth two thousand three" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "BdY", tzone);
-					} else if (beg_today + 2628000 < t) {
-						/* Less than 6 months from now - "August seventh" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "Bd", tzone);
-					} else if (beg_today + 86400 * 6 < t) {
-						/* Less than a month from now - "Sunday, October third" */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "ABd", tzone);
-					} else if (beg_today + 172800 < t) {
-						/* Within the next week */
-						res = ast_say_date_with_format_en(chan, t, ints, lang, "A", tzone);
-					} else if (beg_today + 86400 < t) {
-						/* Tomorrow */
-						res = wait_file(chan, ints, "digits/tomorrow", lang);
-					} else if (beg_today < t) {
+					if (beg_today < t) {
 						/* Today */
-						res = wait_file(chan, ints, "digits/today", lang);
-					} else if (beg_today - 86400 < t) {
+					} else if ((beg_today - 86400) < t) {
 						/* Yesterday */
 						res = wait_file(chan, ints, "digits/yesterday", lang);
 					} else if (beg_today - 86400 * 6 < t) {
@@ -4927,8 +4577,6 @@ int ast_say_date_with_format_de(struct ast_channel *chan, time_t t, const char *
 				/* 12-Hour */
 				if (tm.tm_hour == 0)
 					ast_copy_string(nextmsg, "digits/12", sizeof(nextmsg));
-				else if (tm.tm_hour == 1)
-					ast_copy_string(nextmsg, "digits/1N", sizeof(nextmsg));
 				else if (tm.tm_hour > 12)
 					snprintf(nextmsg, sizeof(nextmsg), "digits/%d", tm.tm_hour - 12);
 				else
@@ -4941,11 +4589,7 @@ int ast_say_date_with_format_de(struct ast_channel *chan, time_t t, const char *
 			case 'H':
 			case 'k':
 				/* 24-Hour */
-				if (tm.tm_hour == 1) {
-					res = wait_file(chan, ints, "digits/1N", lang);
-				} else {
-					res = ast_say_number(chan, tm.tm_hour, ints, lang, (char *) NULL);
-				}
+				res = ast_say_number(chan, tm.tm_hour, ints, lang, (char *) NULL);
 				if (!res) {
 					res = wait_file(chan, ints, "digits/oclock", lang);
 				}
@@ -5508,7 +5152,7 @@ int ast_say_date_with_format_he(struct ast_channel *chan, time_t t, const char *
 				* ast_say_number_full_he mean, but it seems
 				* safe to pass -1 there.
 				*
-				* At least in one of the paths :-(
+				* At least in one of the pathes :-(
 				*/
 				res = ast_say_number_full_he(chan, tm.tm_mday, ints, lang, "m", -1, -1);
 				break;
@@ -5516,7 +5160,7 @@ int ast_say_date_with_format_he(struct ast_channel *chan, time_t t, const char *
 				res = ast_say_number_full_he(chan, tm.tm_year + 1900, ints, lang, "f", -1, -1);
 				break;
 			case 'I':
-			case 'l': /* 12-Hour -> we do not support 12 hour based languages in Hebrew */
+			case 'l': /* 12-Hour -> we do not support 12 hour based langauges in Hebrew */
 			case 'H':
 			case 'k': /* 24-Hour */
 				res = ast_say_number_full_he(chan, tm.tm_hour, ints, lang, "f", -1, -1);
@@ -6279,7 +5923,9 @@ int ast_say_date_with_format_nl(struct ast_channel *chan, time_t t, const char *
 					}
 					if (tm.tm_year > 100) {
 						if (!res) {
-							res = ast_say_number(chan, tm.tm_year - 100, ints, lang, (char *) NULL);
+							/* This works until the end of 2020 */
+							snprintf(nextmsg, sizeof(nextmsg), "digits/%d", tm.tm_year - 100);
+							res = wait_file(chan, ints, nextmsg, lang);
 						}
 					}
 				} else {
@@ -7339,16 +6985,11 @@ int ast_say_time_fr(struct ast_channel *chan, time_t t, const char *ints, const 
 	ast_localtime(&when, &tm, NULL);
 
 	res = ast_say_number(chan, tm.tm_hour, ints, lang, "f");
-	if (!res) {
+	if (!res)
 		res = ast_streamfile(chan, "digits/oclock", lang);
-	}
-	if (!res) {
-		res = ast_waitstream(chan, ints);
-	}
 	if (tm.tm_min) {
-		if (!res) {
-			res = ast_say_number(chan, tm.tm_min, ints, lang, "f");
-		}
+		if (!res)
+		res = ast_say_number(chan, tm.tm_min, ints, lang, (char *) NULL);
 	}
 	return res;
 }
@@ -8201,7 +7842,7 @@ static int gr_say_number_female(int num, struct ast_channel *chan, const char *i
 				 and digits/hundred-100 to utter "ekaton"
  ->	digits/hundred-[100...1000] :: A pronunciation of  hundreds from 100 to 1000 e.g 400 =
 				 "terakosia". Here again we use hundreds/1000 for "xilia"
-				 and digits/thousands for "xiliades"
+				 and digits/thousnds for "xiliades"
 */
 static int ast_say_number_full_gr(struct ast_channel *chan, int num, const char *ints, const char *language, int audiofd, int ctrlfd)
 {
@@ -8423,7 +8064,7 @@ int ast_say_date_ja(struct ast_channel *chan, time_t t, const char *ints, const 
  * A list of the files that you need to create
  * - digits/female/1..4 : "Mia, dyo , treis, tesseris "
  * - digits/kai : "KAI"
- * - digits : "h wra"
+ * - didgits : "h wra"
  * - digits/p-m : "meta meshmbrias"
  * - digits/a-m : "pro meshmbrias"
  */
@@ -9679,7 +9320,7 @@ static const char *counted_noun_ending_en(int num)
  * They are the genative singular which we represent with the suffix "x1" and
  * the genative plural which we represent with the suffix "x2". The base names
  * of the soundfiles remain in English. For example:
- *  - 1 degree (soundfile says "gradus")
+ *  - 1 degree (soudfile says "gradus")
  *  - 2 degreex1 (soundfile says "gradusa")
  *  - 5 degreex2 (soundfile says "gradusov")
  */
@@ -9771,10 +9412,8 @@ int ast_say_counted_adjective(struct ast_channel *chan, int num, const char adje
 static void __attribute__((constructor)) __say_init(void)
 {
 	ast_say_number_full = say_number_full;
-	ast_say_ordinal_full = say_ordinal_full;
 	ast_say_enumeration_full = say_enumeration_full;
 	ast_say_digit_str_full = say_digit_str_full;
-	ast_say_money_str_full = say_money_str_full;
 	ast_say_character_str_full = say_character_str_full;
 	ast_say_phonetic_str_full = say_phonetic_str_full;
 	ast_say_datetime = say_datetime;

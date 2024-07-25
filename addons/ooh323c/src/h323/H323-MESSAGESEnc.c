@@ -4408,9 +4408,9 @@ EXTERN int asn1PE_H225SecurityCapabilities (OOCTXT* pctxt, H225SecurityCapabilit
    stat = asn1PE_H225SecurityServiceMode (pctxt, &pvalue->encryption);
    if (stat != ASN_OK) return stat;
 
-   /* encode authentication */
+   /* encode authenticaton */
 
-   stat = asn1PE_H225SecurityServiceMode (pctxt, &pvalue->authentication);
+   stat = asn1PE_H225SecurityServiceMode (pctxt, &pvalue->authenticaton);
    if (stat != ASN_OK) return stat;
 
    /* encode integrity */

@@ -37,7 +37,7 @@
  * \brief Callback function to get the number of channels in a bridge
  *
  * \param metric The metric to populate
- * \param snapshot Bridge snapshot
+ * \snapshot Bridge snapshot
  */
 static void get_bridge_channel_count(struct prometheus_metric *metric, struct ast_bridge_snapshot *snapshot)
 {
@@ -77,13 +77,12 @@ struct bridge_metric_defs {
  */
 static void bridges_scrape_cb(struct ast_str **response)
 {
-	struct ao2_container *bridge_cache;
 	struct ao2_container *bridges;
 	struct ao2_iterator it_bridges;
 	struct ast_bridge *bridge;
 	struct prometheus_metric *bridge_metrics;
 	char eid_str[32];
-	int i, j, num_bridges, num_outputs = 0;
+	int i, j, num_bridges;
 	struct prometheus_metric bridge_count = PROMETHEUS_METRIC_STATIC_INITIALIZATION(
 		PROMETHEUS_METRIC_GAUGE,
 		"asterisk_bridges_count",
@@ -93,17 +92,10 @@ static void bridges_scrape_cb(struct ast_str **response)
 
 	ast_eid_to_str(eid_str, sizeof(eid_str), &ast_eid_default);
 
-	bridge_cache = ast_bridges();
-	if (!bridge_cache) {
-		return;
-	}
-
-	bridges = ao2_container_clone(bridge_cache, 0);
-	ao2_ref(bridge_cache, -1);
+	bridges = ast_bridges();
 	if (!bridges) {
 		return;
 	}
-
 	num_bridges = ao2_container_count(bridges);
 
 	/* Current endpoint count */
@@ -125,20 +117,10 @@ static void bridges_scrape_cb(struct ast_str **response)
 	/* Bridge dependent values */
 	it_bridges = ao2_iterator_init(bridges, 0);
 	for (i = 0; (bridge = ao2_iterator_next(&it_bridges)); ao2_ref(bridge, -1), i++) {
-		struct ast_bridge_snapshot *snapshot;
-
-		/* Invisible bridges don't get shown externally and have no snapshot */
-		if (ast_test_flag(&bridge->feature_flags, AST_BRIDGE_FLAG_INVISIBLE)) {
-			continue;
-		}
-
-		snapshot = ast_bridge_get_snapshot(bridge);
-		if (!snapshot) {
-			continue;
-		}
+		struct ast_bridge_snapshot *snapshot = ast_bridge_get_snapshot(bridge);
 
 		for (j = 0; j < ARRAY_LEN(bridge_metric_defs); j++) {
-			int index = num_outputs++;
+			int index = i * ARRAY_LEN(bridge_metric_defs) + j;
 
 			bridge_metrics[index].type = PROMETHEUS_METRIC_GAUGE;
 			ast_copy_string(bridge_metrics[index].name, bridge_metric_defs[j].name, sizeof(bridge_metrics[index].name));
@@ -159,7 +141,7 @@ static void bridges_scrape_cb(struct ast_str **response)
 	}
 	ao2_iterator_destroy(&it_bridges);
 
-	for (j = 0; j < num_outputs; j++) {
+	for (j = 0; j < ARRAY_LEN(bridge_metric_defs); j++) {
 		prometheus_metric_to_string(&bridge_metrics[j], response);
 	}
 

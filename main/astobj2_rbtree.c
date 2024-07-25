@@ -168,7 +168,7 @@ static struct rbtree_node *rb_node_most_right(struct rbtree_node *node)
  *
  * \param node Starting node to find the next node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_next(struct rbtree_node *node)
@@ -195,7 +195,7 @@ static struct rbtree_node *rb_node_next(struct rbtree_node *node)
  *
  * \param node Starting node to find the previous node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_prev(struct rbtree_node *node)
@@ -222,7 +222,7 @@ static struct rbtree_node *rb_node_prev(struct rbtree_node *node)
  *
  * \param node Starting node to find the next node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_pre(struct rbtree_node *node)
@@ -258,7 +258,7 @@ static struct rbtree_node *rb_node_pre(struct rbtree_node *node)
  *
  * \param node Starting node to find the next node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_post(struct rbtree_node *node)
@@ -303,7 +303,7 @@ static struct rbtree_node *rb_node_post(struct rbtree_node *node)
  *
  * \param node Starting node to find the next node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_next_full(struct rbtree_node *node)
@@ -323,7 +323,7 @@ static struct rbtree_node *rb_node_next_full(struct rbtree_node *node)
  *
  * \param node Starting node to find the previous node.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if no node.
  */
 static struct rbtree_node *rb_node_prev_full(struct rbtree_node *node)
@@ -350,7 +350,7 @@ static struct rbtree_node *rb_node_prev_full(struct rbtree_node *node)
  *   OBJ_SEARCH_PARTIAL_KEY - if set, 'obj_right', is a partial search key item that is not an object.
  * \param bias How to bias search direction for duplicates
  *
- * \return \ref empty_node_direction to proceed.
+ * \return enum empty_node_direction to proceed.
  */
 static enum empty_node_direction rb_find_empty_direction(struct rbtree_node *empty, ao2_sort_fn *sort_fn, void *obj_right, enum search_flags flags, enum equal_node_bias bias)
 {
@@ -453,6 +453,8 @@ static enum empty_node_direction rb_find_empty_direction(struct rbtree_node *emp
  * a,b,c = other nodes that are unaffected by the rotation.
  *
  * \note It is assumed that the node's right child exists.
+ *
+ * \return Nothing
  */
 static void rb_rotate_left(struct ao2_container_rbtree *self, struct rbtree_node *node)
 {
@@ -506,6 +508,8 @@ static void rb_rotate_left(struct ao2_container_rbtree *self, struct rbtree_node
  * a,b,c = other nodes that are unaffected by the rotation.
  *
  * \note It is assumed that the node's left child exists.
+ *
+ * \return Nothing
  */
 static void rb_rotate_right(struct ao2_container_rbtree *self, struct rbtree_node *node)
 {
@@ -548,7 +552,7 @@ static void rb_rotate_right(struct ao2_container_rbtree *self, struct rbtree_nod
  * \param line Debug line invoked from
  * \param func Debug function name invoked from
  *
- * \return empty-clone-container on success.
+ * \retval empty-clone-container on success.
  * \retval NULL on error.
  */
 static struct ao2_container *rb_ao2_alloc_empty_clone(struct ao2_container_rbtree *self,
@@ -574,6 +578,8 @@ static struct ao2_container *rb_ao2_alloc_empty_clone(struct ao2_container_rbtre
  * was no child of the deleted node.  Otherwise, the caller must
  * pass in the parent node and which child was deleted.  In
  * addition, the fixup routine would be more complicated.
+ *
+ * \return Nothing
  */
 static void rb_delete_fixup(struct ao2_container_rbtree *self, struct rbtree_node *child)
 {
@@ -708,6 +714,8 @@ static void rb_delete_fixup(struct ao2_container_rbtree *self, struct rbtree_nod
  *
  * \param self Container to operate upon.
  * \param doomed Container node to delete from the container.
+ *
+ * \return Nothing
  */
 static void rb_delete_node(struct ao2_container_rbtree *self, struct rbtree_node *doomed)
 {
@@ -824,6 +832,8 @@ static void rb_delete_node(struct ao2_container_rbtree *self, struct rbtree_node
  *
  * \note The container must be locked when the node is
  * unreferenced.
+ *
+ * \return Nothing
  */
 static void rb_ao2_node_destructor(void *v_doomed)
 {
@@ -888,7 +898,7 @@ static void rb_ao2_node_destructor(void *v_doomed)
  * \param line Debug line invoked from
  * \param func Debug function name invoked from
  *
- * \return initialized-node on success.
+ * \retval initialized-node on success.
  * \retval NULL on error.
  */
 static struct rbtree_node *rb_ao2_new_node(struct ao2_container_rbtree *self, void *obj_new, const char *tag, const char *file, int line, const char *func)
@@ -917,6 +927,8 @@ static struct rbtree_node *rb_ao2_new_node(struct ao2_container_rbtree *self, vo
  * \param node Container node just inserted into the container.
  *
  * \note The just inserted node is red.
+ *
+ * \return Nothing
  */
 static void rb_insert_fixup(struct ao2_container_rbtree *self, struct rbtree_node *node)
 {
@@ -1005,7 +1017,7 @@ static void rb_insert_fixup(struct ao2_container_rbtree *self, struct rbtree_nod
  * \param self Container to operate upon.
  * \param node Container node to insert into the container.
  *
- * \return \ref ao2_container_insert value.
+ * \return enum ao2_container_insert value.
  */
 static enum ao2_container_insert rb_ao2_insert_node(struct ao2_container_rbtree *self, struct rbtree_node *node)
 {
@@ -1131,7 +1143,7 @@ static enum ao2_container_insert rb_ao2_insert_node(struct ao2_container_rbtree 
 		break;
 	}
 
-	/* Node is a duplicate */
+	/* Node is a dupliate */
 	switch (options & AO2_CONTAINER_ALLOC_OPT_DUPS_MASK) {
 	default:
 	case AO2_CONTAINER_ALLOC_OPT_DUPS_ALLOW:
@@ -1252,7 +1264,7 @@ static enum ao2_container_insert rb_ao2_insert_node(struct ao2_container_rbtree 
  * \param prev Previous node returned by the traversal search functions.
  *    The ref ownership is passed back to this function.
  *
- * \return node-ptr of found node (Reffed).
+ * \retval node-ptr of found node (Reffed).
  * \retval NULL when no node found.
  */
 static struct rbtree_node *rb_ao2_find_next(struct ao2_container_rbtree *self, struct rbtree_traversal_state *state, struct rbtree_node *prev)
@@ -1335,7 +1347,7 @@ static struct rbtree_node *rb_ao2_find_next(struct ao2_container_rbtree *self, s
  *   OBJ_SEARCH_PARTIAL_KEY - if set, 'obj_right', is a partial search key item that is not an object.
  * \param bias How to bias search direction for duplicates
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL if not found.
  */
 static struct rbtree_node *rb_find_initial(struct ao2_container_rbtree *self, void *obj_right, enum search_flags flags, enum equal_node_bias bias)
@@ -1453,7 +1465,7 @@ static struct rbtree_node *rb_find_initial(struct ao2_container_rbtree *self, vo
  * \param arg Comparison callback arg parameter.
  * \param state Traversal state to restart rbtree container traversal.
  *
- * \return node-ptr of found node (Reffed).
+ * \retval node-ptr of found node (Reffed).
  * \retval NULL when no node found.
  */
 static struct rbtree_node *rb_ao2_find_first(struct ao2_container_rbtree *self, enum search_flags flags, void *arg, struct rbtree_traversal_state *state)
@@ -1617,7 +1629,7 @@ static struct rbtree_node *rb_ao2_find_first(struct ao2_container_rbtree *self, 
  *
  * \note The container is already locked.
  *
- * \return node on success.
+ * \retval node on success.
  * \retval NULL on error or no more nodes in the container.
  */
 static struct rbtree_node *rb_ao2_iterator_next(struct ao2_container_rbtree *self, struct rbtree_node *node, enum ao2_iterator_flags flags)
@@ -1662,6 +1674,8 @@ static struct rbtree_node *rb_ao2_iterator_next(struct ao2_container_rbtree *sel
  * \since 12.0.0
  *
  * \param self Container to operate upon.
+ *
+ * \return Nothing
  */
 static void rb_ao2_destroy(struct ao2_container_rbtree *self)
 {
@@ -1682,6 +1696,8 @@ static void rb_ao2_destroy(struct ao2_container_rbtree *self)
  * \param where User data needed by prnt to determine where to put output.
  * \param prnt Print output callback function to use.
  * \param prnt_obj Callback function to print the given object's key. (NULL if not available)
+ *
+ * \return Nothing
  */
 static void rb_ao2_dump(struct ao2_container_rbtree *self, void *where, ao2_prnt_fn *prnt, ao2_prnt_obj_fn *prnt_obj)
 {
@@ -1721,6 +1737,8 @@ static void rb_ao2_dump(struct ao2_container_rbtree *self, void *where, ao2_prnt
  * \param prnt Print output callback function to use.
  *
  * \note The container is already locked for reading.
+ *
+ * \return Nothing
  */
 static void rb_ao2_stats(struct ao2_container_rbtree *self, void *where, ao2_prnt_fn *prnt)
 {
@@ -1758,7 +1776,7 @@ static void rb_ao2_stats(struct ao2_container_rbtree *self, void *where, ao2_prn
  *
  * \param node Node to check black height.
  *
- * \return black-height of node on success.
+ * \retval black-height of node on success.
  * \retval -1 on error.  Node black height did not balance.
  */
 static int rb_check_black_height(struct rbtree_node *node)

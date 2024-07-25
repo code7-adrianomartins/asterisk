@@ -47,6 +47,8 @@ struct ast_slinfactory {
  * \brief Initialize a slinfactory
  *
  * \param sf The slinfactory to initialize
+ *
+ * \return Nothing
  */
 void ast_slinfactory_init(struct ast_slinfactory *sf);
 
@@ -56,8 +58,7 @@ void ast_slinfactory_init(struct ast_slinfactory *sf);
  * \param sf The slinfactory to initialize
  * \param slin_out the slinear output format desired.
  *
- * \retval 0 on success
- * \retval non-zero on failure
+ * \return 0 on success, non-zero on failure
  */
 int ast_slinfactory_init_with_format(struct ast_slinfactory *sf, struct ast_format *slin_out);
 
@@ -69,6 +70,8 @@ int ast_slinfactory_init_with_format(struct ast_slinfactory *sf, struct ast_form
  * This function will free any memory allocated for the contents of the
  * slinfactory.  It does not free the slinfactory itself.  If the sf is
  * malloc'd, then it must be explicitly free'd after calling this function.
+ *
+ * \return Nothing
  */
 void ast_slinfactory_destroy(struct ast_slinfactory *sf);
 
@@ -106,6 +109,8 @@ unsigned int ast_slinfactory_available(const struct ast_slinfactory *sf);
  * \brief Flush the contents of a slinfactory
  *
  * \param sf The slinfactory to flush
+ *
+ * \return Nothing
  */
 void ast_slinfactory_flush(struct ast_slinfactory *sf);
 

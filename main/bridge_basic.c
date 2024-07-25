@@ -72,7 +72,7 @@ enum bridge_basic_personality_type {
  *
  * \param bridge The bridge
  * \param type The personality to change the bridge to
- * \param user_data Private data to attach to the personality.
+ * \user_data Private data to attach to the personality.
  */
 static void bridge_basic_change_personality(struct ast_bridge *bridge,
 		enum bridge_basic_personality_type type, void *user_data);
@@ -331,7 +331,7 @@ struct bridge_basic_personality {
 	struct personality_details details[BRIDGE_BASIC_PERSONALITY_END];
 };
 
-/*!
+/*
  * \internal
  * \brief Get the extension for a given builtin feature.
  *
@@ -414,6 +414,7 @@ static int setup_bridge_features_builtin(struct ast_bridge_features *features, s
 	res |= builtin_features_helper(features, chan, flags, AST_FEATURE_REDIRECT, "atxfer", AST_BRIDGE_BUILTIN_ATTENDEDTRANSFER);
 	res |= builtin_features_helper(features, chan, flags, AST_FEATURE_DISCONNECT, "disconnect", AST_BRIDGE_BUILTIN_HANGUP);
 	res |= builtin_features_helper(features, chan, flags, AST_FEATURE_PARKCALL, "parkcall", AST_BRIDGE_BUILTIN_PARKCALL);
+	res |= builtin_features_helper(features, chan, flags, AST_FEATURE_AUTOMON, "automon", AST_BRIDGE_BUILTIN_AUTOMON);
 	res |= builtin_features_helper(features, chan, flags, AST_FEATURE_AUTOMIXMON, "automixmon", AST_BRIDGE_BUILTIN_AUTOMIXMON);
 
 	return res ? -1 : 0;
@@ -797,7 +798,7 @@ enum attended_transfer_state {
 	 * 2) TRANSFER_BLOND: Transferer hangs up or presses DTMF swap sequence
 	 * and configured atxferdropcall setting is yes.
 	 * 3) TRANSFER_BLOND_NONFINAL: Transferer hangs up or presses DTMF swap
-	 * sequence and configured atxferdropcall setting is no.
+	 * sequence and configured atxferdroppcall setting is no.
 	 * 4) TRANSFER_CONSULTING: Transfer target answers the call.
 	 * 5) TRANSFER_REBRIDGE: Transfer target hangs up, call to transfer target
 	 * times out, or transferer presses DTMF abort sequence.
@@ -831,7 +832,7 @@ enum attended_transfer_state {
 	 * 2) TRANSFER_BLOND: Transferer hangs up or presses DTMF swap sequence
 	 * and configured atxferdropcall setting is yes.
 	 * 3) TRANSFER_BLOND_NONFINAL: Transferer hangs up or presses DTMF swap
-	 * sequence and configured atxferdropcall setting is no.
+	 * sequence and configured atxferdroppcall setting is no.
 	 * 4) TRANSFER_DOUBLECHECKING: Transfer target answers the call
 	 * 5) TRANSFER_RESUME: Transfer target hangs up, call to transfer target
 	 * times out, or transferer presses DTMF abort sequence.
@@ -1385,32 +1386,15 @@ static const char *get_transfer_context(struct ast_channel *transferer, const ch
 	if (!ast_strlen_zero(context)) {
 		return context;
 	}
+	context = ast_channel_macrocontext(transferer);
+	if (!ast_strlen_zero(context)) {
+		return context;
+	}
 	context = ast_channel_context(transferer);
 	if (!ast_strlen_zero(context)) {
 		return context;
 	}
 	return "default";
-}
-
-/*!
- * \internal
- * \brief Determine the transfer extension to use.
- *
- * \param transferer Channel initiating the transfer.
- * \param exten User supplied extension if available.  May be NULL.
- *
- * \return The extension to use for the transfer.
- */
-static const char *get_transfer_exten(struct ast_channel *transferer, const char *exten)
-{
-	if (!ast_strlen_zero(exten)) {
-		return exten;
-	}
-	exten = pbx_builtin_getvar_helper(transferer, "TRANSFER_EXTEN");
-	if (!ast_strlen_zero(exten)) {
-		return exten;
-	}
-	return ""; /* empty default, to get transfer extension from user now */
 }
 
 /*!
@@ -2443,6 +2427,8 @@ static void recall_callback(struct ast_dial *dial)
  *
  * \pre COLP and CLID on the recall channel are setup by the caller but not
  * explicitly published yet.
+ *
+ * \return Nothing
  */
 static void common_recall_channel_setup(struct ast_channel *recall, struct ast_channel *transferer)
 {
@@ -2458,7 +2444,7 @@ static void common_recall_channel_setup(struct ast_channel *recall, struct ast_c
 
 	/*
 	 * Stage a snapshot to ensure that a snapshot is always done
-	 * on the recall channel so earlier COLP and CLID setup will
+	 * on the recall channel so earler COLP and CLID setup will
 	 * get published.
 	 */
 	ast_channel_stage_snapshot(recall);
@@ -3178,25 +3164,10 @@ static int grab_transfer(struct ast_channel *chan, char *exten, size_t exten_len
 	int attempts = 0;
 	int max_attempts;
 	struct ast_features_xfer_config *xfer_cfg;
-	char *announce_sound, *retry_sound, *invalid_sound;
-	const char *extenoverride;
+	char *retry_sound;
+	char *invalid_sound;
 
 	ast_channel_lock(chan);
-	extenoverride = get_transfer_exten(chan, NULL);
-
-	if (!ast_strlen_zero(extenoverride)) {
-		int extenres = ast_exists_extension(chan, context, extenoverride, 1,
-			S_COR(ast_channel_caller(chan)->id.number.valid, ast_channel_caller(chan)->id.number.str, NULL)) ? 1 : 0;
-		if (extenres) {
-			ast_copy_string(exten, extenoverride, exten_len);
-			ast_channel_unlock(chan);
-			ast_verb(3, "Transfering call to '%s@%s'", exten, context);
-			return 0;
-		}
-		ast_log(LOG_WARNING, "Override extension '%s' does not exist in context '%s'\n", extenoverride, context);
-		/* since we didn't get a valid extension from the channel, fall back and grab it from the user as usual now */
-	}
-
 	xfer_cfg = ast_get_chan_features_xfer_config(chan);
 	if (!xfer_cfg) {
 		ast_log(LOG_ERROR, "Channel %s: Unable to get transfer configuration\n",
@@ -3206,24 +3177,21 @@ static int grab_transfer(struct ast_channel *chan, char *exten, size_t exten_len
 	}
 	digit_timeout = xfer_cfg->transferdigittimeout * 1000;
 	max_attempts = xfer_cfg->transferdialattempts;
-	announce_sound = ast_strdupa(xfer_cfg->transferannouncesound);
 	retry_sound = ast_strdupa(xfer_cfg->transferretrysound);
 	invalid_sound = ast_strdupa(xfer_cfg->transferinvalidsound);
 	ao2_ref(xfer_cfg, -1);
 	ast_channel_unlock(chan);
 
 	/* Play the simple "transfer" prompt out and wait */
-	if (!ast_strlen_zero(announce_sound)) {
-		res = ast_stream_and_wait(chan, announce_sound, AST_DIGIT_ANY);
-		ast_stopstream(chan);
-		if (res < 0) {
-			/* Hangup or error */
-			return -1;
-		}
-		if (res) {
-			/* Store the DTMF digit that interrupted playback of the file. */
-			exten[0] = res;
-		}
+	res = ast_stream_and_wait(chan, "pbx-transfer", AST_DIGIT_ANY);
+	ast_stopstream(chan);
+	if (res < 0) {
+		/* Hangup or error */
+		return -1;
+	}
+	if (res) {
+		/* Store the DTMF digit that interrupted playback of the file. */
+		exten[0] = res;
 	}
 
 	/* Drop to dialtone so they can enter the extension they want to transfer to */
@@ -3288,17 +3256,10 @@ static struct ast_channel *dial_transfer(struct ast_channel *caller, const char 
 {
 	struct ast_channel *chan;
 	int cause;
-	struct ast_format_cap *caps;
-
-	ast_channel_lock(caller);
-	caps = ao2_bump(ast_channel_nativeformats(caller));
-	ast_channel_unlock(caller);
 
 	/* Now we request a local channel to prepare to call the destination */
-	chan = ast_request("Local", caps, NULL, caller, destination, &cause);
-
-	ao2_cleanup(caps);
-
+	chan = ast_request("Local", ast_channel_nativeformats(caller), NULL, caller, destination,
+		&cause);
 	if (!chan) {
 		return NULL;
 	}
@@ -3391,12 +3352,13 @@ static int feature_attended_transfer(struct ast_bridge_channel *bridge_channel, 
 	/* Grab the extension to transfer to */
 	if (grab_transfer(bridge_channel->chan, exten, sizeof(exten), props->context)) {
 		/*
-		 * This is a normal exit for when the user fails
-		 * to specify a valid transfer target.  e.g., The user
+		 * XXX The warning here really should be removed.  While the
+		 * message is accurate, this is a normal exit for when the user
+		 * fails to specify a valid transfer target.  e.g., The user
 		 * hungup, didn't dial any digits, or dialed an invalid
 		 * extension.
 		 */
-		ast_verb(3, "Channel %s: Unable to acquire target extension for attended transfer.\n",
+		ast_log(LOG_WARNING, "Channel %s: Unable to acquire target extension for attended transfer.\n",
 			ast_channel_name(bridge_channel->chan));
 		ast_bridge_channel_write_unhold(bridge_channel);
 		attended_transfer_properties_shutdown(props);
@@ -3512,7 +3474,7 @@ static int feature_blind_transfer(struct ast_bridge_channel *bridge_channel, voi
 	char xfer_exten[AST_MAX_EXTENSION] = "";
 	struct ast_bridge_features_blind_transfer *blind_transfer = hook_pvt;
 	const char *xfer_context;
-	char *goto_on_blindxfer;
+	char *goto_on_blindxfr;
 
 	ast_verb(3, "Channel %s: Started DTMF blind transfer.\n",
 		ast_channel_name(bridge_channel->chan));
@@ -3522,7 +3484,7 @@ static int feature_blind_transfer(struct ast_bridge_channel *bridge_channel, voi
 	ast_channel_lock(bridge_channel->chan);
 	xfer_context = ast_strdupa(get_transfer_context(bridge_channel->chan,
 		blind_transfer ? blind_transfer->context : NULL));
-	goto_on_blindxfer = ast_strdupa(S_OR(pbx_builtin_getvar_helper(bridge_channel->chan,
+	goto_on_blindxfr = ast_strdupa(S_OR(pbx_builtin_getvar_helper(bridge_channel->chan,
 		"GOTO_ON_BLINDXFR"), ""));
 	ast_channel_unlock(bridge_channel->chan);
 
@@ -3535,13 +3497,13 @@ static int feature_blind_transfer(struct ast_bridge_channel *bridge_channel, voi
 	ast_debug(1, "Channel %s: Blind transfer target '%s@%s'\n",
 		ast_channel_name(bridge_channel->chan), xfer_exten, xfer_context);
 
-	if (!ast_strlen_zero(goto_on_blindxfer)) {
+	if (!ast_strlen_zero(goto_on_blindxfr)) {
 		const char *chan_context;
 		const char *chan_exten;
 		int chan_priority;
 
 		ast_debug(1, "Channel %s: After transfer, transferrer goes to %s\n",
-			ast_channel_name(bridge_channel->chan), goto_on_blindxfer);
+			ast_channel_name(bridge_channel->chan), goto_on_blindxfr);
 
 		ast_channel_lock(bridge_channel->chan);
 		chan_context = ast_strdupa(ast_channel_context(bridge_channel->chan));
@@ -3549,12 +3511,12 @@ static int feature_blind_transfer(struct ast_bridge_channel *bridge_channel, voi
 		chan_priority = ast_channel_priority(bridge_channel->chan);
 		ast_channel_unlock(bridge_channel->chan);
 		ast_bridge_set_after_go_on(bridge_channel->chan,
-			chan_context, chan_exten, chan_priority, goto_on_blindxfer);
+			chan_context, chan_exten, chan_priority, goto_on_blindxfr);
 	}
 
 	if (ast_bridge_transfer_blind(0, bridge_channel->chan, xfer_exten, xfer_context,
 		blind_transfer_cb, bridge_channel->chan) != AST_BRIDGE_TRANSFER_SUCCESS
-		&& !ast_strlen_zero(goto_on_blindxfer)) {
+		&& !ast_strlen_zero(goto_on_blindxfr)) {
 		ast_bridge_discard_after_goto(bridge_channel->chan);
 	}
 

@@ -285,6 +285,9 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 	int foundportno = 0;
 	int foundserverportno = 0;
 	int x;
+	struct in_addr ia;
+	struct hostent *hp;
+	struct ast_hostent h;
 	struct iax_template *src, tmp;
 	const char *t;
 	if (def) {
@@ -332,15 +335,15 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 			} else
 				ast_log(LOG_WARNING, "Ignoring invalid %s '%s' for '%s' at line %d\n", v->name, v->value, s, v->lineno);
 		} else if (!strcasecmp(v->name, "server") || !strcasecmp(v->name, "altserver")) {
-			struct ast_sockaddr addr = { {0,} };
-			if (ast_sockaddr_resolve_first_af(&addr, v->value, PARSE_PORT_FORBID, AF_INET)) {
-				ast_log(LOG_WARNING, "Ignoring invalid %s '%s' for '%s' at line %d\n", v->name, v->value, s, v->lineno);
-			} else {
+			hp = ast_gethostbyname(v->value, &h);
+			if (hp) {
+				memcpy(&ia, hp->h_addr, sizeof(ia));
 				if (!strcasecmp(v->name, "server"))
-					cur->server = ast_sockaddr_ipv4(&addr);
+					cur->server = ntohl(ia.s_addr);
 				else
-					cur->altserver = ast_sockaddr_ipv4(&addr);
-			}
+					cur->altserver = ntohl(ia.s_addr);
+			} else
+				ast_log(LOG_WARNING, "Ignoring invalid %s '%s' for '%s' at line %d\n", v->name, v->value, s, v->lineno);
 		} else if (!strcasecmp(v->name, "codec")) {
 			struct ast_format *tmpfmt;
 			if ((tmpfmt = ast_format_cache_get(v->value))) {

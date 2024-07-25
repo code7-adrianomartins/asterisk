@@ -184,7 +184,7 @@ enum ast_json_type ast_json_typeof(const struct ast_json *value);
  * \since 12.0.0
  * \param type Type to convert to string.
  * \return Simple string for the type name (object, array, string, etc.)
- * \retval "?" for invalid types.
+ * \return \c "?" for invalid types.
  */
 const char *ast_json_typename(enum ast_json_type type);
 
@@ -269,42 +269,26 @@ struct ast_json *ast_json_boolean(int value);
 struct ast_json *ast_json_null(void);
 
 /*!
- * \brief Check if \a value is JSON array.
- * \since 12.0.0
- * \retval True (non-zero) if \a value == \ref ast_json_array().
- * \retval False (zero) otherwise..
- */
-int ast_json_is_array(const struct ast_json *value);
-
-/*!
- * \brief Check if \a value is JSON object.
- * \since 12.0.0
- * \retval True (non-zero) if \a value == \ref ast_json_object().
- * \retval False (zero) otherwise..
- */
-int ast_json_is_object(const struct ast_json *value);
-
-/*!
  * \brief Check if \a value is JSON true.
  * \since 12.0.0
- * \retval True (non-zero) if \a value == \ref ast_json_true().
- * \retval False (zero) otherwise..
+ * \return True (non-zero) if \a value == \ref ast_json_true().
+ * \return False (zero) otherwise..
  */
 int ast_json_is_true(const struct ast_json *value);
 
 /*!
  * \brief Check if \a value is JSON false.
  * \since 12.0.0
- * \retval True (non-zero) if \a value == \ref ast_json_false().
- * \retval False (zero) otherwise.
+ * \return True (non-zero) if \a value == \ref ast_json_false().
+ * \return False (zero) otherwise.
  */
 int ast_json_is_false(const struct ast_json *value);
 
 /*!
  * \brief Check if \a value is JSON null.
  * \since 12.0.0
- * \retval True (non-zero) if \a value == \ref ast_json_false().
- * \retval False (zero) otherwise.
+ * \return True (non-zero) if \a value == \ref ast_json_false().
+ * \return False (zero) otherwise.
  */
 int ast_json_is_null(const struct ast_json *value);
 
@@ -320,7 +304,7 @@ int ast_json_is_null(const struct ast_json *value);
  *
  * \param value Value of new JSON string.
  * \return Newly constructed string element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_string_create(const char *value);
 
@@ -329,7 +313,7 @@ struct ast_json *ast_json_string_create(const char *value);
  * \since 12.0.0
  * \param string JSON string.
  * \return Value of the string.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 const char *ast_json_string_get(const struct ast_json *string);
 
@@ -341,8 +325,8 @@ const char *ast_json_string_get(const struct ast_json *string);
  *
  * \param string JSON string to modify.
  * \param value New value to store in \a string.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_string_set(struct ast_json *string, const char *value);
 
@@ -354,7 +338,7 @@ int ast_json_string_set(struct ast_json *string, const char *value);
  *
  * \param format \c printf style format string.
  * \return Newly allocated string.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_stringf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
@@ -365,10 +349,8 @@ struct ast_json *ast_json_stringf(const char *format, ...) __attribute__((format
  * The formatted value must be a valid ASCII or UTF-8 encoded string.
  *
  * \param format \c printf style format string.
- * \param args
- *
  * \return Newly allocated string.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_vstringf(const char *format, va_list args) __attribute__((format(printf, 1, 0)));
 
@@ -381,7 +363,7 @@ struct ast_json *ast_json_vstringf(const char *format, va_list args) __attribute
  * \since 12.0.0
  * \param value Value of the new JSON integer.
  * \return Newly allocated integer.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_integer_create(intmax_t value);
 
@@ -390,7 +372,7 @@ struct ast_json *ast_json_integer_create(intmax_t value);
  * \since 12.0.0
  * \param integer JSON integer.
  * \return Value of a JSON integer.
- * \retval 0 if \a integer is not a JSON integer.
+ * \return 0 if \a integer is not a JSON integer.
  */
 intmax_t ast_json_integer_get(const struct ast_json *integer);
 
@@ -399,8 +381,8 @@ intmax_t ast_json_integer_get(const struct ast_json *integer);
  * \since 12.0.0
  * \param integer JSON integer to modify.
  * \param value New value for \a integer.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_integer_set(struct ast_json *integer, intmax_t value);
 
@@ -409,7 +391,7 @@ int ast_json_integer_set(struct ast_json *integer, intmax_t value);
  * \since 12.0.0
  * \param value Value of the new JSON real number.
  * \return Newly allocated real number.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_real_create(double value);
 
@@ -418,17 +400,17 @@ struct ast_json *ast_json_real_create(double value);
  * \since 12.0.0
  * \param real JSON real number.
  * \return Value of a JSON real number.
- * \retval 0 if \a real is not a JSON real number.
+ * \return 0 if \a real is not a JSON real number.
  */
 double ast_json_real_get(const struct ast_json *real);
 
 /*!
  * \brief Set the value of a JSON real number.
  * \since 12.0.0
- * \param real JSON real number to modify.
+ * \param integer JSON real number to modify.
  * \param value New value for \a real.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_real_set(struct ast_json *real, double value);
 
@@ -440,7 +422,7 @@ int ast_json_real_set(struct ast_json *real, double value);
  * \brief Create a empty JSON array.
  * \since 12.0.0
  * \return Newly allocated array.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_array_create(void);
 
@@ -449,7 +431,7 @@ struct ast_json *ast_json_array_create(void);
  * \since 12.0.0
  * \param array JSON array.
  * \return Size of \a array.
- * \retval 0 if array is not a JSON array.
+ * \return 0 if array is not a JSON array.
  */
 size_t ast_json_array_size(const struct ast_json *array);
 
@@ -463,8 +445,8 @@ size_t ast_json_array_size(const struct ast_json *array);
  * \param array JSON array.
  * \param index Zero-based index into \a array.
  * \return The specified element.
- * \retval NULL if \a array not an array.
- *              if \a index is out of bounds.
+ * \return \c NULL if \a array not an array.
+ * \return \c NULL if \a index is out of bounds.
  */
 struct ast_json *ast_json_array_get(const struct ast_json *array, size_t index);
 
@@ -478,8 +460,8 @@ struct ast_json *ast_json_array_get(const struct ast_json *array, size_t index);
  * \param array JSON array to modify.
  * \param index Zero-based index into array.
  * \param value New JSON value to store in \a array at \a index.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_set(struct ast_json *array, size_t index, struct ast_json *value);
 
@@ -492,8 +474,8 @@ int ast_json_array_set(struct ast_json *array, size_t index, struct ast_json *va
  *
  * \param array JSON array to modify.
  * \param value New JSON value to store at the end of \a array.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_append(struct ast_json *array, struct ast_json *value);
 
@@ -507,8 +489,8 @@ int ast_json_array_append(struct ast_json *array, struct ast_json *value);
  * \param array JSON array to modify.
  * \param index Zero-based index into array.
  * \param value New JSON value to store in \a array at \a index.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_insert(struct ast_json *array, size_t index, struct ast_json *value);
 
@@ -517,8 +499,8 @@ int ast_json_array_insert(struct ast_json *array, size_t index, struct ast_json 
  * \since 12.0.0
  * \param array JSON array to modify.
  * \param index Zero-based index into array.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_remove(struct ast_json *array, size_t index);
 
@@ -526,8 +508,8 @@ int ast_json_array_remove(struct ast_json *array, size_t index);
  * \brief Remove all elements from an array.
  * \since 12.0.0
  * \param array JSON array to clear.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_clear(struct ast_json *array);
 
@@ -539,8 +521,8 @@ int ast_json_array_clear(struct ast_json *array);
  *
  * \param array JSON array to modify.
  * \param tail JSON array with contents to append to \a array.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_array_extend(struct ast_json *array, struct ast_json *tail);
 
@@ -552,25 +534,16 @@ int ast_json_array_extend(struct ast_json *array, struct ast_json *tail);
  * \brief Create a new JSON object.
  * \since 12.0.0
  * \return Newly allocated object.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_object_create(void);
-
-/*!
- * \brief Create a new JSON object using the given variables
- * \param variables A list of Asterisk variables
- * \param excludes Comma separated string of variable names to exclude (optional)
- * \return Newly allocated object.
- * \retval NULL on error.
- */
-struct ast_json *ast_json_object_create_vars(const struct ast_variable *variables, const char *excludes);
 
 /*!
  * \brief Get size of JSON object.
  * \since 12.0.0
  * \param object JSON object.
  * \return Size of \a object.
- * \retval Zero of \a object is not a JSON object.
+ * \return Zero of \a object is not a JSON object.
  */
 size_t ast_json_object_size(struct ast_json *object);
 
@@ -584,7 +557,7 @@ size_t ast_json_object_size(struct ast_json *object);
  * \param object JSON object.
  * \param key Key of field to look up.
  * \return Value with given \a key.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_object_get(struct ast_json *object, const char *key);
 
@@ -595,27 +568,9 @@ struct ast_json *ast_json_object_get(struct ast_json *object, const char *key);
  * \param object JSON object.
  * \param key Key of string field to look up.
  * \return String value of given \a key.
- * \retval NULL on error, or key value is not a string.
+ * \return \c NULL on error, or key value is not a string.
  */
 #define ast_json_object_string_get(object, key) ast_json_string_get(ast_json_object_get(object, key))
-
-/*!
- * \brief Get an integer field from a JSON object.
- * \param object JSON object.
- * \param key Key of integer field to look up.
- * \return Value of a JSON integer.
- * \retval 0 if \a integer is not a JSON integer.
- */
-#define ast_json_object_integer_get(object, key) ast_json_integer_get(ast_json_object_get(object, key))
-
-/*!
- * \brief Get a double field from a JSON object.
- * \param object JSON object.
- * \param key Key of double field to look up.
- * \return Value of a JSON double.
- * \retval 0 if \a real is not a JSON real number.
- */
-#define ast_json_object_real_get(object, key) ast_json_real_get(ast_json_object_get(object, key))
 
 /*!
  * \brief Set a field in a JSON object.
@@ -627,8 +582,8 @@ struct ast_json *ast_json_object_get(struct ast_json *object, const char *key);
  * \param object JSON object to modify.
  * \param key Key of field to set.
  * \param value JSON value to set for field.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_set(struct ast_json *object, const char *key, struct ast_json *value);
 
@@ -638,7 +593,7 @@ int ast_json_object_set(struct ast_json *object, const char *key, struct ast_jso
  *
  * \param object JSON object to modify.
  * \param key Key of field to delete.
- * \retval 0 on success, or -1 if key does not exist.
+ * \return 0 on success, or -1 if key does not exist.
  */
 int ast_json_object_del(struct ast_json *object, const char *key);
 
@@ -646,8 +601,8 @@ int ast_json_object_del(struct ast_json *object, const char *key);
  * \brief Delete all elements from a JSON object.
  * \since 12.0.0
  * \param object JSON object to clear.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_clear(struct ast_json *object);
 
@@ -660,8 +615,8 @@ int ast_json_object_clear(struct ast_json *object);
  *
  * \param object JSON object to modify.
  * \param other JSON object to copy into \a object.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_update(struct ast_json *object, struct ast_json *other);
 
@@ -675,8 +630,8 @@ int ast_json_object_update(struct ast_json *object, struct ast_json *other);
  *
  * \param object JSON object to modify.
  * \param other JSON object to copy into \a object.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_update_existing(struct ast_json *object, struct ast_json *other);
 
@@ -690,8 +645,8 @@ int ast_json_object_update_existing(struct ast_json *object, struct ast_json *ot
  *
  * \param object JSON object to modify.
  * \param other JSON object to copy into \a object.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_update_missing(struct ast_json *object, struct ast_json *other);
 
@@ -715,8 +670,8 @@ struct ast_json_iter;
  *
  * \param object JSON object.
  * \return Iterator to the first field in \a object.
- * \retval NULL \a object is empty.
- *              on error.
+ * \return \c NULL \a object is empty.
+ * \return \c NULL on error.
  */
 struct ast_json_iter *ast_json_object_iter(struct ast_json *object);
 
@@ -729,8 +684,8 @@ struct ast_json_iter *ast_json_object_iter(struct ast_json *object);
  * \param object JSON object to iterate.
  * \param key Key of field to lookup.
  * \return Iterator pointing to the field with the given \a key.
- * \retval NULL if \a key does not exist.
- *              on error.
+ * \return \c NULL if \a key does not exist.
+ * \return \c NULL on error.
  */
 struct ast_json_iter *ast_json_object_iter_at(struct ast_json *object, const char *key);
 
@@ -740,7 +695,7 @@ struct ast_json_iter *ast_json_object_iter_at(struct ast_json *object, const cha
  * \param object JSON object \a iter was obtained from.
  * \param iter JSON object iterator.
  * \return Iterator to next field in \a object.
- * \retval NULL if \a iter was the last field.
+ * \return \c NULL if \a iter was the last field.
  */
 struct ast_json_iter *ast_json_object_iter_next(struct ast_json *object, struct ast_json_iter *iter);
 
@@ -768,14 +723,14 @@ struct ast_json *ast_json_object_iter_value(struct ast_json_iter *iter);
  * \brief Set the value of the field pointed to by an iterator.
  * \since 12.0.0
  *
- * \note The object steals the \p value reference even if it returns error;
+ * \note The object steals the \a value reference even if it returns error;
  * use ast_json_ref() to safely keep a pointer to it.
  *
- * \param object JSON object \p iter was obtained from.
+ * \param object JSON object \a iter was obtained from.
  * \param iter JSON object iterator.
- * \param value JSON value to store in \p iter's field.
- * \retval 0 on success.
- * \retval -1 on error.
+ * \param value JSON value to store in \iter's field.
+ * \return 0 on success.
+ * \return -1 on error.
  */
 int ast_json_object_iter_set(struct ast_json *object, struct ast_json_iter *iter, struct ast_json *value);
 
@@ -793,8 +748,6 @@ enum ast_json_encoding_format
 	AST_JSON_COMPACT,
 	/*! Formatted for human readability */
 	AST_JSON_PRETTY,
-	/*! Keys sorted alphabetically */
-	AST_JSON_SORTED,
 };
 
 /*!
@@ -805,7 +758,7 @@ enum ast_json_encoding_format
  *
  * \param root JSON value.
  * \return String encoding of \a root.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 #define ast_json_dump_string(root) ast_json_dump_string_format(root, AST_JSON_COMPACT)
 
@@ -818,20 +771,9 @@ enum ast_json_encoding_format
  * \param root JSON value.
  * \param format encoding format type.
  * \return String encoding of \a root.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 char *ast_json_dump_string_format(struct ast_json *root, enum ast_json_encoding_format format);
-
-/*!
- * \brief Encode a JSON value to a string, with its keys sorted.
- *
- * Returned string must be freed by calling ast_json_free().
- *
- * \param root JSON value.
- * \return String encoding of \a root.
- * \retval NULL on error.
- */
-#define ast_json_dump_string_sorted(root) ast_json_dump_string_format(root, AST_JSON_SORTED)
 
 #define ast_json_dump_str(root, dst) ast_json_dump_str_format(root, dst, AST_JSON_COMPACT)
 
@@ -844,8 +786,8 @@ char *ast_json_dump_string_format(struct ast_json *root, enum ast_json_encoding_
  * \param root JSON value.
  * \param dst \ref ast_str to store JSON encoding.
  * \param format encoding format type.
- * \retval 0 on success.
- * \retval -1 on error. The contents of \a dst are undefined.
+ * \return 0 on success.
+ * \return -1 on error. The contents of \a dst are undefined.
  */
 int ast_json_dump_str_format(struct ast_json *root, struct ast_str **dst, enum ast_json_encoding_format format);
 
@@ -858,8 +800,8 @@ int ast_json_dump_str_format(struct ast_json *root, struct ast_str **dst, enum a
  * \param root JSON value.
  * \param output File to write JSON encoding to.
  * \param format encoding format type.
- * \retval 0 on success.
- * \retval -1 on error. The contents of \a output are undefined.
+ * \return 0 on success.
+ * \return -1 on error. The contents of \a output are undefined.
  */
 int ast_json_dump_file_format(struct ast_json *root, FILE *output, enum ast_json_encoding_format format);
 
@@ -872,8 +814,8 @@ int ast_json_dump_file_format(struct ast_json *root, FILE *output, enum ast_json
  * \param root JSON value.
  * \param path Path to file to write JSON encoding to.
  * \param format encoding format type.
- * \retval 0 on success.
- * \retval -1 on error. The contents of \a output are undefined.
+ * \return 0 on success.
+ * \return -1 on error. The contents of \a output are undefined.
  */
 int ast_json_dump_new_file_format(struct ast_json *root, const char *path, enum ast_json_encoding_format format);
 
@@ -893,7 +835,7 @@ struct ast_json_error {
 	int position;
 	/*! Error message */
 	char text[AST_JSON_ERROR_TEXT_LENGTH];
-	/*! Source of the error (filename or \<string\>) */
+	/*! Source of the error (filename or <string>) */
 	char source[AST_JSON_ERROR_TEXT_LENGTH];
 };
 
@@ -903,7 +845,7 @@ struct ast_json_error {
  * \param input String to parse.
  * \param[out] error Filled with information on error.
  * \return Parsed JSON element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_load_string(const char *input, struct ast_json_error *error);
 
@@ -913,7 +855,7 @@ struct ast_json *ast_json_load_string(const char *input, struct ast_json_error *
  * \param input \ref ast_str to parse.
  * \param[out] error Filled with information on error.
  * \return Parsed JSON element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_load_str(const struct ast_str *input, struct ast_json_error *error);
 
@@ -924,7 +866,7 @@ struct ast_json *ast_json_load_str(const struct ast_str *input, struct ast_json_
  * \param buflen Length of \a buffer.
  * \param[out] error Filled with information on error.
  * \return Parsed JSON element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_load_buf(const char *buffer, size_t buflen, struct ast_json_error *error);
 
@@ -934,7 +876,7 @@ struct ast_json *ast_json_load_buf(const char *buffer, size_t buflen, struct ast
  * \param input \c FILE to parse.
  * \param[out] error Filled with information on error.
  * \return Parsed JSON element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_load_file(FILE *input, struct ast_json_error *error);
 
@@ -944,7 +886,7 @@ struct ast_json *ast_json_load_file(FILE *input, struct ast_json_error *error);
  * \param path Path of file to parse.
  * \param[out] error Filled with information on error.
  * \return Parsed JSON element.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_load_new_file(const char *path, struct ast_json_error *error);
 
@@ -978,8 +920,8 @@ struct ast_json *ast_json_vpack(char const *format, va_list ap);
  *
  * \param lhs Value to compare.
  * \param rhs Other value to compare.
- * \retval True (non-zero) if \a lhs and \a rhs are equal.
- * \retval False (zero) if they are not.
+ * \return True (non-zero) if \a lhs and \a rhs are equal.
+ * \return False (zero) if they are not.
  */
 int ast_json_equal(const struct ast_json *lhs, const struct ast_json *rhs);
 
@@ -991,7 +933,7 @@ int ast_json_equal(const struct ast_json *lhs, const struct ast_json *rhs);
  *
  * \param value JSON value to copy.
  * \return Shallow copy of \a value.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_copy(const struct ast_json *value);
 
@@ -1003,7 +945,7 @@ struct ast_json *ast_json_copy(const struct ast_json *value);
  *
  * \param value JSON value to copy.
  * \return Deep copy of \a value.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_deep_copy(const struct ast_json *value);
 
@@ -1019,8 +961,8 @@ struct ast_json *ast_json_deep_copy(const struct ast_json *value);
  * \brief Simple name/number pair.
  * \param name Name
  * \param number Number
+ * \return NULL if error (non-UTF8 characters, NULL inputs, etc.)
  * \return JSON object with name and number fields
- * \retval NULL on error (non-UTF8 characters, NULL inputs, etc.)
  */
 struct ast_json *ast_json_name_number(const char *name, const char *number);
 
@@ -1034,7 +976,7 @@ struct ast_json *ast_json_name_number(const char *name, const char *number);
  * \param tv \c timeval to encode.
  * \param zone Text string of a standard system zoneinfo file.  If NULL, the system localtime will be used.
  * \return JSON string with ISO 8601 formatted date/time.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_timeval(const struct timeval tv, const char *zone);
 
@@ -1046,7 +988,7 @@ struct ast_json *ast_json_timeval(const struct timeval tv, const char *zone);
  * \param addr ast_sockaddr to encode
  * \param transport_type ast_transport to include in the address string if any. Should just be one.
  * \return JSON string containing the IP address with optional transport information
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_json *ast_json_ipaddr(const struct ast_sockaddr *addr, enum ast_transport transport_type);
 
@@ -1089,8 +1031,8 @@ struct ast_json_payload {
  *
  * \param json the ast_json blob we are loading
  *
- * \return pointer to the ast_json_payload created
  * \retval NULL if we fail to alloc it
+ * \retval pointer to the ast_json_payload created
  */
 struct ast_json_payload *ast_json_payload_create(struct ast_json *json);
 

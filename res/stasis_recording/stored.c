@@ -85,7 +85,7 @@ const char *stasis_app_stored_recording_get_extension(
  *
  * \param path Path to split.
  * \param[out] dir Output parameter for directory portion.
- * \param[out] file Output parameter for the file portion.
+ * \param[out] fail Output parameter for the file portion.
  * \return 0 on success.
  * \return Non-zero on error.
  */
@@ -130,7 +130,6 @@ static int split_path(const char *path, char **dir, char **file)
 
 struct match_recording_data {
 	const char *file;
-	size_t length;
 	char *file_with_ext;
 };
 
@@ -161,9 +160,7 @@ static int handle_find_recording(const char *dir_name, const char *filename, voi
 	int num;
 
 	/* If not a recording or the names do not match the keep searching */
-	if (!(num = is_recording(filename))
-	   || data->length != num
-	   || strncmp(data->file, filename, num)) {
+	if (!(num = is_recording(filename)) || strncmp(data->file, filename, num)) {
 		return 0;
 	}
 
@@ -177,19 +174,18 @@ static int handle_find_recording(const char *dir_name, const char *filename, voi
 /*!
  * \brief Finds a recording in the given directory.
  *
- * This function searches for a file with the given file name, with a registered
+ * This function searchs for a file with the given file name, with a registered
  * format that matches its extension.
  *
  * \param dir_name Directory to search (absolute path).
  * \param file File name, without extension.
  * \return Absolute path of the recording file.
- * \retval NULL if recording is not found.
+ * \return \c NULL if recording is not found.
  */
 static char *find_recording(const char *dir_name, const char *file)
 {
 	struct match_recording_data data = {
 		.file = file,
-		.length = strlen(file),
 		.file_with_ext = NULL
 	};
 

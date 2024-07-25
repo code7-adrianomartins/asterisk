@@ -54,7 +54,6 @@ struct ast_ari_response;
  * \param get_params GET parameters from the HTTP request.
  * \param path_vars Path variables from any wildcard path segments.
  * \param headers HTTP headers from the HTTP requiest.
- * \param body
  * \param[out] response The RESTful response.
  */
 typedef void (*stasis_rest_callback)(
@@ -92,7 +91,7 @@ struct stasis_rest_handlers {
 struct ast_ari_response {
 	/*! Response message */
 	struct ast_json *message;
-	/*! \\r\\n seperated response headers */
+	/*! \r\n seperated response headers */
 	struct ast_str *headers;
 	/*! HTTP response code.
 	 * See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html */
@@ -108,16 +107,16 @@ struct ast_ari_response {
 /*!
  * Add a resource for REST handling.
  * \param handler Handler to add.
- * \retval 0 on success.
- * \retval non-zero on failure.
+ * \return 0 on success.
+ * \return non-zero on failure.
  */
 int ast_ari_add_handler(struct stasis_rest_handlers *handler);
 
 /*!
  * Remove a resource for REST handling.
  * \param handler Handler to add.
- * \retval 0 on success.
- * \retval non-zero on failure.
+ * \return 0 on success.
+ * \return non-zero on failure.
  */
 int ast_ari_remove_handler(struct stasis_rest_handlers *handler);
 
@@ -133,7 +132,6 @@ int ast_ari_remove_handler(struct stasis_rest_handlers *handler);
  * \param method HTTP method.
  * \param get_params HTTP \c GET parameters.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response RESTful HTTP response.
  */
 void ast_ari_invoke(struct ast_tcptls_session_instance *ser,
@@ -167,7 +165,7 @@ struct ast_ari_websocket_session;
  * \param ws_session Underlying WebSocket session.
  * \param validator Function to validate outgoing messages.
  * \return New ARI WebSocket session.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 struct ast_ari_websocket_session *ast_ari_websocket_session_create(
 	struct ast_websocket *ws_session, int (*validator)(struct ast_json *));
@@ -177,7 +175,7 @@ struct ast_ari_websocket_session *ast_ari_websocket_session_create(
  *
  * \param session Session to read from.
  * \return Message received.
- * \retval NULL if WebSocket could not be read.
+ * \return \c NULL if WebSocket could not be read.
  */
 struct ast_json *ast_ari_websocket_session_read(
 	struct ast_ari_websocket_session *session);
@@ -187,8 +185,8 @@ struct ast_json *ast_ari_websocket_session_read(
  *
  * \param session Session to write to.
  * \param message Message to send.
- * \retval 0 on success.
- * \retval Non-zero on error.
+ * \return 0 on success.
+ * \return Non-zero on error.
  */
 int ast_ari_websocket_session_write(struct ast_ari_websocket_session *session,
 	struct ast_json *message);
@@ -198,7 +196,7 @@ int ast_ari_websocket_session_write(struct ast_ari_websocket_session *session,
  *
  * \param session Session to query.
  * \return Session ID.
- * \retval NULL on error.
+ * \return \c NULL on error.
  */
 const char *ast_ari_websocket_session_id(
 	const struct ast_ari_websocket_session *session);

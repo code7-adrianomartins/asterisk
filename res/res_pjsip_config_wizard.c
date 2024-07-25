@@ -52,7 +52,7 @@
 
 /*** DOCUMENTATION
 	<configInfo name="res_pjsip_config_wizard" language="en_US">
-		<synopsis>Module that provides simple configuration wizard capabilities.</synopsis>
+		<synopsis>Module that privides simple configuration wizard capabilities.</synopsis>
 		<description><para>
 			<emphasis>PJSIP Configuration Wizard</emphasis>
 			</para>
@@ -65,24 +65,25 @@
 			endpoint, aor, contact, auth and phoneprov objects necessary for a phone to
 			get phone provisioning information, register, and make and receive calls.
 			A hint is also created in the default context for extension 1000.</para>
-			<example title="myphone">
-			[myphone]
-			type = wizard
-			sends_auth = no
-			accepts_auth = yes
-			sends_registrations = no
-			accepts_registrations = yes
-			has_phoneprov = yes
-			transport = ipv4
-			has_hint = yes
-			hint_exten = 1000
-			inbound_auth/username = testname
-			inbound_auth/password = test password
-			endpoint/allow = ulaw
-			endpoint/context = default
-			phoneprov/MAC = 001122aa4455
-			phoneprov/PROFILE = profile1
-			</example>
+			<para> </para>
+
+			<para>[myphone]</para>
+			<para>type = wizard</para>
+			<para>sends_auth = no</para>
+			<para>accepts_auth = yes</para>
+			<para>sends_registrations = no</para>
+			<para>accepts_registrations = yes</para>
+			<para>has_phoneprov = yes</para>
+			<para>transport = ipv4</para>
+			<para>has_hint = yes</para>
+			<para>hint_exten = 1000</para>
+			<para>inbound_auth/username = testname</para>
+			<para>inbound_auth/password = test password</para>
+			<para>endpoint/allow = ulaw</para>
+			<para>endpoint/context = default</para>
+			<para>phoneprov/MAC = 001122aa4455</para>
+			<para>phoneprov/PROFILE = profile1</para>
+			<para> </para>
 
 			<para>The first 8 items are specific to the wizard.  The rest of the items
 			are passed verbatim to the underlying objects.</para>
@@ -91,27 +92,28 @@
 			<para>The following configuration snippet would create the
 			endpoint, aor, contact, auth, identify and registration objects necessary for a trunk
 			to another pbx or ITSP that requires registration.</para>
-			<example title="mytrunk">
-			[mytrunk]
-			type = wizard
-			sends_auth = yes
-			accepts_auth = no
-			sends_registrations = yes
-			accepts_registrations = no
-			transport = ipv4
-			remote_hosts = sip1.myitsp.com:5060,sip2.myitsp.com:5060
-			outbound_auth/username = testname
-			outbound_auth/password = test password
-			endpoint/allow = ulaw
-			endpoint/context = default
-			</example>
+			<para> </para>
+
+			<para>[mytrunk]</para>
+			<para>type = wizard</para>
+			<para>sends_auth = yes</para>
+			<para>accepts_auth = no</para>
+			<para>sends_registrations = yes</para>
+			<para>accepts_registrations = no</para>
+			<para>transport = ipv4</para>
+			<para>remote_hosts = sip1.myitsp.com:5060,sip2.myitsp.com:5060</para>
+			<para>outbound_auth/username = testname</para>
+			<para>outbound_auth/password = test password</para>
+			<para>endpoint/allow = ulaw</para>
+			<para>endpoint/context = default</para>
+			<para> </para>
 
 			<para>Of course, any of the items in either example could be placed into
 			templates and shared among wizard objects.</para>
 
 			<para> </para>
 			<para>For more information, visit:</para>
-			<para><literal>https://docs.asterisk.org/Configuration/Channel-Drivers/SIP/Configuring-res_pjsip/PJSIP-Configuration-Wizard/</literal></para>
+			<para><literal>https://wiki.asterisk.org/wiki/display/AST/PJSIP+Configuration+Wizard</literal></para>
 		</description>
 
 		<configFile name="pjsip_wizard.conf">
@@ -119,7 +121,7 @@
 				<synopsis>Provides config wizard.</synopsis>
 				<description>
 				<para>For more information, visit:</para>
-				<para><literal>https://docs.asterisk.org/Configuration/Channel-Drivers/SIP/Configuring-res_pjsip/PJSIP-Configuration-Wizard/</literal></para>
+				<para><literal>https://wiki.asterisk.org/wiki/display/AST/PJSIP+Configuration+Wizard</literal></para>
 				</description>
 				<configOption name="type">
 					<synopsis>Must be 'wizard'.</synopsis>
@@ -214,7 +216,7 @@
 					<para>Normal dialplan precedence rules apply so if there's already a hint for
 					this extension in <literal>hint_context</literal>, this one will be ignored.
 					For more information, visit: </para>
-					<para><literal>https://docs.asterisk.org/Configuration/Channel-Drivers/SIP/Configuring-res_pjsip/PJSIP-Configuration-Wizard/</literal></para>
+					<para><literal>https://wiki.asterisk.org/wiki/display/AST/PJSIP+Configuration+Wizard</literal></para>
 					</description>
 				</configOption>
 				<configOption name="hint_application">
@@ -225,17 +227,17 @@
 					<para>   <literal>exten =&gt; &lt;hint_exten&gt;,1,&lt;hint_application&gt;</literal></para>
 					<para> </para>
 					<para>You can specify any valid extensions.conf application expression.</para>
-					<example title="Valid expressions">
-					Dial(${HINT})
-					Gosub(stdexten,${EXTEN},1(${HINT}))
-					</example>
+					<para>Examples: </para>
+					<para>   <literal>Dial(${HINT})</literal></para>
+					<para>   <literal>Gosub(stdexten,${EXTEN},1(${HINT}))</literal></para>
+					<para> </para>
 					<para>Any extensions.conf style variables specified are passed directly to the
 					dialplan.</para>
 					<para> </para>
 					<para>Normal dialplan precedence rules apply so if there's already a priority 1
 					application for this specific extension in <literal>hint_context</literal>,
 					this one will be ignored. For more information, visit: </para>
-					<para><literal>https://docs.asterisk.org/Configuration/Channel-Drivers/SIP/Configuring-res_pjsip/PJSIP-Configuration-Wizard/</literal></para>
+					<para><literal>https://wiki.asterisk.org/wiki/display/AST/PJSIP+Configuration+Wizard</literal></para>
 					</description>
 				</configOption>
 				<configOption name="endpoint&#47;*">
@@ -762,8 +764,18 @@ static int handle_identify(const struct ast_sorcery *sorcery, struct object_type
 
 	if (!ast_variable_find_last_in_list(vars, "match")) {
 		for (host_counter = 0; host_counter < host_count; host_counter++) {
-			variable_list_append_return(&vars, "match",
-				AST_VECTOR_GET(remote_hosts_vector, host_counter));
+			char *rhost = AST_VECTOR_GET(remote_hosts_vector, host_counter);
+			char host[strlen(rhost) + 1];
+			char *colon;
+
+			/* If there's a :port specified, we have to remove it. */
+			strcpy(host, rhost); /* Safe */
+			colon = strchr(host, ':');
+			if (colon) {
+				*colon = '\0';
+			}
+
+			variable_list_append_return(&vars, "match", host);
 		}
 	}
 

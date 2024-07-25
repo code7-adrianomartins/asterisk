@@ -29,10 +29,7 @@
  *  - 0: LOG_ERROR
  *  - 1: LOG_ERROR
  *  - 2: LOG_WARNING
- *  - 3: equivalent to ast_debug(level, ...) for res_pjproject.so
- *  - 4: equivalent to ast_debug(level, ...) for res_pjproject.so
- *  - 5: equivalent to ast_trace(level, ...) for res_pjproject.so
- *  - 6: equivalent to ast_trace(level, ...) for res_pjproject.so
+ *  - 3 and above: equivalent to ast_debug(level, ...) for res_pjproject.so
  */
 
 /*** MODULEINFO
@@ -89,14 +86,11 @@
 				<configOption name="asterisk_notice" default="">
 					<synopsis>A comma separated list of pjproject log levels to map to Asterisk LOG_NOTICE.</synopsis>
 				</configOption>
-				<configOption name="asterisk_verbose" default="">
-					<synopsis>A comma separated list of pjproject log levels to map to Asterisk LOG_VERBOSE.</synopsis>
-				</configOption>
-				<configOption name="asterisk_debug" default="3,4">
+				<configOption name="asterisk_debug" default="3,4,5,6">
 					<synopsis>A comma separated list of pjproject log levels to map to Asterisk LOG_DEBUG.</synopsis>
 				</configOption>
-				<configOption name="asterisk_trace" default="5,6">
-					<synopsis>A comma separated list of pjproject log levels to map to Asterisk LOG_TRACE.</synopsis>
+				<configOption name="asterisk_verbose" default="">
+					<synopsis>A comma separated list of pjproject log levels to map to Asterisk LOG_VERBOSE.</synopsis>
 				</configOption>
 			</configObject>
 		</configFile>
@@ -154,8 +148,6 @@ struct log_mappings {
 		AST_STRING_FIELD(asterisk_verbose);
 		/*! pjproject log levels mapped to Asterisk DEBUG */
 		AST_STRING_FIELD(asterisk_debug);
-		/*! pjproject log levels mapped to Asterisk TRACE */
-		AST_STRING_FIELD(asterisk_trace);
 	);
 };
 
@@ -198,8 +190,6 @@ static int get_log_level(int pj_level)
 		mapped_level = __LOG_VERBOSE;
 	} else if (strchr(mappings->asterisk_debug, l)) {
 		mapped_level = __LOG_DEBUG;
-	} else if (strchr(mappings->asterisk_trace, l)) {
-		mapped_level = __LOG_TRACE;
 	} else {
 		mapped_level = __LOG_SUPPRESS;
 	}
@@ -398,9 +388,7 @@ static char *handle_pjproject_set_log_level(struct ast_cli_entry *e, int cmd, st
 			"\n"
 			"       Set the maximum active pjproject logging level.\n"
 			"       See pjproject.conf.sample for additional information\n"
-			"       about the various levels pjproject uses.\n"
-			"       Note: setting this level at 4 or above may result in\n"
-			"       raw packet logging.\n";
+			"       about the various levels pjproject uses.\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
@@ -491,7 +479,7 @@ int ast_sockaddr_to_pj_sockaddr(const struct ast_sockaddr *addr, pj_sockaddr *pj
 	if (addr->ss.ss_family == AF_INET) {
 		struct sockaddr_in *sin = (struct sockaddr_in *) &addr->ss;
 		pjaddr->ipv4.sin_family = pj_AF_INET();
-#if defined(HAVE_PJPROJECT_BUNDLED) && !defined(HAVE_PJPROJECT_BUNDLED_OOT)
+#ifdef HAVE_PJPROJECT_BUNDLED
 		pjaddr->ipv4.sin_addr = sin->sin_addr;
 #else
 		pjaddr->ipv4.sin_addr.s_addr = sin->sin_addr.s_addr;
@@ -516,13 +504,12 @@ int ast_sockaddr_from_pj_sockaddr(struct ast_sockaddr *addr, const pj_sockaddr *
 	if (pjaddr->addr.sa_family == pj_AF_INET()) {
 		struct sockaddr_in *sin = (struct sockaddr_in *) &addr->ss;
 		sin->sin_family = AF_INET;
-#if defined(HAVE_PJPROJECT_BUNDLED) && !defined(HAVE_PJPROJECT_BUNDLED_OOT)
+#ifdef HAVE_PJPROJECT_BUNDLED
 		sin->sin_addr = pjaddr->ipv4.sin_addr;
 #else
 		sin->sin_addr.s_addr = pjaddr->ipv4.sin_addr.s_addr;
 #endif
 		sin->sin_port   = pjaddr->ipv4.sin_port;
-		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
 		addr->len = sizeof(struct sockaddr_in);
 	} else if (pjaddr->addr.sa_family == pj_AF_INET6()) {
 		struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &addr->ss;
@@ -537,27 +524,6 @@ int ast_sockaddr_from_pj_sockaddr(struct ast_sockaddr *addr, const pj_sockaddr *
 		return -1;
 	}
 	return 0;
-}
-
-int ast_sockaddr_pj_sockaddr_cmp(const struct ast_sockaddr *addr,
-	const pj_sockaddr *pjaddr)
-{
-	struct ast_sockaddr temp_pjaddr;
-	int rc = 0;
-
-	rc = ast_sockaddr_from_pj_sockaddr(&temp_pjaddr, pjaddr);
-	if (rc != 0) {
-		return -1;
-	}
-
-	rc = ast_sockaddr_cmp(addr, &temp_pjaddr);
-	if (DEBUG_ATLEAST(4)) {
-		char *a_str = ast_strdupa(ast_sockaddr_stringify(addr));
-		char *pj_str = ast_strdupa(ast_sockaddr_stringify(&temp_pjaddr));
-		ast_debug(4, "Comparing %s -> %s  rc: %d\n", a_str, pj_str, rc);
-	}
-
-	return rc;
 }
 
 #ifdef TEST_FRAMEWORK
@@ -709,7 +675,6 @@ static int load_module(void)
 	ast_sorcery_object_field_register(pjproject_sorcery, "log_mappings", "asterisk_warning", "",  OPT_STRINGFIELD_T, 0, STRFLDSET(struct log_mappings, asterisk_warning));
 	ast_sorcery_object_field_register(pjproject_sorcery, "log_mappings", "asterisk_notice", "",  OPT_STRINGFIELD_T, 0, STRFLDSET(struct log_mappings, asterisk_notice));
 	ast_sorcery_object_field_register(pjproject_sorcery, "log_mappings", "asterisk_verbose", "",  OPT_STRINGFIELD_T, 0, STRFLDSET(struct log_mappings, asterisk_verbose));
-	ast_sorcery_object_field_register(pjproject_sorcery, "log_mappings", "asterisk_trace", "",  OPT_STRINGFIELD_T, 0, STRFLDSET(struct log_mappings, asterisk_trace));
 
 	default_log_mappings = ast_sorcery_alloc(pjproject_sorcery, "log_mappings", "log_mappings");
 	if (!default_log_mappings) {
@@ -718,8 +683,7 @@ static int load_module(void)
 	}
 	ast_string_field_set(default_log_mappings, asterisk_error, "0,1");
 	ast_string_field_set(default_log_mappings, asterisk_warning, "2");
-	ast_string_field_set(default_log_mappings, asterisk_debug, "3,4");
-	ast_string_field_set(default_log_mappings, asterisk_trace, "5,6");
+	ast_string_field_set(default_log_mappings, asterisk_debug, "3,4,5,6");
 
 	ast_sorcery_load(pjproject_sorcery);
 

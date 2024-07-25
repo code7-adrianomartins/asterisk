@@ -211,8 +211,8 @@ typedef int (*sorcery_copy_handler)(const void *src, void *dst);
  * \param modified The modified object
  * \param changes The changeset
  *
- * \retval 0 success
- * \retval -1 failure
+ * \param 0 success
+ * \param -1 failure
  */
 typedef int (*sorcery_diff_handler)(const void *original, const void *modified, struct ast_variable **changes);
 
@@ -321,7 +321,7 @@ struct ast_sorcery_wizard {
 	/*! \brief Callback for closing a wizard */
 	void (*close)(void *data);
 
-	/*! \brief Callback for whether or not the wizard believes the object is stale */
+	/* \brief Callback for whether or not the wizard believes the object is stale */
 	int (*is_stale)(const struct ast_sorcery *sorcery, void *data, void *object);
 
 	/*! \brief Optional callback for forcing a reload to occur, even if wizard has determined no changes */
@@ -403,13 +403,14 @@ int ast_sorcery_wizard_unregister(const struct ast_sorcery_wizard *interface);
  * \retval non-NULL success
  * \retval NULL if allocation failed
  */
-#define ast_sorcery_open() __ast_sorcery_open(AST_MODULE, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 struct ast_sorcery *__ast_sorcery_open(const char *module, const char *file, int line, const char *func);
+
+#define ast_sorcery_open() __ast_sorcery_open(AST_MODULE, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 /*!
  * \brief Retrieves an existing sorcery instance by module name
  *
- * \param module_name The module name
+ * \param module The module name
  *
  * \retval non-NULL success
  * \retval NULL if no instance was found
@@ -418,7 +419,7 @@ struct ast_sorcery *__ast_sorcery_open(const char *module, const char *file, int
  * must decrement the count when they're finished with it.
  *
  */
-struct ast_sorcery *ast_sorcery_retrieve_by_module_name(const char *module_name);
+struct ast_sorcery *ast_sorcery_retrieve_by_module_name(const char *module);
 
 enum ast_sorcery_apply_result {
 	/*! Sorcery wizard failed to apply. */
@@ -499,9 +500,9 @@ enum ast_sorcery_apply_result __ast_sorcery_apply_wizard_mapping(struct ast_sorc
  *
  * \param sorcery Pointer to a sorcery structure
  * \param type Type of object to apply to
+ * \param module The name of the module, typically AST_MODULE
  * \param name Name of the wizard to use
  * \param data Data to be passed to wizard
- * \param caching Wizard should cache
  *
  * \return What occurred when applying the mapping
  *
@@ -549,9 +550,9 @@ enum ast_sorcery_apply_result __ast_sorcery_insert_wizard_mapping(struct ast_sor
  *
  * \param sorcery Pointer to a sorcery structure
  * \param type Type of object to apply to
+ * \param module The name of the module, typically AST_MODULE
  * \param name Name of the wizard to use
  * \param data Data to be passed to wizard
- * \param caching Wizard should cache
  * \param position One of ast_sorcery_wizard_position
  *
  * \return What occurred when applying the mapping
@@ -606,9 +607,9 @@ enum ast_sorcery_wizard_apply_flags {
  *
  * \note This should be called *after* applying default mappings
  *
- * \note Although \p wizard_args is an optional parameter it is highly
+ * \note Although \ref wizard_args is an optional parameter it is highly
  * recommended to supply one.  If you use the AST_SORCERY_WIZARD_APPLY_ALLOW_DUPLICATE
- * flag, and you intend to ever remove a wizard mapping, you'll need \p wizard_args
+ * flag, and you intend to ever remove a wizard mapping, you'll need wizard_args
  * to remove specific instances of a wizard type.
  */
 enum ast_sorcery_apply_result __ast_sorcery_object_type_insert_wizard(struct ast_sorcery *sorcery,
@@ -638,9 +639,9 @@ enum ast_sorcery_apply_result __ast_sorcery_object_type_insert_wizard(struct ast
  *
  * \note This should be called *after* applying default mappings
  *
- * \note Although \p wizard_args is an optional parameter it is highly
+ * \note Although \ref wizard_args is an optional parameter it is highly
  * recommended to supply one.  If you use the AST_SORCERY_WIZARD_APPLY_ALLOW_DUPLICATE
- * flag, and you intend to ever remove a wizard mapping, you'll need \p wizard_args
+ * flag, and you intend to ever remove a wizard mapping, you'll need wizard_args
  * to remove specific instances.
  */
 #define ast_sorcery_object_type_insert_wizard(sorcery, \
@@ -670,9 +671,9 @@ enum ast_sorcery_apply_result __ast_sorcery_object_type_insert_wizard(struct ast
  *
  * \note This should be called *after* applying default mappings
  *
- * \note Although \p wizard_args is an optional parameter it is highly
+ * \note Although \ref wizard_args is an optional parameter it is highly
  * recommended to supply one.  If you use the AST_SORCERY_WIZARD_APPLY_ALLOW_DUPLICATE
- * flag, and you intend to ever remove a wizard mapping, you'll need \p wizard_args
+ * flag, and you intend to ever remove a wizard mapping, you'll need wizard_args
  * to remove specific instances.
  */
 #define ast_sorcery_object_type_apply_wizard(sorcery, \
@@ -697,7 +698,7 @@ enum ast_sorcery_apply_result __ast_sorcery_object_type_insert_wizard(struct ast
  * \retval -1 failure
  *
  * \note If there were multiple instances of the same wizard type
- * added to this object type without using \p wizard_args, then
+ * added to this object type without using \ref wizard_args, then
  * only the first wizard matching wizard_type will be removed.
  */
 int __ast_sorcery_object_type_remove_wizard(struct ast_sorcery *sorcery,
@@ -718,7 +719,7 @@ int __ast_sorcery_object_type_remove_wizard(struct ast_sorcery *sorcery,
  * \retval -1 failure
  *
  * \note If there were multiple instances of the same wizard type
- * added to this object type without using \p wizard_args, then
+ * added to this object type without using \ref wizard_args, then
  * only the first wizard matching wizard_type will be removed.
  */
 #define ast_sorcery_object_type_remove_wizard(sorcery, object_type_name, \
@@ -928,7 +929,6 @@ int ast_sorcery_object_fields_register(struct ast_sorcery *sorcery, const char *
  * \param flags Option type specific flags
  * \param no_doc Field should not be documented
  * \param alias Interpret and apply field value only
- * \param argc
  *
  * \retval 0 success
  * \retval -1 failure
@@ -1014,7 +1014,6 @@ int __ast_sorcery_object_field_register(struct ast_sorcery *sorcery, const char 
  * \param default_val Default value of the field
  * \param config_handler Custom configuration handler
  * \param sorcery_handler Custom sorcery handler
- * \param multiple_handler Custom multiple handler
  * \param flags Option type specific flags
  *
  * \retval 0 success
@@ -1309,7 +1308,7 @@ void ast_sorcery_instance_observer_remove(struct ast_sorcery *sorcery,
 /*!
  * \brief Add an observer to a sorcery wizard
  *
- * \param wizard Pointer to a previously registered wizard structure
+ * \param sorcery Pointer to a previously registered wizard structure
  * \param callbacks Implementation of the wizard observer interface
  *
  * A wizard observer is notified...
@@ -1327,10 +1326,10 @@ int ast_sorcery_wizard_observer_add(struct ast_sorcery_wizard *wizard,
 /*!
  * \brief Remove an observer from a sorcery wizard.
  *
- * \param interface Pointer to a sorcery structure
+ * \param sorcery Pointer to a sorcery structure
  * \param callbacks Implementation of the wizard observer interface
  */
-void ast_sorcery_wizard_observer_remove(struct ast_sorcery_wizard *interface,
+void ast_sorcery_wizard_observer_remove(struct ast_sorcery_wizard *wizard,
 	const struct ast_sorcery_wizard_observer *callbacks);
 
 /*!
@@ -1353,6 +1352,9 @@ int ast_sorcery_observer_add(const struct ast_sorcery *sorcery, const char *type
  * \param sorcery Pointer to a sorcery structure
  * \param type Type of object that should no longer be observed
  * \param callbacks Implementation of the observer interface
+ *
+ * \retval 0 success
+ * \retval -1 failure
  */
 void ast_sorcery_observer_remove(const struct ast_sorcery *sorcery, const char *type, const struct ast_sorcery_observer *callbacks);
 
@@ -1505,17 +1507,17 @@ int ast_sorcery_is_stale(const struct ast_sorcery *sorcery, void *object);
  *
  * \param object Pointer to a sorcery object
  *
- * \return unique identifier
+ * \retval unique identifier
  */
 const char *ast_sorcery_object_get_id(const void *object);
 
 /*!
  * \since 14.0.0
- * \brief Get when the sorcery object was created
+ * \brief Get when the socery object was created
  *
  * \param object Pointer to a sorcery object
  *
- * \return The time when the object was created
+ * \retval The time when the object was created
  */
 const struct timeval ast_sorcery_object_get_created(const void *object);
 
@@ -1524,7 +1526,7 @@ const struct timeval ast_sorcery_object_get_created(const void *object);
  *
  * \param object Pointer to a sorcery object
  *
- * \return type of object
+ * \retval type of object
  */
 const char *ast_sorcery_object_get_type(const void *object);
 
@@ -1555,28 +1557,6 @@ const char *ast_sorcery_object_get_extended(const void *object, const char *name
  * \note If the extended field already exists it will be overwritten with the new value.
  */
 int ast_sorcery_object_set_extended(const void *object, const char *name, const char *value);
-
-/*!
- * \brief Get whether an object contains dynamic contents or not
- *
- * \param object Pointer to a sorcery object
- *
- * \since 19
- * \since 18.3.0
- * \since 16.17.0
- */
-unsigned int ast_sorcery_object_has_dynamic_contents(const void *object);
-
-/*!
- * \brief Set the dynamic contents flag on a sorcery object
- *
- * \param object Pointer to a sorcery object
- *
- * \since 19
- * \since 18.3.0
- * \since 16.17.0
- */
-void ast_sorcery_object_set_has_dynamic_contents(const void *object);
 
 /*!
  * \brief ao2 object comparator based on sorcery id.

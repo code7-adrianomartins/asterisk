@@ -595,6 +595,8 @@ static void analog_deadlock_avoidance_private(struct analog_pvt *p)
  * \note
  * Because deadlock avoidance may have been necessary, you need to confirm
  * the state of things before continuing.
+ *
+ * \return Nothing
  */
 static void analog_lock_sub_owner(struct analog_pvt *pvt, enum analog_sub sub_idx)
 {
@@ -802,11 +804,6 @@ int analog_available(struct analog_pvt *p)
 	}
 	/* If guard time, definitely not */
 	if (p->guardtime && (time(NULL) < p->guardtime)) {
-		return 0;
-	}
-
-	/* If line is being held, definitely not (don't allow call waitings to an on-hook phone) */
-	if (p->cshactive) {
 		return 0;
 	}
 
@@ -1038,10 +1035,6 @@ int analog_call(struct analog_pvt *p, struct ast_channel *ast, const char *rdest
 				ast_log(LOG_WARNING, "Number '%s' is shorter than stripmsd (%d)\n", c, p->stripmsd);
 				c = NULL;
 			}
-			if (c && (strlen(c) > sizeof(p->dop.dialstr) - 3 /* "Tw\0" */)) {
-				ast_log(LOG_WARNING, "Number '%s' is longer than %d bytes\n", c, (int)sizeof(p->dop.dialstr) - 2);
-				c = NULL;
-			}
 			if (c) {
 				p->dop.op = ANALOG_DIAL_OP_REPLACE;
 				snprintf(p->dop.dialstr, sizeof(p->dop.dialstr), "Tw%s", c);
@@ -1078,8 +1071,6 @@ int analog_call(struct analog_pvt *p, struct ast_channel *ast, const char *rdest
 			}
 
 		}
-
-		/* Name and Number */
 		n = ast_channel_connected(ast)->id.name.valid ? ast_channel_connected(ast)->id.name.str : NULL;
 		l = ast_channel_connected(ast)->id.number.valid ? ast_channel_connected(ast)->id.number.str : NULL;
 		if (l) {
@@ -1094,25 +1085,8 @@ int analog_call(struct analog_pvt *p, struct ast_channel *ast, const char *rdest
 		}
 
 		if (p->use_callerid) {
-			const char *qual_var;
-
-			/* Caller ID Name and Number */
 			p->caller.id.name.str = p->lastcid_name;
 			p->caller.id.number.str = p->lastcid_num;
-			p->caller.id.name.valid = ast_channel_connected(ast)->id.name.valid;
-			p->caller.id.number.valid = ast_channel_connected(ast)->id.number.valid;
-			p->caller.id.name.presentation = ast_channel_connected(ast)->id.name.presentation;
-			p->caller.id.number.presentation = ast_channel_connected(ast)->id.number.presentation;
-
-			/* Redirecting Reason */
-			p->redirecting_reason = ast_channel_redirecting(ast)->from.number.valid ? ast_channel_redirecting(ast)->reason.code : -1;
-
-			/* Call Qualifier */
-			ast_channel_lock(ast);
-			/* XXX In the future, we may want to make this a CALLERID or CHANNEL property and fetch it from there. */
-			qual_var = pbx_builtin_getvar_helper(ast, "CALL_QUALIFIER");
-			p->call_qualifier = ast_true(qual_var) ? 1 : 0;
-			ast_channel_unlock(ast);
 		}
 
 		ast_setstate(ast, AST_STATE_RINGING);
@@ -1305,7 +1279,6 @@ int analog_hangup(struct analog_pvt *p, struct ast_channel *ast)
 		p->channel, idx, p->subs[ANALOG_SUB_REAL].allocd, p->subs[ANALOG_SUB_CALLWAIT].allocd, p->subs[ANALOG_SUB_THREEWAY].allocd);
 	if (idx > -1) {
 		/* Real channel, do some fixup */
-		p->cshactive = 0;
 		p->subs[idx].owner = NULL;
 		p->polarity = POLARITY_IDLE;
 		analog_set_linear_mode(p, idx, 0);
@@ -1315,7 +1288,7 @@ int analog_hangup(struct analog_pvt *p, struct ast_channel *ast)
 				ast_debug(1, "Normal call hung up with both three way call and a call waiting call in place?\n");
 				if (p->subs[ANALOG_SUB_CALLWAIT].inthreeway) {
 					/* We had flipped over to answer a callwait and now it's gone */
-					ast_debug(1, "We were flipped over to the callwait, moving back and not owning.\n");
+					ast_debug(1, "We were flipped over to the callwait, moving back and unowning.\n");
 					/* Move to the call-wait, but un-own us until they flip back. */
 					analog_swap_subs(p, ANALOG_SUB_CALLWAIT, ANALOG_SUB_REAL);
 					analog_unalloc_sub(p, ANALOG_SUB_CALLWAIT);
@@ -1472,8 +1445,6 @@ int analog_hangup(struct analog_pvt *p, struct ast_channel *ast)
 		ast_channel_setoption(ast,AST_OPTION_TDD,&x,sizeof(char),0);
 		p->callwaitcas = 0;
 		analog_set_callwaiting(p, p->permcallwaiting);
-		/* In theory, the below is not necessary since we set hidecallerid = permhidecaller when calls start,
-		 * but this ensures the setting is defaulted properly when channels are idle, too. */
 		p->hidecallerid = p->permhidecallerid;
 		analog_set_dialing(p, 0);
 		analog_update_conf(p);
@@ -1764,7 +1735,10 @@ static void *__analog_ss_thread(void *data)
 
 	ast_debug(1, "%s %d\n", __FUNCTION__, p->channel);
 
-	ast_assert(chan != NULL);
+	if (!chan) {
+		/* What happened to the channel? */
+		goto quit;
+	}
 
 	if ((callid = ast_channel_callid(chan))) {
 		ast_callid_threadassoc_add(callid);
@@ -1890,6 +1864,7 @@ static void *__analog_ss_thread(void *data)
 					if (p->sig == ANALOG_SIG_E911) {
 						analog_off_hook(p);
 					}
+					res = analog_my_getsigstr(chan, dtmfbuf + strlen(dtmfbuf), "#", 3000);
 				}
 				if (res < 1) {
 					analog_dsp_reset_and_flush_digits(p);
@@ -1952,64 +1927,21 @@ static void *__analog_ss_thread(void *data)
 			goto quit;
 		}
 
-		if (p->sig == ANALOG_SIG_FGC_CAMA || p->sig == ANALOG_SIG_FGC_CAMAMF) {
-			/* This if block is where we process ANI for CAMA */
-
+		if (p->sig == ANALOG_SIG_FGC_CAMA) {
 			char anibuf[100];
-			struct ast_party_caller *caller;
 
-			/* cnoffset is the point at which we pull the calling number out
-			 * of anibuf. Must be the number of ani_info_digits + 1 to account
-			 * for the KP, which is considered a digit.  */
-
-			/* The 1XB with ANI-B will send a full 10 digits
-			*  or 2 digits in case of ANI failure.
-			* (CD-95811-01 Section II, page 10)
-			* 10 digit string example:  *08320123#
-			* 2 digit string example:   *2
-			* KP (*) and ST (#) are considered to be digits */
-
-			int cnoffset = p->ani_info_digits + 1;
-			ast_debug(1, "cnoffset: %d\n", cnoffset);
-
-			/* This is how long to wait before the wink to start ANI spill
-			 * Pulled from chan_dahdi.conf, default is 1000ms */
-			if (ast_safe_sleep(chan,p->ani_wink_time) == -1) {
+			if (ast_safe_sleep(chan,1000) == -1) {
 				ast_hangup(chan);
 				goto quit;
 			}
 			analog_off_hook(p);
-			ast_debug(1, "Sent wink to signal ANI start\n");
 			analog_dsp_set_digitmode(p, ANALOG_DIGITMODE_MF);
-
-			/* ani_timeout is configured in chan_dahdi.conf. default is 10000ms.
-			 * ST, STP, ST2P, ST3P can all signal transmission complete, regardless of timeout */
-			res = analog_my_getsigstr(chan, anibuf, "#ABC", p->ani_timeout);
-
-			/* so we can work with the ani buffer */
-			pbx_builtin_setvar_helper(chan, "ANIBUF", anibuf);
-
-			/* as long as we get a terminating pulse OR the length of ANI buffer is at least >=2, we can treat
-			 * this as a complete spill for the purposes of setting anistart */
-			if ((res > 0) || (strlen(anibuf) >= 2)) {
-				char anistart[2] = "X";
-				char f[101] = {0};
-				if (strchr("#ABC", anibuf[strlen(anibuf) - 1])) {
-					anistart[0] = anibuf[strlen(anibuf) - 1];
+			res = analog_my_getsigstr(chan, anibuf, "#", 10000);
+			if ((res > 0) && (strlen(anibuf) > 2)) {
+				if (anibuf[strlen(anibuf) - 1] == '#') {
 					anibuf[strlen(anibuf) - 1] = 0;
 				}
-				ast_set_callerid(chan, anibuf + cnoffset, NULL, anibuf + cnoffset);
-
-				caller = ast_channel_caller(chan);
-				strncpy(f, &(anibuf[1]), MIN((int)(p->ani_info_digits), sizeof(f)-1));
-				caller->ani2 = atoi(f);
-
-				anibuf[cnoffset] = 0;
-
-				/* so we can work with the different start pulses as used in ANI-D */
-				pbx_builtin_setvar_helper(chan, "ANISTART", anistart);
-				/* so we can use our ANI INFO digits in our dialplan */
-				pbx_builtin_setvar_helper(chan, "ANI2", anibuf + 1);
+				ast_set_callerid(chan, anibuf + 2, NULL, anibuf + 2);
 			}
 			analog_dsp_set_digitmode(p, ANALOG_DIGITMODE_DTMF);
 		}
@@ -2091,7 +2023,7 @@ static void *__analog_ss_thread(void *data)
 					ast_copy_string(exten, "911", sizeof(exten));
 				}
 			} else {
-				ast_log(LOG_WARNING, "A KP was expected to start signaling for Feature Group C CAMA-MF, but we got something else. Received: %s on channel %d\n", exten, p->channel);
+				ast_log(LOG_WARNING, "Got a non-E911/FGC CAMA input on channel %d.  Assuming E&M Wink instead\n", p->channel);
 			}
 		}
 		if (p->sig == ANALOG_SIG_FEATB) {
@@ -2103,7 +2035,7 @@ static void *__analog_ss_thread(void *data)
 				s1 = strsep(&stringp, "#");
 				ast_copy_string(exten, exten2 + 1, sizeof(exten));
 			} else {
-				ast_log(LOG_WARNING, "A KP was expected to start signaling for Feature Group B, but we got something else. Received: %s on channel %d\n", exten, p->channel);
+				ast_log(LOG_WARNING, "Got a non-Feature Group B input on channel %d.  Assuming E&M Wink instead\n", p->channel);
 			}
 		}
 		if ((p->sig == ANALOG_SIG_FEATDMF) || (p->sig == ANALOG_SIG_FEATDMF_TA)) {
@@ -2153,26 +2085,12 @@ static void *__analog_ss_thread(void *data)
 	case ANALOG_SIG_FXOLS:
 	case ANALOG_SIG_FXOGS:
 	case ANALOG_SIG_FXOKS:
-		/* Set our default presentation.
-		 * This is necessary because the presentation for each call is independent
-		 * (though the default may be the same).
-		 * For example, if hidecallerid=yes and somebody makes a call with *82,
-		 * then makes a 3-way call, the presentation for the 2nd call should still
-		 * be blocked, unless that also had a *82.
-		 * For this reason, setting hidecallerid = permhidecallerid on hangup
-		 * is NOT sufficient, as the *82 from the first call could "leak" into
-		 * subsequent ones made before a hangup, improperly leaking a number
-		 * that should have been hidden.
-		 */
-		p->hidecallerid = p->permhidecallerid;
-
 		/* Read the first digit */
 		timeout = analog_get_firstdigit_timeout(p);
 		/* If starting a threeway call, never timeout on the first digit so someone
-		 * can use flash-hook as a "hold" feature...
-		 * ...Unless three-way dial tone should time out to silence, in which case the default suffices. */
-		if (!p->threewaysilenthold && p->subs[ANALOG_SUB_THREEWAY].owner) {
-			timeout = INT_MAX;
+		   can use flash-hook as a "hold" feature */
+		if (p->subs[ANALOG_SUB_THREEWAY].owner) {
+			timeout = 999999;
 		}
 		while (len < AST_MAX_EXTENSION-1) {
 			int is_exten_parking = 0;
@@ -2224,18 +2142,18 @@ static void *__analog_ss_thread(void *data)
 						res = analog_play_tone(p, idx, -1);
 						ast_channel_lock(chan);
 						ast_channel_exten_set(chan, exten);
-
-						/* Properly set the presentation.
-						 * We need to do this here as well, because p->hidecallerid might be set
-						 * due to permanent blocking, not star-67/star-82 usage. */
-						if (p->hidecallerid) {
-							ast_channel_caller(chan)->id.number.presentation = AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED;
-							ast_channel_caller(chan)->id.name.presentation = AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED;
-						} else {
-							ast_channel_caller(chan)->id.number.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
-							ast_channel_caller(chan)->id.name.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
+						if (!ast_strlen_zero(p->cid_num)) {
+							if (!p->hidecallerid) {
+								ast_set_callerid(chan, p->cid_num, NULL, p->cid_num);
+							} else {
+								ast_set_callerid(chan, NULL, NULL, p->cid_num);
+							}
 						}
-
+						if (!ast_strlen_zero(p->cid_name)) {
+							if (!p->hidecallerid) {
+								ast_set_callerid(chan, NULL, p->cid_name, NULL);
+							}
+						}
 						ast_setstate(chan, AST_STATE_RING);
 						ast_channel_unlock(chan);
 						analog_set_echocanceller(p, 1);
@@ -2253,11 +2171,7 @@ static void *__analog_ss_thread(void *data)
 				}
 			} else if (res == 0) {
 				ast_debug(1, "not enough digits (and no ambiguous match)...\n");
-				if (p->threewaysilenthold) {
-					ast_debug(1, "Nothing dialed at three-way dial tone, timed out to silent hold\n");
-				} else {
-					res = analog_play_tone(p, idx, ANALOG_TONE_CONGESTION);
-				}
+				res = analog_play_tone(p, idx, ANALOG_TONE_CONGESTION);
 				analog_wait_event(p);
 				ast_hangup(chan);
 				goto quit;
@@ -2277,12 +2191,12 @@ static void *__analog_ss_thread(void *data)
 			} else if (!strcmp(exten, pickupexten)) {
 				/* Scan all channels and see if there are any
 				 * ringing channels that have call groups
-				 * that equal this channel's pickup group
+				 * that equal this channels pickup group
 				 */
 				if (idx == ANALOG_SUB_REAL) {
 					/* Switch us from Third call to Call Wait */
 					if (p->subs[ANALOG_SUB_THREEWAY].owner) {
-						/* If you make a threeway call and then *8# a call, it should actually
+						/* If you make a threeway call and the *8# a call, it should actually
 						   look like a callwait */
 						analog_alloc_sub(p, ANALOG_SUB_CALLWAIT);
 						analog_swap_subs(p, ANALOG_SUB_CALLWAIT, ANALOG_SUB_THREEWAY);
@@ -2301,15 +2215,15 @@ static void *__analog_ss_thread(void *data)
 					ast_hangup(chan);
 					goto quit;
 				}
-			/* While the DMS-100 allows dialing as many *67s and *82s in succession as one's heart may desire,
-			 * the 5ESS does not, it only allows pure toggling (and only once!). So, it's not incorrect
-			 * to prevent people from dialing *67 if that won't actually do anything. */
+
 			} else if (!p->hidecallerid && !strcmp(exten, "*67")) {
-				ast_verb(3, "Blocking Caller*ID on %s\n", ast_channel_name(chan));
+				ast_verb(3, "Disabling Caller*ID on %s\n", ast_channel_name(chan));
 				/* Disable Caller*ID if enabled */
 				p->hidecallerid = 1;
-				ast_channel_caller(chan)->id.number.presentation = AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED;
-				ast_channel_caller(chan)->id.name.presentation = AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED;
+				ast_party_number_free(&ast_channel_caller(chan)->id.number);
+				ast_party_number_init(&ast_channel_caller(chan)->id.number);
+				ast_party_name_free(&ast_channel_caller(chan)->id.name);
+				ast_party_name_init(&ast_channel_caller(chan)->id.name);
 				res = analog_play_tone(p, idx, ANALOG_TONE_DIALRECALL);
 				if (res) {
 					ast_log(LOG_WARNING, "Unable to do dial recall on channel %s: %s\n",
@@ -2392,11 +2306,10 @@ static void *__analog_ss_thread(void *data)
 					len = 0;
 				}
 			} else if (p->hidecallerid && !strcmp(exten, "*82")) {
-				ast_verb(3, "Allowing Caller*ID on %s\n", ast_channel_name(chan));
+				ast_verb(3, "Enabling Caller*ID on %s\n", ast_channel_name(chan));
 				/* Enable Caller*ID if enabled */
 				p->hidecallerid = 0;
-				ast_channel_caller(chan)->id.number.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
-				ast_channel_caller(chan)->id.name.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
+				ast_set_callerid(chan, p->cid_num, p->cid_name, NULL);
 				res = analog_play_tone(p, idx, ANALOG_TONE_DIALRECALL);
 				if (res) {
 					ast_log(LOG_WARNING, "Unable to do dial recall on channel %s: %s\n",
@@ -2753,7 +2666,6 @@ int analog_ss_thread_start(struct analog_pvt *p, struct ast_channel *chan)
 {
 	pthread_t threadid;
 
-	p->ss_astchan = chan;
 	return ast_pthread_create_detached(&threadid, NULL, __analog_ss_thread, p);
 }
 
@@ -2816,13 +2728,9 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 		analog_set_pulsedial(p, (res & ANALOG_EVENT_PULSEDIGIT) ? 1 : 0);
 		ast_debug(1, "Detected %sdigit '%c'\n", (res & ANALOG_EVENT_PULSEDIGIT) ? "pulse ": "", res & 0xff);
 		analog_confmute(p, 0);
-		if (p->dialmode == ANALOG_DIALMODE_BOTH || p->dialmode == ANALOG_DIALMODE_PULSE) {
-			p->subs[idx].f.frametype = AST_FRAME_DTMF_END;
-			p->subs[idx].f.subclass.integer = res & 0xff;
-			analog_handle_dtmf(p, ast, idx, &f);
-		} else {
-			ast_debug(1, "Dropping pulse digit '%c' because pulse dialing disabled on channel %d\n", res & 0xff, p->channel);
-		}
+		p->subs[idx].f.frametype = AST_FRAME_DTMF_END;
+		p->subs[idx].f.subclass.integer = res & 0xff;
+		analog_handle_dtmf(p, ast, idx, &f);
 		return f;
 	}
 
@@ -2856,7 +2764,7 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 
 	switch (res) {
 	case ANALOG_EVENT_EC_DISABLED:
-		ast_verb(3, "Channel %d echo canceller disabled due to CED detection\n", p->channel);
+		ast_verb(3, "Channel %d echo canceler disabled due to CED detection\n", p->channel);
 		analog_set_echocanceller(p, 0);
 		break;
 #ifdef HAVE_DAHDI_ECHOCANCEL_FAX_MODE
@@ -2867,10 +2775,10 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 		ast_verb(3, "Channel %d detected a CED tone from the network.\n", p->channel);
 		break;
 	case ANALOG_EVENT_EC_NLP_DISABLED:
-		ast_verb(3, "Channel %d echo canceller disabled its NLP.\n", p->channel);
+		ast_verb(3, "Channel %d echo canceler disabled its NLP.\n", p->channel);
 		break;
 	case ANALOG_EVENT_EC_NLP_ENABLED:
-		ast_verb(3, "Channel %d echo canceller enabled its NLP.\n", p->channel);
+		ast_verb(3, "Channel %d echo canceler enabled its NLP.\n", p->channel);
 		break;
 #endif
 	case ANALOG_EVENT_PULSE_START:
@@ -2937,34 +2845,6 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 		analog_get_and_handle_alarms(p);
 		cause_code->ast_cause = AST_CAUSE_NETWORK_OUT_OF_ORDER;
 	case ANALOG_EVENT_ONHOOK:
-		if (p->calledsubscriberheld && (p->sig == ANALOG_SIG_FXOLS || p->sig == ANALOG_SIG_FXOGS || p->sig == ANALOG_SIG_FXOKS) && idx == ANALOG_SUB_REAL) {
-			ast_debug(4, "Channel state on %s is %d\n", ast_channel_name(ast), ast_channel_state(ast));
-			/* Called Subscriber Held: don't let the called party hang up on an incoming call immediately (if it's the only call). */
-			if (p->subs[ANALOG_SUB_CALLWAIT].owner || p->subs[ANALOG_SUB_THREEWAY].owner) {
-				ast_debug(2, "Letting this call hang up normally, since it's not the only call\n");
-			} else if (!p->owner || !p->subs[ANALOG_SUB_REAL].owner || ast_channel_state(ast) != AST_STATE_UP) {
-				ast_debug(2, "Called Subscriber Held does not apply: channel state is %d\n", ast_channel_state(ast));
-			} else if (!p->owner || !p->subs[ANALOG_SUB_REAL].owner || strcmp(ast_channel_appl(p->subs[ANALOG_SUB_REAL].owner), "AppDial")) {
-				/* Called Subscriber held only applies to incoming calls, not outgoing calls.
-				 * We can't use p->outgoing because that is always true, for both incoming and outgoing calls, so it's not accurate.
-				 * We can check the channel application/data instead.
-				 * For incoming calls to the channel, it will look like: AppDial / (Outgoing Line)
-				 * We only want this behavior for regular calls anyways (and not, say, Queue),
-				 * so this would actually work great. But accessing ast_channel_appl can cause a crash if there are no calls left,
-				 * so this check must occur AFTER we confirm the channel state *is* still UP.
-				 */
-				ast_debug(2, "Called Subscriber Held does not apply: not an incoming call\n");
-			} else if (analog_is_off_hook(p)) {
-				ast_log(LOG_WARNING, "Got ONHOOK but channel %d is off hook?\n", p->channel); /* Shouldn't happen */
-			} else {
-				ast_verb(3, "Holding incoming call %s for channel %d\n", ast_channel_name(ast), p->channel);
-				/* Inhibit dahdi_hangup from getting called, and do nothing else now.
-				 * When the DAHDI channel goes off hook again, it'll just get reconnected with the incoming call,
-				 * to which, as far as its concerned, nothing has happened. */
-				p->cshactive = 1; /* Keep track that this DAHDI channel is currently being held by an incoming call. */
-				break;
-			}
-		}
 		ast_queue_control_data(ast, AST_CONTROL_PVT_CAUSE_CODE, cause_code, data_size);
 		ast_channel_hangupcause_hash_set(ast, cause_code, data_size);
 		switch (p->sig) {
@@ -2983,14 +2863,14 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 					analog_lock_sub_owner(p, ANALOG_SUB_CALLWAIT);
 					if (!p->subs[ANALOG_SUB_CALLWAIT].owner) {
 						/*
-						 * The call waiting call disappeared.
+						 * The call waiting call dissappeared.
 						 * This is now a normal hangup.
 						 */
 						analog_set_echocanceller(p, 0);
 						return NULL;
 					}
 
-					/* There's a call waiting call, so ring the phone, but make it unowned in the meantime */
+					/* There's a call waiting call, so ring the phone, but make it unowned in the mean time */
 					analog_swap_subs(p, ANALOG_SUB_CALLWAIT, ANALOG_SUB_REAL);
 					ast_verb(3, "Channel %d still has (callwait) call, ringing phone\n", p->channel);
 					analog_unalloc_sub(p, ANALOG_SUB_CALLWAIT);
@@ -3462,8 +3342,10 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 						/* Put them in the threeway, and flip */
 						analog_set_inthreeway(p, ANALOG_SUB_THREEWAY, 1);
 						analog_set_inthreeway(p, ANALOG_SUB_REAL, 1);
-						analog_swap_subs(p, ANALOG_SUB_THREEWAY, ANALOG_SUB_REAL);
-						orig_3way_sub = ANALOG_SUB_REAL;
+						if (ast_channel_state(ast) == AST_STATE_UP) {
+							analog_swap_subs(p, ANALOG_SUB_THREEWAY, ANALOG_SUB_REAL);
+							orig_3way_sub = ANALOG_SUB_REAL;
+						}
 						ast_queue_unhold(p->subs[orig_3way_sub].owner);
 						analog_set_new_owner(p, p->subs[ANALOG_SUB_REAL].owner);
 					} else {
@@ -3804,32 +3686,6 @@ void *analog_handle_init_event(struct analog_pvt *i, int event)
 	/* Handle an event on a given channel for the monitor thread. */
 	switch (event) {
 	case ANALOG_EVENT_WINKFLASH:
-	case ANALOG_EVENT_RINGBEGIN:
-		switch (i->sig) {
-		case ANALOG_SIG_FXSLS:
-		case ANALOG_SIG_FXSGS:
-		case ANALOG_SIG_FXSKS:
-			if (i->immediate) {
-				if (i->use_callerid || i->usedistinctiveringdetection) {
-					ast_log(LOG_WARNING, "Can't start PBX immediately, must wait for Caller ID / distinctive ring\n");
-				} else {
-					/* If we don't care about Caller ID or Distinctive Ring, then there's
-					 * no need to wait for anything before accepting the call, as
-					 * waiting will buy us nothing.
-					 * So if the channel is configured for immediate, actually start immediately
-					 * and get the show on the road as soon as possible. */
-					ast_debug(1, "Disabling ring timeout (previously %d) to begin handling immediately\n", i->ringt_base);
-					analog_set_ringtimeout(i, 0);
-				}
-			}
-			break;
-		default:
-			break;
-		}
-		/* Fall through */
-		if (!(ISTRUNK(i) && i->immediate && !i->use_callerid && !i->usedistinctiveringdetection)) {
-			break;
-		}
 	case ANALOG_EVENT_RINGOFFHOOK:
 		if (i->inalarm) {
 			break;
@@ -3841,7 +3697,6 @@ void *analog_handle_init_event(struct analog_pvt *i, int event)
 		case ANALOG_SIG_FXOKS:
 			res = analog_off_hook(i);
 			i->fxsoffhookstate = 1;
-			i->cshactive = 0;
 			if (res && (errno == EBUSY)) {
 				break;
 			}
@@ -3853,10 +3708,7 @@ void *analog_handle_init_event(struct analog_pvt *i, int event)
 			if (i->immediate) {
 				analog_set_echocanceller(i, 1);
 				/* The channel is immediately up.  Start right away */
-				if (i->immediatering) {
-					/* Play fake ringing, if we've been told to... */
-					res = analog_play_tone(i, ANALOG_SUB_REAL, ANALOG_TONE_RINGTONE);
-				}
+				res = analog_play_tone(i, ANALOG_SUB_REAL, ANALOG_TONE_RINGTONE);
 				chan = analog_new_ast_channel(i, AST_STATE_RING, 1, ANALOG_SUB_REAL, NULL);
 				if (!chan) {
 					ast_log(LOG_WARNING, "Unable to start PBX on channel %d\n", i->channel);
@@ -4100,6 +3952,8 @@ struct analog_pvt *analog_new(enum analog_sigtype signallingtype, void *private_
  * \since 1.8
  *
  * \param doomed Analog private structure to delete.
+ *
+ * \return Nothing
  */
 void analog_delete(struct analog_pvt *doomed)
 {

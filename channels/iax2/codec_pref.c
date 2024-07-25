@@ -348,7 +348,7 @@ static const uint64_t iax2_supported_formats[] = {
 	AST_FORMAT_T140,
 	AST_FORMAT_SIREN7,
 	AST_FORMAT_SIREN14,
-	0, /* reserved; was AST_FORMAT_TESTLAW */
+	AST_FORMAT_TESTLAW,
 	AST_FORMAT_G719,
 	0, /* Place holder */
 	0, /* Place holder */
@@ -395,6 +395,8 @@ int iax2_codec_pref_format_bitfield_to_order_value(uint64_t bitfield)
  * \param pref Codec preference list to append the given bitfield.
  * \param bitfield Format bitfield to append.
  * \param framing Framing size of the codec.
+ *
+ * \return Nothing
  */
 static void iax2_codec_pref_append_bitfield(struct iax2_codec_pref *pref, uint64_t bitfield, unsigned int framing)
 {

@@ -54,11 +54,9 @@
 
 /*!
  * \brief Parameter parsing callback for /bridges.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_list_cb(
@@ -127,11 +125,9 @@ int ast_ari_bridges_create_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_create_cb(
@@ -213,11 +209,9 @@ int ast_ari_bridges_create_with_id_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_create_with_id_cb(
@@ -285,11 +279,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_get_cb(
@@ -345,11 +337,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_destroy_cb(
@@ -459,11 +449,9 @@ int ast_ari_bridges_add_channel_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/addChannel.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_add_channel_cb(
@@ -624,11 +612,9 @@ int ast_ari_bridges_remove_channel_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/removeChannel.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_remove_channel_cb(
@@ -739,11 +725,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/videoSource/{channelId}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_set_video_source_cb(
@@ -804,11 +788,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/videoSource.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_clear_video_source_cb(
@@ -877,11 +859,9 @@ int ast_ari_bridges_start_moh_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/moh.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_start_moh_cb(
@@ -948,11 +928,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/moh.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_stop_moh_cb(
@@ -1063,11 +1041,9 @@ int ast_ari_bridges_play_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/play.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_play_cb(
@@ -1238,11 +1214,9 @@ int ast_ari_bridges_play_with_id_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/play/{playbackId}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_play_with_id_cb(
@@ -1400,11 +1374,9 @@ int ast_ari_bridges_record_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /bridges/{bridgeId}/record.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_bridges_record_cb(

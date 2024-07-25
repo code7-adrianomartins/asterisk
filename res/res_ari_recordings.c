@@ -53,11 +53,9 @@
 
 /*!
  * \brief Parameter parsing callback for /recordings/stored.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_list_stored_cb(
@@ -105,11 +103,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/stored/{recordingName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_get_stored_cb(
@@ -165,11 +161,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/stored/{recordingName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_delete_stored_cb(
@@ -225,11 +219,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/stored/{recordingName}/file.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_get_stored_file_cb(
@@ -299,11 +291,9 @@ int ast_ari_recordings_copy_stored_parse_body(
 
 /*!
  * \brief Parameter parsing callback for /recordings/stored/{recordingName}/copy.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_copy_stored_cb(
@@ -370,11 +360,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_get_live_cb(
@@ -430,11 +418,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_cancel_cb(
@@ -490,11 +476,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}/stop.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_stop_cb(
@@ -550,11 +534,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}/pause.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_pause_cb(
@@ -611,11 +593,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}/pause.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_unpause_cb(
@@ -672,11 +652,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}/mute.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_mute_cb(
@@ -733,11 +711,9 @@ fin: __attribute__((unused))
 }
 /*!
  * \brief Parameter parsing callback for /recordings/live/{recordingName}/mute.
- * \param ser TCP/TLS session object
  * \param get_params GET parameters in the HTTP request.
  * \param path_vars Path variables extracted from the request.
  * \param headers HTTP headers.
- * \param body
  * \param[out] response Response to the HTTP request.
  */
 static void ast_ari_recordings_unmute_cb(

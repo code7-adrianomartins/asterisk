@@ -204,7 +204,6 @@ static int registrar_validate_contacts(const pjsip_rx_data *rdata, pj_pool_t *po
 enum contact_delete_type {
 	CONTACT_DELETE_ERROR,
 	CONTACT_DELETE_EXISTING,
-	CONTACT_DELETE_UNAVAILABLE,
 	CONTACT_DELETE_EXPIRE,
 	CONTACT_DELETE_REQUEST,
 	CONTACT_DELETE_SHUTDOWN,
@@ -246,6 +245,19 @@ static int registrar_add_contact(void *obj, void *arg, int flags)
 	}
 
 	return 0;
+}
+
+/*! \brief Helper function which adds a Date header to a response */
+static void registrar_add_date_header(pjsip_tx_data *tdata)
+{
+	char date[256];
+	struct tm tm;
+	time_t t = time(NULL);
+
+	gmtime_r(&t, &tm);
+	strftime(date, sizeof(date), "%a, %d %b %Y %T GMT", &tm);
+
+	ast_sip_add_header(tdata, "Date", date);
 }
 
 static const pj_str_t path_hdr_name = { "Path", 4 };
@@ -364,6 +376,8 @@ static int register_contact_transport_remove_cb(void *data)
  * \param data What contact needs to be removed.
  *
  * \note Normally executed by the pjsip monitor thread.
+ *
+ * \return Nothing
  */
 static void register_contact_transport_shutdown_cb(void *data)
 {
@@ -447,9 +461,6 @@ static int registrar_contact_delete(enum contact_delete_type type, pjsip_transpo
 			case CONTACT_DELETE_EXISTING:
 				reason = "remove existing";
 				break;
-			case CONTACT_DELETE_UNAVAILABLE:
-				reason = "remove unavailable";
-				break;
 			case CONTACT_DELETE_EXPIRE:
 				reason = "expiration";
 				break;
@@ -485,48 +496,7 @@ static int vec_contact_cmp(struct ast_sip_contact *left, struct ast_sip_contact 
 	struct ast_sip_contact *right_contact = right;
 
 	/* Sort from soonest to expire to last to expire */
-	int time_sorted = ast_tvcmp(left_contact->expiration_time, right_contact->expiration_time);
-
-	struct ast_sip_aor *aor = ast_sip_location_retrieve_aor(left_contact->aor);
-	struct ast_sip_contact_status *left_status;
-	struct ast_sip_contact_status *right_status;
-	int remove_unavailable = 0;
-	int left_unreachable;
-	int right_unreachable;
-
-	if (aor) {
-		remove_unavailable = aor->remove_unavailable;
-		ao2_ref(aor, -1);
-	}
-
-	if (!remove_unavailable) {
-		return time_sorted;
-	}
-
-	/* Get contact status if available */
-	left_status = ast_sip_get_contact_status(left_contact);
-	if (!left_status) {
-		return time_sorted;
-	}
-
-	right_status = ast_sip_get_contact_status(right_contact);
-	if (!right_status) {
-		ao2_ref(left_status, -1);
-		return time_sorted;
-	}
-
-	left_unreachable = (left_status->status == UNAVAILABLE);
-	right_unreachable = (right_status->status == UNAVAILABLE);
-	ao2_ref(left_status, -1);
-	ao2_ref(right_status, -1);
-	if (left_unreachable != right_unreachable) {
-		/* Set unavailable contact to top of vector */
-		if (left_unreachable) return -1;
-		if (right_unreachable) return 1;
-	}
-
-	/* Either both available or both unavailable */
-	return time_sorted;
+	return ast_tvcmp(left_contact->expiration_time, right_contact->expiration_time);
 }
 
 static int vec_contact_add(void *obj, void *arg, int flags)
@@ -555,15 +525,16 @@ static int vec_contact_add(void *obj, void *arg, int flags)
 
 /*!
  * \internal
- * \brief Remove excess existing contacts that are unavailable or expire soonest.
+ * \brief Remove excess existing contacts that expire the soonest.
  * \since 13.18.0
  *
  * \param contacts Container of unmodified contacts that could remove.
  * \param to_remove Maximum number of contacts to remove.
- * \param response_contacts, remove_existing
+ *
+ * \return Nothing
  */
 static void remove_excess_contacts(struct ao2_container *contacts, struct ao2_container *response_contacts,
-	unsigned int to_remove, unsigned int remove_existing)
+	unsigned int to_remove)
 {
 	struct excess_contact_vector contact_vec;
 
@@ -587,17 +558,13 @@ static void remove_excess_contacts(struct ao2_container *contacts, struct ao2_co
 	ast_assert(AST_VECTOR_SIZE(&contact_vec) == to_remove);
 	to_remove = AST_VECTOR_SIZE(&contact_vec);
 
-	/* Remove the excess contacts that are unavailable or expire the soonest */
+	/* Remove the excess contacts that expire the soonest */
 	while (to_remove--) {
 		struct ast_sip_contact *contact;
 
 		contact = AST_VECTOR_GET(&contact_vec, to_remove);
 
-		if (!remove_existing) {
-			registrar_contact_delete(CONTACT_DELETE_UNAVAILABLE, NULL, contact, contact->aor);
-		} else {
-			registrar_contact_delete(CONTACT_DELETE_EXISTING, NULL, contact, contact->aor);
-		}
+		registrar_contact_delete(CONTACT_DELETE_EXISTING, NULL, contact, contact->aor);
 
 		ao2_unlink(response_contacts, contact);
 	}
@@ -616,29 +583,6 @@ static int registrar_add_non_permanent(void *obj, void *arg, int flags)
 	}
 
 	ao2_link(container, contact);
-
-	return 0;
-}
-
-/*! \brief Internal callback function which adds any contact which is unreachable */
-static int registrar_add_unreachable(void *obj, void *arg, int flags)
-{
-	struct ast_sip_contact *contact = obj;
-	struct ao2_container *container = arg;
-	struct ast_sip_contact_status *status;
-	int unreachable;
-
-	status = ast_sip_get_contact_status(contact);
-	if (!status) {
-		return 0;
-	}
-
-	unreachable = (status->status == UNAVAILABLE);
-	ao2_ref(status, -1);
-
-	if (unreachable) {
-		ao2_link(container, contact);
-	}
 
 	return 0;
 }
@@ -665,7 +609,6 @@ static void register_aor_core(pjsip_rx_data *rdata,
 	int permanent = 0;
 	int contact_count;
 	struct ao2_container *existing_contacts = NULL;
-	struct ao2_container *unavail_contacts = NULL;
 	pjsip_contact_hdr *contact_hdr = (pjsip_contact_hdr *)&rdata->msg_info.msg->hdr;
 	struct registrar_contact_details details = { 0, };
 	pjsip_tx_data *tdata;
@@ -736,39 +679,11 @@ static void register_aor_core(pjsip_rx_data *rdata,
 		/* Total contacts after this registration */
 		contact_count = ao2_container_count(contacts) - permanent + added - deleted;
 	}
-
-	if (contact_count > aor->max_contacts && aor->remove_unavailable) {
-		/* Get unavailable contact total */
-		int unavail_count = 0;
-
-		unavail_contacts = ao2_container_alloc_list(AO2_ALLOC_OPT_LOCK_NOLOCK, 0,
-			NULL, ast_sorcery_object_id_compare);
-		if (!unavail_contacts) {
-			response->code = 500;
-			pjsip_endpt_release_pool(ast_sip_get_pjsip_endpoint(), details.pool);
-			return;
-		}
-		ao2_callback(contacts, OBJ_NODATA, registrar_add_unreachable, unavail_contacts);
-		if (unavail_contacts) {
-			unavail_count = ao2_container_count(unavail_contacts);
-		}
-
-		/* Check to see if removing unavailable contacts will help */
-		if (contact_count - unavail_count <= aor->max_contacts) {
-			/* Remove any unavailable contacts */
-			remove_excess_contacts(unavail_contacts, contacts, contact_count - aor->max_contacts, aor->remove_existing);
-			ao2_cleanup(unavail_contacts);
-			/* We're only here if !aor->remove_existing so this count is correct */
-			contact_count = ao2_container_count(contacts) - permanent + added - deleted;
-		}
-	}
-
 	if (contact_count > aor->max_contacts) {
 		/* Enforce the maximum number of contacts */
 		ast_sip_report_failed_acl(endpoint, rdata, "registrar_attempt_exceeds_maximum_configured_contacts");
-		ast_log(LOG_WARNING, "Registration attempt from endpoint '%s' (%s:%d) to AOR '%s' will exceed max contacts of %u\n",
-				ast_sorcery_object_get_id(endpoint), rdata->pkt_info.src_name, rdata->pkt_info.src_port,
-				aor_name, aor->max_contacts);
+		ast_log(LOG_WARNING, "Registration attempt from endpoint '%s' to AOR '%s' will exceed max contacts of %u\n",
+				ast_sorcery_object_get_id(endpoint), aor_name, aor->max_contacts);
 		response->code = 403;
 		pjsip_endpt_release_pool(ast_sip_get_pjsip_endpoint(), details.pool);
 		ao2_cleanup(existing_contacts);
@@ -964,9 +879,8 @@ static void register_aor_core(pjsip_rx_data *rdata,
 		/* Total contacts after this registration */
 		contact_count = ao2_container_count(existing_contacts) + updated + added;
 		if (contact_count > aor->max_contacts) {
-			/* Remove excess existing contacts that are unavailable or expire soonest */
-			remove_excess_contacts(existing_contacts, contacts, contact_count - aor->max_contacts,
-				aor->remove_existing);
+			/* Remove excess existing contacts that expire the soonest */
+			remove_excess_contacts(existing_contacts, contacts, contact_count - aor->max_contacts);
 		}
 		ao2_ref(existing_contacts, -1);
 	}
@@ -983,7 +897,7 @@ static void register_aor_core(pjsip_rx_data *rdata,
 	ao2_cleanup(response_contact);
 
 	/* Add the date header to the response, some UAs use this to set their date and time */
-	ast_sip_add_date_header(tdata);
+	registrar_add_date_header(tdata);
 
 	ao2_callback(contacts, 0, registrar_add_contact, tdata);
 
@@ -1163,9 +1077,8 @@ static struct ast_sip_aor *find_registrar_aor(struct pjsip_rx_data *rdata, struc
 		/* The provided AOR name was not found (be it within the configuration or sorcery itself) */
 		pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 404, NULL, NULL, NULL);
 		ast_sip_report_req_no_support(endpoint, rdata, "registrar_requested_aor_not_found");
-		ast_log(LOG_WARNING, "AOR '%s' not found for endpoint '%s' (%s:%d)\n",
-			aor_name ?: "", ast_sorcery_object_get_id(endpoint),
-			rdata->pkt_info.src_name, rdata->pkt_info.src_port);
+		ast_log(LOG_WARNING, "AOR '%s' not found for endpoint '%s'\n",
+			aor_name ?: "", ast_sorcery_object_get_id(endpoint));
 	}
 	ast_free(aor_name);
 	return aor;
@@ -1186,16 +1099,14 @@ static pj_bool_t registrar_on_rx_request(struct pjsip_rx_data *rdata)
 		/* Short circuit early if the endpoint has no AORs configured on it, which means no registration possible */
 		pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 403, NULL, NULL, NULL);
 		ast_sip_report_failed_acl(endpoint, rdata, "registrar_attempt_without_configured_aors");
-		ast_log(LOG_WARNING, "Endpoint '%s' (%s:%d) has no configured AORs\n", ast_sorcery_object_get_id(endpoint),
-			rdata->pkt_info.src_name, rdata->pkt_info.src_port);
+		ast_log(LOG_WARNING, "Endpoint '%s' has no configured AORs\n", ast_sorcery_object_get_id(endpoint));
 		return PJ_TRUE;
 	}
 
 	if (!PJSIP_URI_SCHEME_IS_SIP(rdata->msg_info.to->uri) && !PJSIP_URI_SCHEME_IS_SIPS(rdata->msg_info.to->uri)) {
 		pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 416, NULL, NULL, NULL);
 		ast_sip_report_failed_acl(endpoint, rdata, "registrar_invalid_uri_in_to_received");
-		ast_log(LOG_WARNING, "Endpoint '%s' (%s:%d) attempted to register to an AOR with a non-SIP URI\n", ast_sorcery_object_get_id(endpoint),
-			rdata->pkt_info.src_name, rdata->pkt_info.src_port);
+		ast_log(LOG_WARNING, "Endpoint '%s' attempted to register to an AOR with a non-SIP URI\n", ast_sorcery_object_get_id(endpoint));
 		return PJ_TRUE;
 	}
 
@@ -1211,9 +1122,8 @@ static pj_bool_t registrar_on_rx_request(struct pjsip_rx_data *rdata)
 		/* Registration is not permitted for this AOR */
 		pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 403, NULL, NULL, NULL);
 		ast_sip_report_req_no_support(endpoint, rdata, "registrar_attempt_without_registration_permitted");
-		ast_log(LOG_WARNING, "AOR '%s' has no configured max_contacts. Endpoint '%s' (%s:%d) unable to register\n",
-			aor_name, ast_sorcery_object_get_id(endpoint),
-			rdata->pkt_info.src_name, rdata->pkt_info.src_port);
+		ast_log(LOG_WARNING, "AOR '%s' has no configured max_contacts. Endpoint '%s' unable to register\n",
+			aor_name, ast_sorcery_object_get_id(endpoint));
 	} else {
 		register_aor(rdata, endpoint, aor, aor_name);
 	}
@@ -1365,13 +1275,12 @@ static void *check_expiration_thread(void *data)
 {
 	struct ao2_container *contacts;
 	struct ast_variable *var;
-	char time[AST_TIME_T_LEN];
+	char *time = alloca(64);
 
 	while (check_interval) {
 		sleep(check_interval);
 
-		ast_time_t_to_string(ast_tvnow().tv_sec, time, sizeof(time));
-
+		sprintf(time, "%ld", ast_tvnow().tv_sec);
 		var = ast_variable_new("expiration_time <=", time, "");
 
 		ast_debug(4, "Woke up at %s  Interval: %d\n", time, check_interval);

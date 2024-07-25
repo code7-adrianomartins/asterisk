@@ -197,6 +197,7 @@ static int str_cmp(void *lhs, void *rhs, int flags)
 	return cmp ? 0 : CMP_MATCH;
 }
 
+//struct ao2_container *ast_str_container_alloc_options(enum ao2_container_opts opts, int buckets)
 struct ao2_container *ast_str_container_alloc_options(enum ao2_alloc_opts opts, int buckets)
 {
 	return ao2_container_alloc_hash(opts, 0, buckets, str_hash, str_sort, str_cmp);
@@ -429,28 +430,3 @@ int ast_vector_string_split(struct ast_vector_string *dest,
 
 	return 0;
 }
-
-int ast_in_delimited_string(const char *needle, const char *haystack, char delim)
-{
-	const char *end;
-	unsigned long needle_size;
-
-	ast_assert(haystack != NULL);
-
-	if (!needle) {
-		return 0;
-	}
-
-	needle_size = strlen(needle);
-	haystack = ast_skip_blanks(haystack);
-
-	while ((end = strchr(haystack, delim))) {
-		if (needle_size == end - haystack && !strncmp(haystack, needle, needle_size)) {
-			return 1;
-		}
-		haystack = ast_skip_blanks(end + 1);
-	}
-
-	return strcmp(haystack, needle) ? 0 : -1;
-}
-

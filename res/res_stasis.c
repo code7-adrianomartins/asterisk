@@ -801,7 +801,6 @@ static struct ast_bridge *bridge_create_common(const char *type, const char *nam
 		| AST_BRIDGE_FLAG_SWAP_INHIBIT_FROM | AST_BRIDGE_FLAG_SWAP_INHIBIT_TO
 		| AST_BRIDGE_FLAG_TRANSFER_BRIDGE_ONLY;
 	enum ast_bridge_video_mode_type video_mode = AST_BRIDGE_VIDEO_MODE_TALKER_SRC;
-	int send_sdp_label = 0;
 
 	if (invisible) {
 		flags |= AST_BRIDGE_FLAG_INVISIBLE;
@@ -822,8 +821,6 @@ static struct ast_bridge *bridge_create_common(const char *type, const char *nam
 			video_mode = AST_BRIDGE_VIDEO_MODE_SFU;
 		} else if (!strcmp(requested_type, "video_single")) {
 			video_mode = AST_BRIDGE_VIDEO_MODE_SINGLE_SRC;
-		} else if (!strcmp(requested_type, "sdp_label")) {
-			send_sdp_label = 1;
 		}
 	}
 
@@ -840,7 +837,7 @@ static struct ast_bridge *bridge_create_common(const char *type, const char *nam
 		return NULL;
 	}
 
-	bridge = bridge_stasis_new(capabilities, flags, name, id, video_mode, send_sdp_label);
+	bridge = bridge_stasis_new(capabilities, flags, name, id, video_mode);
 	if (bridge) {
 		if (!ao2_link(app_bridges, bridge)) {
 			ast_bridge_destroy(bridge, 0);
@@ -1206,7 +1203,7 @@ static void channel_replaced_cb(void *data, struct ast_channel *old_chan, struct
 }
 
 static const struct ast_datastore_info masquerade_store_info = {
-	.type = "stasis-masquerade",
+	.type = "stasis-masqerade",
 	.chan_fixup = channel_stolen_cb,
 	.chan_breakdown = channel_replaced_cb,
 };
@@ -1323,7 +1320,7 @@ static void remove_stasis_end_published(struct ast_channel *chan)
 	ast_channel_unlock(chan);
 }
 
-/*! \brief Stasis dialplan application callback */
+/*! /brief Stasis dialplan application callback */
 int stasis_app_exec(struct ast_channel *chan, const char *app_name, int argc,
 		    char *argv[])
 {
@@ -1548,11 +1545,7 @@ int stasis_app_exec(struct ast_channel *chan, const char *app_name, int argc,
 			continue;
 		}
 
-		/* Set this thread's id as the control thread id so that any
-		   new commands can signal out of this wait */
-		control_set_thread(control, pthread_self());
 		r = ast_waitfor(chan, MAX_WAIT_MS);
-		control_set_thread(control, AST_PTHREADT_NULL);
 
 		if (r < 0) {
 			ast_debug(3, "%s: Poll error\n",
@@ -2230,7 +2223,7 @@ static int unload_module(void)
 	return 0;
 }
 
-/*! \brief Sanitization callback for channel snapshots */
+/* \brief Sanitization callback for channel snapshots */
 static int channel_snapshot_sanitizer(const struct ast_channel_snapshot *snapshot)
 {
 	if (!snapshot || !(snapshot->base->tech_properties & AST_CHAN_TP_INTERNAL)) {
@@ -2239,7 +2232,7 @@ static int channel_snapshot_sanitizer(const struct ast_channel_snapshot *snapsho
 	return 1;
 }
 
-/*! \brief Sanitization callback for channels */
+/* \brief Sanitization callback for channels */
 static int channel_sanitizer(const struct ast_channel *chan)
 {
 	if (!chan || !(ast_channel_tech(chan)->properties & AST_CHAN_TP_INTERNAL)) {
@@ -2248,7 +2241,7 @@ static int channel_sanitizer(const struct ast_channel *chan)
 	return 1;
 }
 
-/*! \brief Sanitization callback for channel unique IDs */
+/* \brief Sanitization callback for channel unique IDs */
 static int channel_id_sanitizer(const char *id)
 {
 	struct ast_channel_snapshot *snapshot;
@@ -2261,7 +2254,7 @@ static int channel_id_sanitizer(const char *id)
 	return ret;
 }
 
-/*! \brief Sanitization callbacks for communication to Stasis applications */
+/* \brief Sanitization callbacks for communication to Stasis applications */
 struct stasis_message_sanitizer app_sanitizer = {
 	.channel_id = channel_id_sanitizer,
 	.channel_snapshot = channel_snapshot_sanitizer,

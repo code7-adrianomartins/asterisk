@@ -38,7 +38,7 @@ extern "C"
 
 struct ast_mwi_mailbox_object;
 
-/*! \brief Convenience unref function for mailbox object. */
+/*! \brief Convienience unref function for mailbox object. */
 #define ast_mwi_mailbox_unref(mailbox) ao2_ref((struct ast_mwi_mailbox_object *) mailbox, -1)
 
 /*!
@@ -47,7 +47,7 @@ struct ast_mwi_mailbox_object;
  *
  * \param mailbox_id Name of mailbox.
  *
- * \return object on success.  The object is an ao2 object.
+ * \retval object on success.  The object is an ao2 object.
  * \retval NULL on error.
  */
 struct ast_mwi_mailbox_object *ast_mwi_mailbox_alloc(const char *mailbox_id);
@@ -90,7 +90,7 @@ unsigned int ast_mwi_mailbox_get_msgs_old(const struct ast_mwi_mailbox_object *m
  *
  * \param mailbox What to copy.
  *
- * \return copy on success.  The object is an ao2 object.
+ * \retval copy on success.  The object is an ao2 object.
  * \retval NULL on error.
  */
 struct ast_mwi_mailbox_object *ast_mwi_mailbox_copy(const struct ast_mwi_mailbox_object *mailbox);
@@ -101,6 +101,8 @@ struct ast_mwi_mailbox_object *ast_mwi_mailbox_copy(const struct ast_mwi_mailbox
  *
  * \param mailbox Object to set number of new messages.
  * \param num_msgs Number of messages to set.
+ *
+ * \return Nothing
  */
 void ast_mwi_mailbox_set_msgs_new(struct ast_mwi_mailbox_object *mailbox, unsigned int num_msgs);
 
@@ -110,6 +112,8 @@ void ast_mwi_mailbox_set_msgs_new(struct ast_mwi_mailbox_object *mailbox, unsign
  *
  * \param mailbox Object to set number of old messages.
  * \param num_msgs Number of messages to set.
+ *
+ * \return Nothing
  */
 void ast_mwi_mailbox_set_msgs_old(struct ast_mwi_mailbox_object *mailbox, unsigned int num_msgs);
 
@@ -163,7 +167,7 @@ int ast_mwi_mailbox_delete_all(void);
  *
  * \param mailbox_id Name of mailbox to retrieve.
  *
- * \return requested mailbox on success.  The object is an ao2 object.
+ * \retval requested mailbox on success.  The object is an ao2 object.
  * \retval NULL on error or no mailbox.
  *
  * \note The object must be treated as read-only.
@@ -178,7 +182,7 @@ const struct ast_mwi_mailbox_object *ast_mwi_mailbox_get(const char *mailbox_id)
  *
  * \note The provided regex is treated as extended case sensitive.
  *
- * \return container of struct ast_mwi_mailbox_object on success.
+ * \retval container of struct ast_mwi_mailbox_object on success.
  * \retval NULL on error.
  *
  * \note The objects in the container must be treated as read-only.
@@ -189,7 +193,7 @@ struct ao2_container *ast_mwi_mailbox_get_by_regex(const char *regex);
  * \brief Get all external MWI objects.
  * \since 12.1.0
  *
- * \return container of struct ast_mwi_mailbox_object on success.
+ * \retval container of struct ast_mwi_mailbox_object on success.
  * \retval NULL on error.
  *
  * \note The objects in the container must be treated as read-only.

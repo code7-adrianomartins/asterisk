@@ -83,7 +83,7 @@
 					<enum name="summary"><para>The VEVENT SUMMARY property or Exchange event 'subject'</para></enum>
 					<enum name="description"><para>The text description of the event</para></enum>
 					<enum name="organizer"><para>The organizer of the event</para></enum>
-					<enum name="location"><para>The location of the event</para></enum>
+					<enum name="location"><para>The location of the eventt</para></enum>
 					<enum name="categories"><para>The categories of the event</para></enum>
 					<enum name="priority"><para>The priority of the event</para></enum>
 					<enum name="calendar"><para>The name of the calendar associated with the event</para></enum>
@@ -193,9 +193,7 @@
 			</parameter>
 		</syntax>
 		<description>
-			<example title="Set calendar fields">
-			same => n,Set(CALENDAR_WRITE(calendar,field1,field2,field3)=val1,val2,val3)
-			</example>
+			<para>Example: CALENDAR_WRITE(calendar,field1,field2,field3)=val1,val2,val3</para>
 			<para>The field and value arguments can easily be set/passed using the HASHKEYS() and HASH() functions</para>
 			<variablelist>
 				<variable name="CALENDAR_SUCCESS">
@@ -1000,15 +998,10 @@ static int schedule_calendar_event(struct ast_calendar *cal, struct ast_calendar
 	if (!cmp_event || old_event->end != event->end) {
 		changed = 1;
 		devstate_sched_end = (event->end - now.tv_sec) * 1000;
-
-		if (devstate_sched_end <= 0) { /* if we let this slip by, Asterisk will assert */
-			ast_log(LOG_WARNING, "Whoops! Event end notification scheduled in the past: %ld ms\n", (long) devstate_sched_end);
-		} else {
-			ast_mutex_lock(&refreshlock);
-			AST_SCHED_REPLACE(old_event->bs_end_sched, sched, devstate_sched_end, calendar_devstate_change, old_event);
-			ast_mutex_unlock(&refreshlock);
-			ast_debug(3, "Calendar bs_end event notification scheduled to happen in %ld ms\n", (long) devstate_sched_end);
-		}
+		ast_mutex_lock(&refreshlock);
+		AST_SCHED_REPLACE(old_event->bs_end_sched, sched, devstate_sched_end, calendar_devstate_change, old_event);
+		ast_mutex_unlock(&refreshlock);
+		ast_debug(3, "Calendar bs_end event notification scheduled to happen in %ld ms\n", (long) devstate_sched_end);
 	}
 
 	if (changed) {
@@ -1119,8 +1112,8 @@ static int calendar_busy_exec(struct ast_channel *chan, const char *cmd, char *d
 }
 
 static struct ast_custom_function calendar_busy_function = {
-	.name = "CALENDAR_BUSY",
-	.read = calendar_busy_exec,
+    .name = "CALENDAR_BUSY",
+    .read = calendar_busy_exec,
 };
 
 static int add_event_to_list(struct eventlist *events, struct ast_calendar_event *event, time_t start, time_t end)
@@ -1304,8 +1297,8 @@ static int calendar_query_exec(struct ast_channel *chan, const char *cmd, char *
 }
 
 static struct ast_custom_function calendar_query_function = {
-	.name = "CALENDAR_QUERY",
-	.read = calendar_query_exec,
+    .name = "CALENDAR_QUERY",
+    .read = calendar_query_exec,
 };
 
 static void calendar_join_attendees(struct ast_calendar_event *event, char *buf, size_t len)
@@ -1608,21 +1601,6 @@ static char *epoch_to_string(char *buf, size_t buflen, time_t epoch)
 	return buf;
 }
 
-static const char *ast_calendar_busy_state_to_str(enum ast_calendar_busy_state busy_state)
-{
-	switch (busy_state) {
-	case AST_CALENDAR_BS_FREE:
-		return "Free";
-	case AST_CALENDAR_BS_BUSY_TENTATIVE:
-		return "Busy (Tentative)";
-	case AST_CALENDAR_BS_BUSY:
-		return "Busy";
-	default:
-		return "Unknown (Busy)";
-	}
-}
-
-
 static char *handle_show_calendar(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 #define FORMAT  "%-18.18s : %-20.20s\n"
@@ -1698,7 +1676,6 @@ static char *handle_show_calendar(struct ast_cli_entry *e, int cmd, struct ast_c
 		ast_cli(a->fd, FORMAT2, "Start", epoch_to_string(buf, sizeof(buf), event->start));
 		ast_cli(a->fd, FORMAT2, "End", epoch_to_string(buf, sizeof(buf), event->end));
 		ast_cli(a->fd, FORMAT2, "Alarm", epoch_to_string(buf, sizeof(buf), event->alarm));
-		ast_cli(a->fd, FORMAT2, "Busy State", ast_calendar_busy_state_to_str(event->busy_state));
 		ast_cli(a->fd, "\n");
 
 		event = ast_calendar_unref_event(event);

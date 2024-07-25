@@ -299,7 +299,7 @@ enum ast_event_ie_type {
 	AST_EVENT_IE_PRESENCE_MESSAGE    = 0x003c,
 
 	/*!
-	 * \brief Event non-cacheability flag
+	 * \brief Event non-cachability flag
 	 * Used by: All events
 	 * Payload type: UINT
 	 */
@@ -332,7 +332,11 @@ enum ast_event_ie_pltype {
 	AST_EVENT_IE_PLTYPE_BITFLAGS,
 };
 
-/*! \brief Results for checking for subscribers */
+/*!
+ * \brief Results for checking for subscribers
+ *
+ * \ref ast_event_check_subscriber()
+ */
 enum ast_event_subscriber_res {
 	/*! No subscribers exist */
 	AST_EVENT_SUB_NONE,

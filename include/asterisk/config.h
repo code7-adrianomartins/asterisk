@@ -181,12 +181,12 @@ struct ast_config *ast_config_load2(const char *filename, const char *who_asked,
 /*!
  * \brief Destroys a config
  *
- * \param cfg pointer to config data structure
+ * \param config pointer to config data structure
  *
  * \details
  * Free memory associated with a given config
  */
-void ast_config_destroy(struct ast_config *cfg);
+void ast_config_destroy(struct ast_config *config);
 
 /*!
  * \brief returns the root ast_variable of a config
@@ -219,7 +219,7 @@ void ast_config_sort_categories(struct ast_config *config, int descending,
  * Pass NULL to not restrict by category name.
  * \param prev A pointer to the starting category structure.
  * Pass NULL to start at the beginning.
- * \param filter An optional comma-separated list of \<name_regex\>=\<value_regex\>
+ * \param filter An optional comma-separated list of <name_regex>=<value_regex>
  * pairs.  Only categories with matching variables will be returned.
  * The special name 'TEMPLATES' can be used with the special values
  * 'include' or 'restrict' to include templates in the result or
@@ -259,7 +259,7 @@ char *ast_category_browse(struct ast_config *config, const char *prev_name);
  * \brief Browse variables
  * \param config Which config structure you wish to "browse"
  * \param category_name Which category to "browse"
- * \param filter an optional comma-separated list of \<name_regex\>=\<value_regex\>
+ * \param filter an optional comma-separated list of <name_regex>=<value_regex>
  * pairs.  Only categories with matching variables will be browsed.
  * The special name 'TEMPLATES' can be used with the special values
  * 'include' or 'restrict' to include templates in the result or
@@ -292,7 +292,7 @@ struct ast_variable *ast_category_first(struct ast_category *cat);
  * \param config which (opened) config to use
  * \param category category under which the variable lies
  * \param variable which variable you wish to get the data for
- * \param filter an optional comma-separated list of \<name_regex\>=\<value_regex\>
+ * \param filter an optional comma-separated list of <name_regex>=<value_regex>
  * pairs.  Only categories with matching variables will be searched.
  * The special name 'TEMPLATES' can be used with the special values
  * 'include' or 'restrict' to include templates in the result or
@@ -356,7 +356,7 @@ const char *ast_variable_find_last_in_list(const struct ast_variable *list, cons
  * \since 13.9.0
  *
  * \param list variable list to search
- * \param variable_name name you wish to get the data for
+ * \param variable name you wish to get the data for
  *
  * \details
  * Goes through a given variable list and searches for the given variable
@@ -373,7 +373,7 @@ const struct ast_variable *ast_variable_find_variable_in_list(const struct ast_v
  * \param category_name name of the category you're looking for
  * \param filter If a config contains more than 1 category with the same name,
  * you can specify a filter to narrow the search.  The filter is a comma-separated
- * list of \<name_regex\>=\<value_regex\> pairs.  Only a category with matching
+ * list of <name_regex>=<value_regex> pairs.  Only a category with matching
  * variables will be returned. The special name 'TEMPLATES' can be used with the
  * special values 'include' or 'restrict' to include templates in the result or
  * restrict the result to only templates.
@@ -422,7 +422,7 @@ struct ast_str *ast_category_get_templates(const struct ast_category *category);
  *
  * \param config which config to use
  * \param category_name name of the category you're looking for
- * \param filter an optional comma-separated list of \<name_regex\>=\<value_regex\>
+ * \param filter an optional comma-separated list of <name_regex>=<value_regex>
  * pairs.  Only categories with matching variables will be returned.
  * The special name 'TEMPLATES' can be used with the special values
  * 'include' or 'restrict' to include templates in the result or
@@ -440,7 +440,6 @@ int ast_category_exist(const struct ast_config *config, const char *category_nam
  * \brief Retrieve realtime configuration
  *
  * \param family which family/config to lookup
- * \param fields which fields to lookup
  *
  * \details
  * This will use builtin configuration backends to look up a particular
@@ -865,23 +864,23 @@ int ast_category_insert(struct ast_config *config, struct ast_category *cat, con
 /*!
  * \brief Delete a category
  *
- * \param cfg which config to use
- * \param cat category to delete
+ * \param config which config to use
+ * \param category category to delete
  *
  * \return the category after the deleted one which could be NULL.
  *
  * \note It is not safe to call ast_category_delete while browsing with
  * ast_category_browse.  It is safe with ast_category_browse_filtered.
  */
-struct ast_category *ast_category_delete(struct ast_config *cfg, struct ast_category *cat);
+struct ast_category *ast_category_delete(struct ast_config *cfg, struct ast_category *category);
 
 /*!
  * \brief Appends a category to a config
  *
  * \param config which config to use
- * \param category category to insert
+ * \param cat category to insert
  */
-void ast_category_append(struct ast_config *config, struct ast_category *category);
+void ast_category_append(struct ast_config *config, struct ast_category *cat);
 
 /*!
  * \brief Applies base (template) to category.
@@ -903,7 +902,7 @@ int ast_category_inherit(struct ast_category *existing, const struct ast_categor
  * \param category category to empty
  *
  * \retval 0 if succeeded
- * \retval -1 if category is NULL
+ * \retval -1 if categopry is NULL
  */
 int ast_category_empty(struct ast_category *category);
 
@@ -968,82 +967,6 @@ struct ast_variable *ast_variable_list_append_hint(struct ast_variable **head, s
 int ast_variable_list_replace(struct ast_variable **head, struct ast_variable *replacement);
 
 /*!
- * \brief Replace a variable in the given list with a new variable
- *
- * \param head   A pointer to the current variable list head.  Since the variable to be
- *               replaced, this pointer may be updated with the new head.
- * \param oldvar A pointer to the existing variable to be replaced.
- * \param newvar A pointer to the new variable that will replace the old one.
- *
- * \retval 0 if a variable was replaced in the list
- * \retval -1 if no replacement occured
- *
- * \note The search for the old variable is done simply on the pointer.
- * \note If a variable is replaced, its memory is freed.
- */
-int ast_variable_list_replace_variable(struct ast_variable **head,
-	struct ast_variable *oldvar,
-	struct ast_variable *newvar);
-
-/*!
- * \brief Join an ast_variable list with specified separators and quoted values
- *
- * \param head                 A pointer to an ast_variable list head.
- * \param item_separator       The string to use to separate the list items.
- *                             If NULL, "," will be used.
- * \param name_value_separator The string to use to separate each item's name and value.
- *                             If NULL, "=" will be used.
- * \param str                  A pointer to a pre-allocated ast_str in which to put the results.
- *                             If NULL, one will be allocated and returned.
- * \param quote_char           The quote char to use for the values.
- *                             May be NULL or empty for no quoting.
- *
- * \retval A pointer to the result ast_str. This may NOT be the same as the pointer
- *         passed in if the original ast_str wasn't large enough to hold the result.
- *         Regardless, the pointer MUST be freed after use.
- * \retval NULL if there was an error.
- */
-struct ast_str *ast_variable_list_join(const struct ast_variable *head, const char *item_separator,
-	const char *name_value_separator, const char *quote_char, struct ast_str **str);
-
-/*!
- * \brief Parse a string into an ast_variable list.  The reverse of ast_variable_list_join
- *
- * \param input                The name-value pair string to parse.
- * \param item_separator       The string used to separate the list items.
- *                             Only the first character in the string will be used.
- *                             If NULL, "," will be used.
- * \param name_value_separator The string used to separate each item's name and value.
- *                             Only the first character in the string will be used.
- *                             If NULL, "=" will be used.
- *
- * \retval A pointer to a list of ast_variables.
- * \retval NULL if there was an error or no variables could be parsed.
- */
-struct ast_variable *ast_variable_list_from_string(const char *input, const char *item_separator,
-	const char *name_value_separator);
-
-/*!
- * \brief Parse a string into an ast_variable list.  The reverse of ast_variable_list_join
- *
- * \param input                The name-value pair string to parse.
- * \param item_separator       The string used to separate the list items.
- *                             Only the first character in the string will be used.
- *                             If NULL, "," will be used.
- * \param name_value_separator The string used to separate each item's name and value.
- *                             Only the first character in the string will be used.
- *                             If NULL, "=" will be used.
- * \param quote_str            The string used to quote values.
- *                             Only the first character in the string will be used.
- *                             If NULL, '"' will be used.
- *
- * \retval A pointer to a list of ast_variables.
- * \retval NULL if there was an error or no variables could be parsed.
- */
-struct ast_variable *ast_variable_list_from_quoted_string(const char *input, const char *item_separator,
-	const char *name_value_separator, const char *quote_str);
-
-/*!
  * \brief Update variable value within a config
  *
  * \param category Category element within the config
@@ -1066,8 +989,7 @@ int ast_variable_update(struct ast_category *category, const char *variable,
  * \param generator generator
  * \param flags List of config_save_flags
  *
- * \retval 0 on success.
- * \retval -1 on failure.
+ * \return 0 on success or -1 on failure.
  */
 int ast_config_text_file_save2(const char *filename, const struct ast_config *cfg, const char *generator, uint32_t flags);
 
@@ -1078,8 +1000,7 @@ int ast_config_text_file_save2(const char *filename, const struct ast_config *cf
  * \param cfg ast_config
  * \param generator generator
  *
- * \retval 0 on success.
- * \retval -1 on failure.
+ * \return 0 on success or -1 on failure.
  */
 int ast_config_text_file_save(const char *filename, const struct ast_config *cfg, const char *generator);
 
@@ -1105,7 +1026,7 @@ enum config_hook_flags {
 	butt,
 };
 
-/*!
+/*
  * \brief Callback when configuration is updated
  *
  * \param cfg A copy of the configuration that is being changed.
@@ -1154,7 +1075,7 @@ void ast_config_hook_unregister(const char *name);
  * a set of flags to specify the result format and checks to perform,
  * a pointer to the result, and optionally some additional arguments.
  *
- * \return 0 on success, != 0 otherwise.
+ * \return It returns 0 on success, != 0 otherwise.
  */
 enum ast_parse_flags {
 	/* low 4 bits of flags are used for the operand type */
@@ -1220,7 +1141,7 @@ enum ast_parse_flags {
  * \param arg the string to parse. It is not modified.
  * \param flags combination of ast_parse_flags to specify the
  * 	return type and additional checks.
- * \param p_result pointer to the result. NULL is valid here, and can
+ * \param result pointer to the result. NULL is valid here, and can
  * 	be used to perform only the validity checks.
  * \param ... extra arguments are required according to flags.
  *
@@ -1253,7 +1174,7 @@ enum ast_parse_flags {
  * returns 1 because port is missing, sa contains address
  */
 int ast_parse_arg(const char *arg, enum ast_parse_flags flags,
-        void *p_result, ...);
+        void *result, ...);
 
 /*
  * Parsing config file options in C is slightly annoying because we cannot use

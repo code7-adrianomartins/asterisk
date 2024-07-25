@@ -58,7 +58,7 @@ if [[ -z ${cache_dir} ]] ; then
 fi
 
 version=$(${ASTTOPDIR}/build_tools/make_version ${ASTTOPDIR})
-if [[ ! ${version} =~ ^(GIT-)?(certified[/-])?([^.-]+)[.-].* ]] ; then
+if [[ ! ${version} =~ ^(GIT-)?(certified/)?([^.-]+)[.-].* ]] ; then
 	echo "${module_name}: Couldn't parse version ${version}"
 	exit 1
 fi
@@ -73,13 +73,8 @@ major_version=${major_version}.0
 
 if [[ "${HOST_CPU}" = "x86_64" ]] ; then
 	host_bits=64
-elif [[ "${HOST_CPU}" = "i386" ]] ; then
-	host_bits=32
-elif [[ "${HOST_CPU}" = "i686" ]] ; then
-	host_bits=32
 else
-	echo "${module_name}: External module downloading is not available for the ${HOST_CPU} platform.  Only x86 based platforms are currently supported.  Please disable this module in menuselect."
-	exit 1
+	host_bits=32
 fi
 
 if [[ -z "${variant}" ]] ; then
@@ -109,7 +104,7 @@ if [[ -z "${remote_url}" ]] ; then
 		remote_url="${remote_url}/asterisk-${major_version}/x86-${host_bits}"
 	else
 		directory_name=$(${XMLSTARLET} sel -t -v "/menu/category/member[@name = '${member_name}']/member_data/downloader/@directory_name" ${ASTTOPDIR}/menuselect-tree || :)
-		remote_url="https://downloads.digium.com/pub/telephony/${directory_name:-${module_name}}/asterisk-${major_version}/x86-${host_bits}"
+		remote_url="http://downloads.digium.com/pub/telephony/${directory_name:-${module_name}}/asterisk-${major_version}/x86-${host_bits}"
 	fi
 fi
 
@@ -160,7 +155,7 @@ if [[ -f ${DESTDIR}${ASTMODDIR}/${module_name}.manifest.xml ]] ; then
 				break
 			else
 				if [[ "$executable" = "yes" ]] ; then
-					# There are easier ways of doing this (objcopy --dump-section) but not in older binutils
+					# There are easier ways of doing this (objcopy --dump-section) but not in older bunutils
 					length_offset=$(objdump -h $f | sed -n -r -e "s/^\s+[0-9]+\s+.ast_manifest\s+([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+[0-9a-fA-F]+\s+([0-9a-fA-F]+)\s+.*$/0x\1 0x\2/p")
 					tags=$($(eval 'printf "dd if=$f bs=1 count=%d skip=%d\n" $length_offset') 2>/dev/null)
 					if [[ -n "${tags}" && "${tags}" != "${module_name},${variant},${rpv}" ]] ; then
@@ -172,7 +167,7 @@ if [[ -f ${DESTDIR}${ASTMODDIR}/${module_name}.manifest.xml ]] ; then
 
 				cs=$(${MD5} ${f} | cut -b1-32)
 				if [[ "${cs}" !=  "${sum}" ]] ; then
-					echo "Checksum mismatch: ${f}"
+					echo Checksum mismatch: ${f}
 					need_install=1
 					break
 				fi
@@ -194,8 +189,8 @@ else
 fi
 
 need_download=1
-if [[ -f ${cache_dir}/${full_name}-${major_version}.manifest.xml ]] ; then
-	cpv=$(${XMLSTARLET} sel -t -v "/package/@version" ${cache_dir}/${full_name}-${major_version}.manifest.xml)
+if [[ -f ${cache_dir}/${full_name}.manifest.xml ]] ; then
+	cpv=$(${XMLSTARLET} sel -t -v "/package/@version" ${cache_dir}/${full_name}.manifest.xml)
 	cpvi=$(version_convert ${cpv})
 	echo "${full_name}: Cached package version ${cpv} (${cpvi})"
 	if [[ ${cpvi} == ${rpvi} && ( -f ${cache_dir}/${tarball} ) ]] ; then
@@ -210,7 +205,7 @@ if [[ ${need_download} = 1 ]] ; then
 		echo "${full_name}: Unable to fetch ${remote_url}/${tarball}"
 		exit 1
 	}
-	cp ${tmpdir}/${variant_manifest}  ${cache_dir}/${full_name}-${major_version}.manifest.xml
+	cp ${tmpdir}/${variant_manifest}  ${cache_dir}/${full_name}.manifest.xml
 fi
 
 tar -xzf ${cache_dir}/${tarball} -C ${cache_dir}

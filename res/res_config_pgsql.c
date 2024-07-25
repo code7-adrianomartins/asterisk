@@ -82,7 +82,6 @@ static char dbappname[MAX_DB_OPTION_SIZE] = "";
 static char dbsock[MAX_DB_OPTION_SIZE] = "";
 static int dbport = 5432;
 static time_t connect_time = 0;
-static int order_multi_row_results_by_initial_column = 1;
 
 static int parse_config(int reload);
 static int pgsql_reconnect(const char *database);
@@ -127,7 +126,7 @@ static void destroy_table(struct tables *table)
 	ast_free(table);
 }
 
-/*! \brief Helper function for pgsql_exec.  For running queries, use pgsql_exec()
+/*! \brief Helper function for pgsql_exec.  For running querys, use pgsql_exec()
  *
  *  Connect if not currently connected.  Run the given query.
  *
@@ -391,7 +390,7 @@ static struct columns *find_column(struct tables *t, const char *colname)
 static struct ast_variable *realtime_pgsql(const char *database, const char *tablename, const struct ast_variable *fields)
 {
 	RAII_VAR(PGresult *, result, NULL, PQclear);
-	int pgresult;
+	int num_rows = 0, pgresult;
 	struct ast_str *sql = ast_str_thread_get(&sql_buf, 100);
 	struct ast_str *escapebuf = ast_str_thread_get(&escapebuf_buf, 100);
 	char *stringp;
@@ -473,7 +472,6 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 
 		ast_str_append(&sql, 0, " AND %s%s '%s'%s", field->name, op, ast_str_buffer(escapebuf), escape);
 	}
-	ast_str_append(&sql, 0, " LIMIT 1");
 
 	/* We now have our complete statement; Lets connect to the server and execute it. */
         if (pgsql_exec(database, tablename, ast_str_buffer(sql), &result) != 0) {
@@ -483,12 +481,13 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 
 	ast_debug(1, "PostgreSQL RealTime: Result=%p Query: %s\n", result, ast_str_buffer(sql));
 
-	if (PQntuples(result) > 0) {
+	if ((num_rows = PQntuples(result)) > 0) {
 		int i = 0;
+		int rowIndex = 0;
 		int numFields = PQnfields(result);
 		char **fieldnames = NULL;
 
-		ast_debug(1, "PostgreSQL RealTime: Found a row.\n");
+		ast_debug(1, "PostgreSQL RealTime: Found %d rows.\n", num_rows);
 
 		if (!(fieldnames = ast_calloc(1, numFields * sizeof(char *)))) {
 			ast_mutex_unlock(&pgsql_lock);
@@ -496,18 +495,20 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 		}
 		for (i = 0; i < numFields; i++)
 			fieldnames[i] = PQfname(result, i);
-		for (i = 0; i < numFields; i++) {
-			stringp = PQgetvalue(result, 0, i);
-			while (stringp) {
-				chunk = strsep(&stringp, ";");
-				if (chunk && !ast_strlen_zero(ast_realtime_decode_chunk(ast_strip(chunk)))) {
-					if (prev) {
-						prev->next = ast_variable_new(fieldnames[i], chunk, "");
-						if (prev->next) {
-							prev = prev->next;
+		for (rowIndex = 0; rowIndex < num_rows; rowIndex++) {
+			for (i = 0; i < numFields; i++) {
+				stringp = PQgetvalue(result, rowIndex, i);
+				while (stringp) {
+					chunk = strsep(&stringp, ";");
+					if (chunk && !ast_strlen_zero(ast_realtime_decode_chunk(ast_strip(chunk)))) {
+						if (prev) {
+							prev->next = ast_variable_new(fieldnames[i], chunk, "");
+							if (prev->next) {
+								prev = prev->next;
+							}
+						} else {
+							prev = var = ast_variable_new(fieldnames[i], chunk, "");
 						}
-					} else {
-						prev = var = ast_variable_new(fieldnames[i], chunk, "");
 					}
 				}
 			}
@@ -625,7 +626,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 		ast_str_append(&sql, 0, " AND %s%s '%s'%s", field->name, op, ast_str_buffer(escapebuf), escape);
 	}
 
-	if (initfield && order_multi_row_results_by_initial_column) {
+	if (initfield) {
 		ast_str_append(&sql, 0, " ORDER BY %s", initfield);
 	}
 
@@ -1235,8 +1236,8 @@ static int require_pgsql(const char *database, const char *tablename, va_list ap
 		AST_LIST_TRAVERSE(&table->columns, column, list) {
 			if (strcmp(column->name, elm) == 0) {
 				/* Char can hold anything, as long as it is large enough */
-				if ((strncmp(column->type, "char", 4) == 0 || strncmp(column->type, "varchar", 7) == 0 || strcmp(column->type, "bpchar") == 0 || strncmp(column->type, "text", 4) == 0)) {
-					if (column->len != -1 && (size > column->len)) {
+				if ((strncmp(column->type, "char", 4) == 0 || strncmp(column->type, "varchar", 7) == 0 || strcmp(column->type, "bpchar") == 0)) {
+					if ((size > column->len) && column->len != -1) {
 						ast_log(LOG_WARNING, "Column '%s' should be at least %d long, but is only %d long.\n", column->name, size, column->len);
 						res = -1;
 					}
@@ -1288,7 +1289,7 @@ static int require_pgsql(const char *database, const char *tablename, va_list ap
 				res = -1;
 			} else {
 				struct ast_str *sql = ast_str_create(100);
-				char fieldtype[20];
+				char fieldtype[10];
 				PGresult *result;
 
 				if (requirements == RQ_CREATECHAR || type == RQ_CHAR) {
@@ -1524,10 +1525,6 @@ static int parse_config(int is_reload)
 	} else if (!strcasecmp(s, "createchar")) {
 		requirements = RQ_CREATECHAR;
 	}
-
-	/* Result set ordering is enabled by default */
-	s = ast_variable_retrieve(config, "general", "order_multi_row_results_by_initial_column");
-	order_multi_row_results_by_initial_column = !s || ast_true(s);
 
 	ast_config_destroy(config);
 

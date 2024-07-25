@@ -33,7 +33,7 @@
  *
  * MWI state is managed via an underlying \ref stasis_state_manager (if interested see the
  * stasis_state.c module for the gory details). As such all last known mailbox state can be
- * retrieve and iterated over by using the \ref ast_mwi_subscribe_pool function.
+ * retrieve and iterated over by using the \ref ast_mwi_callback function.
  *
  * \par ast_mwi_subscriber
  *
@@ -122,7 +122,7 @@ struct ast_mwi_subscriber;
  *
  * \param mailbox The subscription state mailbox id
  *
- * \return An MWI subscriber object
+ * \retval An MWI subscriber object
  * \retval NULL on error
  *
  * \since 13.28.0
@@ -145,7 +145,7 @@ struct ast_mwi_subscriber *ast_mwi_add_subscriber(const char *mailbox);
  * \param callback The stasis subscription callback
  * \param data A user data object passed to the stasis subscription
  *
- * \return An MWI subscriber object
+ * \retval An MWI subscriber object
  * \retval NULL on error
  *
  * \since 13.28.0
@@ -159,6 +159,8 @@ struct ast_mwi_subscriber *ast_mwi_subscribe_pool(const char *mailbox,
  *
  * \param sub An MWI subscriber
  *
+ * \retval NULL
+ *
  * \since 13.28.0
  * \since 16.5.0
  */
@@ -169,6 +171,8 @@ void *ast_mwi_unsubscribe(struct ast_mwi_subscriber *sub);
  * is received, and then unsubscribe from MWI.
  *
  * \param sub An MWI subscriber
+ *
+ * \retval NULL
  *
  * \since 13.28.0
  * \since 16.5.0
@@ -183,7 +187,7 @@ void *ast_mwi_unsubscribe_and_join(struct ast_mwi_subscriber *sub);
  *
  * \param sub An MWI subscriber
  *
- * \return A stasis topic subscribed to by the subscriber
+ * \retval A stasis topic subscribed to by the subscriber
  *
  * \since 13.28.0
  * \since 16.5.0
@@ -197,7 +201,7 @@ struct stasis_topic *ast_mwi_subscriber_topic(struct ast_mwi_subscriber *sub);
  *
  * \param sub An MWI subscriber
  *
- * \return The state data object
+ * \retval The state data object
  *
  * \since 13.28.0
  * \since 16.5.0
@@ -209,7 +213,7 @@ struct ast_mwi_state *ast_mwi_subscriber_data(struct ast_mwi_subscriber *sub);
  *
  * \param sub An MWI subscriber
  *
- * \return The subscriber's stasis subscription
+ * \retval The subscriber's stasis subscription
  * \retval NULL if no subscription available
  *
  * \since 13.28.0
@@ -236,7 +240,7 @@ struct ast_mwi_publisher;
  *
  * \param mailbox The mailbox id to publish to
  *
- * \return An MWI publisher object
+ * \retval An MWI publisher object
  * \retval NULl on error
  *
  * \since 13.28.0
@@ -268,8 +272,7 @@ struct ast_mwi_observer {
  *
  * \param observer The observer handling events
  *
- * \retval 0 if successfully registered
- * \retval -1 otherwise
+ * \retval 0 if successfully registered, -1 otherwise
  *
  * \since 13.28.0
  * \since 16.5.0
@@ -292,8 +295,7 @@ void ast_mwi_remove_observer(struct ast_mwi_observer *observer);
  * \param mwi_state The mwi state object
  * \param data User data passed in by the initiator
  *
- * \retval 0 to continue traversing
- * \retval CMP_STOP (2) to stop traversing
+ * \retval 0 to continue traversing, or CMP_STOP (2) to stop traversing
  *
  * \since 13.28.0
  * \since 16.5.0
@@ -444,8 +446,8 @@ int ast_publish_mwi_state_full(
  */
 int ast_delete_mwi_state_full(const char *mailbox, const char *context, struct ast_eid *eid);
 
-/*!
- * \addtogroup StasisTopicsAndMessages
+/*! \addtogroup StasisTopicsAndMessages
+ * @{
  */
 
 /*!
@@ -480,7 +482,7 @@ struct ast_mwi_blob {
  * \param[in] mailbox The mailbox identifier string.
  * \param[in] context The context this mailbox resides in (NULL or "" if only using mailbox)
  *
- * \return \ref ast_mwi_state object on success
+ * \retval \ref ast_mwi_state object on success
  * \retval NULL on error
  */
 struct ast_mwi_state *ast_mwi_create(const char *mailbox, const char *context);
@@ -497,7 +499,7 @@ struct ast_mwi_state *ast_mwi_create(const char *mailbox, const char *context);
  * \param message_type The type of message to create
  * \param blob JSON object representing the data.
  * \return \ref ast_mwi_blob message.
- * \retval NULL on error
+ * \return \c NULL on error
  */
 struct stasis_message *ast_mwi_blob_create(struct ast_mwi_state *mwi_state,
 					   struct stasis_message_type *message_type,
@@ -505,7 +507,7 @@ struct stasis_message *ast_mwi_blob_create(struct ast_mwi_state *mwi_state,
 
 /*!
  * \brief Get the \ref stasis topic for MWI messages
- * \return The topic structure for MWI messages
+ * \retval The topic structure for MWI messages
  * \retval NULL if it has not been allocated
  * \since 12
  */
@@ -514,7 +516,7 @@ struct stasis_topic *ast_mwi_topic_all(void);
 /*!
  * \brief Get the \ref stasis topic for MWI messages on a unique ID
  * \param uniqueid The unique id for which to get the topic
- * \return The topic structure for MWI messages for a given uniqueid
+ * \retval The topic structure for MWI messages for a given uniqueid
  * \retval NULL if it failed to be found or allocated
  * \since 12
  */
@@ -522,7 +524,7 @@ struct stasis_topic *ast_mwi_topic(const char *uniqueid);
 
 /*!
  * \brief Get the \ref stasis caching topic for MWI messages
- * \return The caching topic structure for MWI messages
+ * \retval The caching topic structure for MWI messages
  * \retval NULL if it has not been allocated
  * \since 12
  */
@@ -530,13 +532,13 @@ struct stasis_topic *ast_mwi_topic_cached(void);
 
 /*!
  * \brief Backend cache for ast_mwi_topic_cached().
- * \return Cache of \ref ast_mwi_state.
+ * \retval Cache of \ref ast_mwi_state.
  */
 struct stasis_cache *ast_mwi_state_cache(void);
 
 /*!
  * \brief Get the \ref stasis message type for MWI messages
- * \return The message type structure for MWI messages
+ * \retval The message type structure for MWI messages
  * \retval NULL on error
  * \since 12
  */
@@ -552,7 +554,7 @@ struct stasis_message_type *ast_mwi_state_type(void);
  *
  * At least one key/value tuple must have a key value of "Event".
  *
- * \return The \ref stasis_message_type for voicemail application specific messages
+ * \retval The \ref stasis_message_type for voicemail application specific messages
  * \retval NULL on error
  * \since 12
  */

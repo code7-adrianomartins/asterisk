@@ -21,7 +21,10 @@
  * \brief ODBC CDR Backend
  *
  * \author Brian K. West <brian@bkw.org>
- * http://www.unixodbc.org
+ *
+ * See also:
+ * \arg http://www.unixodbc.org
+ * \arg \ref Config_cdr
  * \ingroup cdr_drivers
  */
 

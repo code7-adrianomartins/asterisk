@@ -254,7 +254,7 @@ free_docs:
 	}
 }
 
-/*!
+/*
  * \brief 'show application' CLI command implementation function...
  */
 static char *handle_show_application(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
@@ -465,7 +465,7 @@ const char *app_name(struct ast_app *app)
 	return app->name;
 }
 
-/*!
+/*
    \note This function is special. It saves the stack so that no matter
    how many times it is called, it returns to the same place */
 int pbx_exec(struct ast_channel *c,	/*!< Channel */
@@ -495,33 +495,6 @@ int pbx_exec(struct ast_channel *c,	/*!< Channel */
 	/* restore channel values */
 	ast_channel_appl_set(c, saved_c_appl);
 	ast_channel_data_set(c, saved_c_data);
-	return res;
-}
-
-int ast_pbx_exec_application(struct ast_channel *chan, const char *app_name, const char *app_args)
-{
-	int res = -1;
-	struct ast_app *app;
-
-	app = pbx_findapp(app_name);
-	if (!app) {
-		ast_log(LOG_WARNING, "Could not find application (%s)\n", app_name);
-	} else {
-		struct ast_str *substituted_args = NULL;
-
-		if (!ast_strlen_zero(app_args) && (substituted_args = ast_str_create(16))) {
-			ast_str_substitute_variables(&substituted_args, 0, chan, app_args);
-			res = pbx_exec(chan, app, ast_str_buffer(substituted_args));
-			ast_free(substituted_args);
-		} else {
-			if (!ast_strlen_zero(app_args)) {
-				ast_log(LOG_WARNING, "Could not substitute application argument variables for %s\n", app_name);
-			}
-			res = pbx_exec(chan, app, app_args);
-		}
-		/* Manually make a snapshot now, since pbx_exec won't necessarily get called again immediately. */
-		ast_channel_publish_snapshot(chan);
-	}
 	return res;
 }
 

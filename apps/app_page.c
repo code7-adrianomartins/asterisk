@@ -160,8 +160,6 @@ AST_APP_OPTIONS(page_opts, {
 	AST_APP_OPTION('n', PAGE_NOCALLERANNOUNCE),
 });
 
-#define PAGE_BEEP "beep"
-
 /* We use this structure as a way to pass this to all dialed channels */
 struct page_options {
 	char *opts[OPT_ARG_ARRAY_SIZE];
@@ -174,6 +172,8 @@ struct page_options {
  *
  * \param chan Setup bridge profile on this channel.
  * \param options Options to setup bridge profile.
+ *
+ * \return Nothing
  */
 static void setup_profile_bridge(struct ast_channel *chan, struct page_options *options)
 {
@@ -190,6 +190,8 @@ static void setup_profile_bridge(struct ast_channel *chan, struct page_options *
  *
  * \param chan Setup user profile on this channel.
  * \param options Options to setup paged user profile.
+ *
+ * \return Nothing
  */
 static void setup_profile_paged(struct ast_channel *chan, struct page_options *options)
 {
@@ -212,6 +214,8 @@ static void setup_profile_paged(struct ast_channel *chan, struct page_options *o
  *
  * \param chan Setup user profile on this channel.
  * \param options Options to setup caller user profile.
+ *
+ * \return Nothing
  */
 static void setup_profile_caller(struct ast_channel *chan, struct page_options *options)
 {
@@ -398,14 +402,9 @@ static int page_exec(struct ast_channel *chan, const char *data)
 	ast_free(predial_callee);
 
 	if (!ast_test_flag(&options.flags, PAGE_QUIET)) {
-		if (!ast_fileexists(PAGE_BEEP, NULL, NULL)) {
-			ast_log(LOG_WARNING, "Missing required sound file: '" PAGE_BEEP "'\n");
-		} else {
-			res = ast_streamfile(chan, PAGE_BEEP, ast_channel_language(chan));
-			if (!res) {
-				res = ast_waitstream(chan, "");
-			}
-		}
+		res = ast_streamfile(chan, "beep", ast_channel_language(chan));
+		if (!res)
+			res = ast_waitstream(chan, "");
 	}
 
 	if (!res) {

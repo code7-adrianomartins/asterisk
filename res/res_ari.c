@@ -43,7 +43,7 @@
  * The structure of the generated code is:
  *
  *  - res/ari/resource_{resource}.h
- *    - For each operation in the resource, a generated argument structure
+ *    - For each operation in the resouce, a generated argument structure
  *      (holding the parsed arguments from the request) and function
  *      declarations (to implement in res/ari/resource_{resource}.c)
  *  - res_ari_{resource}.c
@@ -93,15 +93,15 @@
 					</description>
 					<see-also>
 						<ref type="filename">http.conf</ref>
-						<ref type="link">https://docs.asterisk.org/Configuration/Core-Configuration/Asterisk-Builtin-mini-HTTP-Server/</ref>
+						<ref type="link">https://wiki.asterisk.org/wiki/display/AST/Asterisk+Builtin+mini-HTTP+Server</ref>
 					</see-also>
 				</configOption>
-				<configOption name="websocket_write_timeout" default="100">
+				<configOption name="websocket_write_timeout">
 					<synopsis>The timeout (in milliseconds) to set on WebSocket connections.</synopsis>
 					<description>
 						<para>If a websocket connection accepts input slowly, the timeout
 						for writes to it can be increased to keep it from being disconnected.
-						Value is in milliseconds.</para>
+						Value is in milliseconds; default is 100 ms.</para>
 					</description>
 				</configOption>
 				<configOption name="pretty">
@@ -815,7 +815,7 @@ enum ast_json_encoding_format ast_ari_json_format(void)
  *
  * \param api_key API key query parameter
  * \return User object for the authenticated user.
- * \retval NULL if authentication failed.
+ * \return \c NULL if authentication failed.
  */
 static struct ast_ari_conf_user *authenticate_api_key(const char *api_key)
 {
@@ -841,9 +841,9 @@ static struct ast_ari_conf_user *authenticate_api_key(const char *api_key)
  * \brief Authenticate an HTTP request.
  *
  * \param get_params GET parameters of the request.
- * \param headers HTTP headers.
+ * \param header HTTP headers.
  * \return User object for the authenticated user.
- * \retval NULL if authentication failed.
+ * \return \c NULL if authentication failed.
  */
 static struct ast_ari_conf_user *authenticate_user(struct ast_variable *get_params,
 	struct ast_variable *headers)

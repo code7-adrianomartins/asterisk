@@ -54,7 +54,7 @@ int ast_utf8_is_validn(const char *str, size_t size);
  * \brief Copy a string safely ensuring valid UTF-8
  * \since 13.36.0, 16.13.0, 17.7.0, 18.0.0
  *
- * This is similar to \ref ast_copy_string, but it will only copy valid UTF-8
+ * This is similar to \a ast_copy_string, but it will only copy valid UTF-8
  * sequences from the source string into the destination buffer. If an invalid
  * UTF-8 sequence is encountered, or the available space in the destination
  * buffer is exhausted in the middle of an otherwise valid UTF-8 sequence, the
@@ -64,61 +64,9 @@ int ast_utf8_is_validn(const char *str, size_t size);
  * \param dst The destination buffer.
  * \param src The source string
  * \param size The size of the destination buffer
+ * \return Nothing.
  */
 void ast_utf8_copy_string(char *dst, const char *src, size_t size);
-
-enum ast_utf8_replace_result {
-	/*! \brief Source contained fully valid UTF-8
-	 *
-	 * The entire string was valid UTF-8 and no replacement
-	 * was required.
-	 */
-	AST_UTF8_REPLACE_VALID,
-
-	/*! \brief Source contained at least 1 invalid UTF-8 sequence
-	 *
-	 * Parts of the string contained invalid UTF-8 sequences
-	 * but those were successfully replaced with the U+FFFD
-	 * replacement sequence.
-	 */
-	AST_UTF8_REPLACE_INVALID,
-
-	/*! \brief Not enough space to copy entire source
-	 *
-	 * The destination buffer wasn't large enough to copy
-	 * all of the source characters.  As many of the source
-	 * characters that could be copied/replaced were done so
-	 * and a final NULL terminator added.
-	 */
-	AST_UTF8_REPLACE_OVERRUN,
-};
-
-/*!
- * \brief Copy a string safely replacing any invalid UTF-8 sequences
- *
- * This is similar to \ref ast_copy_string, but it will only copy valid UTF-8
- * sequences from the source string into the destination buffer.
- * If an invalid sequence is encountered, it's replaced with the \uFFFD
- * sequence which is the valid UTF-8 sequence that represents an unknown,
- * unrecognized, or unrepresentable character.  Since \uFFFD is actually a
- * 3 byte sequence, the destination buffer will need to be larger than
- * the corresponding source string if it contains invalid sequences.
- * You can pass NULL as the destination buffer pointer to get the actual
- * size required, then call the function again with the properly sized
- * buffer.
- *
- * \param dst       Pointer to the destination buffer. If NULL,
- *                  dst_size will be set to the size of the
- *                  buffer required to fully process the
- *                  source string.
- * \param dst_size  A pointer to the size of the dst buffer
- * \param src       The source string
- * \param src_len   The number of bytes to copy
- *
- * \return \ref ast_utf8_replace_result
- */
-enum ast_utf8_replace_result ast_utf8_replace_invalid_chars(char *dst,
-	size_t *dst_size, const char *src, size_t src_len);
 
 enum ast_utf8_validation_result {
 	/*! \brief The consumed sequence is valid UTF-8
@@ -233,7 +181,7 @@ void ast_utf8_validator_destroy(struct ast_utf8_validator *validator);
  *
  * Does nothing unless TEST_FRAMEWORK is defined.
  *
- * \retval 0 Always
+ * \return Always returns 0
  */
 int ast_utf8_init(void);
 

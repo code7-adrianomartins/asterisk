@@ -61,6 +61,8 @@ int ast_ari_websocket_events_event_websocket_init(void);
 
 /*!
  * \brief WebSocket connection for events.
+ *
+ * \return Nothing
  */
 void ast_ari_websocket_events_event_websocket_dtor(void);
 
@@ -84,6 +86,7 @@ int ast_ari_websocket_events_event_websocket_attempted(struct ast_tcptls_session
  * \param session ARI WebSocket.
  * \param headers HTTP headers.
  * \param args Swagger parameters.
+ * \param session_id The id of the current session.
  */
 void ast_ari_websocket_events_event_websocket_established(struct ast_ari_websocket_session *session,
 	struct ast_variable *headers, struct ast_ari_events_event_websocket_args *args);

@@ -120,8 +120,6 @@ struct stun_addr {
 #define STUN_UNKNOWN_ATTRIBUTES	0x000a
 #define STUN_REFLECTED_FROM	0x000b
 
-#define STUN_MAX_RETRIES 3
-
 /*! \brief helper function to print message names */
 static const char *stun_msg2str(int msg)
 {
@@ -237,29 +235,6 @@ static void append_attr_address(struct stun_attr **attr, int attrval, struct soc
 	}
 }
 
-static void handle_stun_timeout(int retry, struct sockaddr_in *dst)
-{
-	char *stun_destination = "";
-	if (dst) {
-		ast_asprintf(&stun_destination, "to '%s' ", ast_inet_ntoa(dst->sin_addr));
-	}
-	if (retry < STUN_MAX_RETRIES) {
-		ast_log(LOG_NOTICE,
-			"Attempt %d to send STUN request %stimed out.\n",
-			retry,
-			stun_destination);
-	} else {
-		ast_log(LOG_WARNING,
-			"Attempt %d to send STUN request %stimed out. "
-			"Check that the server address is correct and reachable.\n",
-			retry,
-			stun_destination);
-	}
-	if (dst) {
-		ast_free(stun_destination);
-	}
-}
-
 /*! \brief wrapper to send an STUN message */
 static int stun_send(int s, struct sockaddr_in *dst, struct stun_header *resp)
 {
@@ -269,7 +244,7 @@ static int stun_send(int s, struct sockaddr_in *dst, struct stun_header *resp)
 
 /*!
  * \internal
- * \brief Compare the STUN transaction IDs.
+ * \brief Compare the STUN tranaction IDs.
  *
  * \param left Transaction ID.
  * \param right Transaction ID.
@@ -370,13 +345,7 @@ int ast_stun_handle_packet(int s, struct sockaddr_in *src, unsigned char *data, 
 					    st.username ? st.username : "<none>");
 			if (st.username) {
 				append_attr_string(&attr, STUN_USERNAME, st.username, &resplen, &respleft);
-				/*
-				 * For Google Voice, the stun username is made up of the local
-				 * and remote usernames, each being fixed at 16 bytes.  We have
-				 * to swap the two at this point.
-				 */
-				snprintf(combined, 17, "%16s", st.username + 16);
-				snprintf(combined + 16, 17, "%16s", st.username);
+				snprintf(combined, sizeof(combined), "%16s%16s", st.username + 16, st.username);
 			} else {
 				combined[0] = '\0';
 			}
@@ -441,7 +410,7 @@ int ast_stun_request(int s, struct sockaddr_in *dst,
 	req->msglen = htons(reqlen);
 	req->msgtype = htons(STUN_BINDREQ);
 
-	for (retry = 0; retry++ < STUN_MAX_RETRIES;) {	/* XXX make retries configurable */
+	for (retry = 0; retry++ < 3;) {	/* XXX make retries configurable */
 		/* send request, possibly wait for reply */
 		struct sockaddr_in src;
 		socklen_t srclen;
@@ -469,7 +438,6 @@ try_again:
 			ms = ast_remaining_ms(start, 3000);
 			if (ms <= 0) {
 				/* No response, timeout */
-				handle_stun_timeout(retry, dst);
 				res = 1;
 				continue;
 			}
@@ -480,7 +448,6 @@ try_again:
 			}
 			if (!res) {
 				/* No response, timeout */
-				handle_stun_timeout(retry, dst);
 				res = 1;
 				continue;
 			}

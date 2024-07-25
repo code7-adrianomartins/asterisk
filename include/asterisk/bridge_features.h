@@ -91,6 +91,12 @@ enum ast_bridge_builtin_feature {
 	 */
 	AST_BRIDGE_BUILTIN_PARKCALL,
 	/*!
+	 * DTMF one-touch-record toggle using Monitor app.
+	 *
+	 * \note Only valid on two party bridges.
+	 */
+	AST_BRIDGE_BUILTIN_AUTOMON,
+	/*!
 	 * DTMF one-touch-record toggle using MixMonitor app.
 	 *
 	 * \note Only valid on two party bridges.
@@ -118,11 +124,14 @@ struct ast_bridge_channel;
  * \param bridge_channel Channel executing the feature
  * \param hook_pvt Private data passed in when the hook was created
  *
- * \retval 0        for interval hooks: setup to fire again at the last interval.
- *                  for other hooks: keep the callback hook.
- * \retval positive for interval hooks: Setup to fire again at the new interval returned.
- *                  for other hooks: n/a
- * \retval -1       for all hooks: remove the callback hook.
+ * For interval hooks:
+ * \retval 0 Setup to fire again at the last interval.
+ * \retval positive Setup to fire again at the new interval returned.
+ * \retval -1 Remove the callback hook.
+ *
+ * For other hooks:
+ * \retval 0 Keep the callback hook.
+ * \retval -1 Remove the callback hook.
  */
 typedef int (*ast_bridge_hook_callback)(struct ast_bridge_channel *bridge_channel, void *hook_pvt);
 
@@ -299,12 +308,17 @@ struct ast_bridge_features_attended_transfer {
 };
 
 enum ast_bridge_features_monitor {
-	/*! Toggle start/stop of MixMonitor. */
+	/*! Toggle start/stop of Monitor/MixMonitor. */
 	AUTO_MONITOR_TOGGLE,
-	/*! Start MixMonitor if not already started. */
+	/*! Start Monitor/MixMonitor if not already started. */
 	AUTO_MONITOR_START,
-	/*! Stop MixMonitor if not already stopped. */
+	/*! Stop Monitor/MixMonitor if not already stopped. */
 	AUTO_MONITOR_STOP,
+};
+
+struct ast_bridge_features_automonitor {
+	/*! Start/Stop behavior. */
+	enum ast_bridge_features_monitor start_stop;
 };
 
 struct ast_bridge_features_automixmonitor {
@@ -440,7 +454,7 @@ int ast_bridge_interval_register(enum ast_bridge_builtin_interval interval, ast_
  *
  * \code
  * ast_bridge_interval_unregister(AST_BRIDGE_BULTIN_INTERVAL_LIMITS)
- * \endcode
+ * /endcode
  *
  * This unregisters the function that is handling the built in duration limit feature.
  */
@@ -652,7 +666,7 @@ int ast_bridge_talk_detector_hook(struct ast_bridge_features *features,
  * ast_bridge_move_hook(&features, move_callback, NULL, NULL, 0);
  * \endcode
  *
- * This makes the bridging core call \p callback when a
+ * This makes the bridging core call \ref callback when a
  * channel is moved from one bridge to another.  A
  * pointer to useful data may be provided to the hook_pvt
  * parameter.
@@ -698,7 +712,7 @@ int ast_bridge_features_enable(struct ast_bridge_features *features,
 /*!
  * \brief Constructor function for ast_bridge_features_limits
  *
- * \param limits pointer to a ast_bridge_features_limits struct that has been allocated, but not initialized
+ * \param limits pointer to a ast_bridge_features_limits struct that has been allocted, but not initialized
  *
  * \retval 0 on success
  * \retval -1 on failure
@@ -749,6 +763,8 @@ int ast_bridge_features_set_limits(struct ast_bridge_features *features, struct 
  * \param features Bridge channel features structure
  * \param flag Flag to enable
  *
+ * \return Nothing
+ *
  * Example usage:
  *
  * \code
@@ -797,6 +813,8 @@ int ast_bridge_features_init(struct ast_bridge_features *features);
  *
  * \param features Bridge features structure
  *
+ * \return Nothing
+ *
  * Example usage:
  *
  * \code
@@ -824,7 +842,7 @@ void ast_bridge_features_cleanup(struct ast_bridge_features *features);
  * ast_bridge_features_destroy(features);
  * \endcode
  *
- * \return features New allocated features struct.
+ * \retval features New allocated features struct.
  * \retval NULL on error.
  */
 struct ast_bridge_features *ast_bridge_features_new(void);
@@ -842,6 +860,8 @@ struct ast_bridge_features *ast_bridge_features_new(void);
  * features = ast_bridge_features_new();
  * ast_bridge_features_destroy(features);
  * \endcode
+ *
+ * \return Nothing
  */
 void ast_bridge_features_destroy(struct ast_bridge_features *features);
 

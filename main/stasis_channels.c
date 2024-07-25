@@ -39,7 +39,6 @@
 #include "asterisk/stasis_channels.h"
 #include "asterisk/dial.h"
 #include "asterisk/linkedlists.h"
-#include "asterisk/utf8.h"
 
 /*** DOCUMENTATION
 	<managerEvent language="en_US" name="VarSet">
@@ -274,7 +273,7 @@ static struct ast_channel_snapshot_base *channel_snapshot_base_create(struct ast
 		return NULL;
 	}
 
-	if (ast_string_field_init(snapshot, 256) || ast_string_field_init_extended(snapshot, protocol_id)) {
+	if (ast_string_field_init(snapshot, 256)) {
 		ao2_ref(snapshot, -1);
 		return NULL;
 	}
@@ -288,10 +287,6 @@ static struct ast_channel_snapshot_base *channel_snapshot_base_create(struct ast
 
 	snapshot->creationtime = ast_channel_creationtime(chan);
 	snapshot->tech_properties = ast_channel_tech(chan)->properties;
-
-	if (ast_channel_tech(chan)->get_pvt_uniqueid) {
-		ast_string_field_set(snapshot, protocol_id, ast_channel_tech(chan)->get_pvt_uniqueid(chan));
-	}
 
 	return snapshot;
 }
@@ -1155,43 +1150,13 @@ void ast_channel_publish_blob(struct ast_channel *chan, struct stasis_message_ty
 void ast_channel_publish_varset(struct ast_channel *chan, const char *name, const char *value)
 {
 	struct ast_json *blob;
-	enum ast_utf8_replace_result result;
-	char *new_value = NULL;
-	size_t new_value_size = 0;
 
 	ast_assert(name != NULL);
 	ast_assert(value != NULL);
 
-	/*
-	 * Call with new-value == NULL to just check for invalid UTF-8
-	 * sequences and get size of buffer needed.
-	 */
-	result = ast_utf8_replace_invalid_chars(new_value, &new_value_size,
-			value, strlen(value));
-
-	if (result == AST_UTF8_REPLACE_VALID) {
-		/*
-		 * If there were no invalid sequences, we can use
-		 * the value directly.
-		 */
-		new_value = (char *)value;
-	} else {
-		/*
-		 * If there were invalid sequences, we need to replace
-		 * them with the UTF-8 U+FFFD replacement character.
-		 */
-		new_value = ast_alloca(new_value_size);
-
-		result = ast_utf8_replace_invalid_chars(new_value, &new_value_size,
-			value, strlen(value));
-
-		ast_log(LOG_WARNING, "%s: The contents of variable '%s' had invalid UTF-8 sequences which were replaced",
-			ast_channel_name(chan), name);
-	}
-
 	blob = ast_json_pack("{s: s, s: s}",
 			     "variable", name,
-			     "value", new_value);
+			     "value", value);
 	if (!blob) {
 		ast_log(LOG_ERROR, "Error creating message\n");
 		return;
@@ -1301,15 +1266,14 @@ struct ast_json *ast_channel_snapshot_to_json(
 	}
 
 	json_chan = ast_json_pack(
-		/* Broken up into groups for readability */
-		"{ s: s, s: s, s: s, s: s,"
+		/* Broken up into groups of three for readability */
+		"{ s: s, s: s, s: s,"
 		"  s: o, s: o, s: s,"
 		"  s: o, s: o, s: s }",
 		/* First line */
 		"id", snapshot->base->uniqueid,
 		"name", snapshot->base->name,
 		"state", ast_state2str(snapshot->state),
-		"protocol_id", snapshot->base->protocol_id,
 		/* Second line */
 		"caller", ast_json_name_number(
 			snapshot->caller->name, snapshot->caller->number),
@@ -1322,10 +1286,6 @@ struct ast_json *ast_channel_snapshot_to_json(
 			snapshot->dialplan->appl, snapshot->dialplan->data),
 		"creationtime", ast_json_timeval(snapshot->base->creationtime, NULL),
 		"language", snapshot->base->language);
-
-	if (!ast_strlen_zero(snapshot->caller->rdnis)) {
-		ast_json_object_set(json_chan, "caller_rdnis", ast_json_string_create(snapshot->caller->rdnis));
-	}
 
 	if (snapshot->ari_vars && !AST_LIST_EMPTY(snapshot->ari_vars)) {
 		ast_json_object_set(json_chan, "channelvars", ast_json_channel_vars(snapshot->ari_vars));
@@ -1638,17 +1598,14 @@ STASIS_MESSAGE_TYPE_DEFN(ast_channel_hold_type,
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_unhold_type,
 	.to_json = unhold_to_json,
 	);
-STASIS_MESSAGE_TYPE_DEFN(ast_channel_flash_type);
-STASIS_MESSAGE_TYPE_DEFN(ast_channel_wink_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_chanspy_start_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_chanspy_stop_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_fax_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_hangup_handler_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_moh_start_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_moh_stop_type);
-STASIS_MESSAGE_TYPE_DEFN(ast_channel_mixmonitor_start_type);
-STASIS_MESSAGE_TYPE_DEFN(ast_channel_mixmonitor_stop_type);
-STASIS_MESSAGE_TYPE_DEFN(ast_channel_mixmonitor_mute_type);
+STASIS_MESSAGE_TYPE_DEFN(ast_channel_monitor_start_type);
+STASIS_MESSAGE_TYPE_DEFN(ast_channel_monitor_stop_type);
 STASIS_MESSAGE_TYPE_DEFN(ast_channel_agent_login_type,
 	.to_ami = agent_login_to_ami,
 	);
@@ -1682,8 +1639,6 @@ static void stasis_channels_cleanup(void)
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_masquerade_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_dtmf_begin_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_dtmf_end_type);
-	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_flash_type);
-	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_wink_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_hold_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_unhold_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_chanspy_start_type);
@@ -1692,9 +1647,8 @@ static void stasis_channels_cleanup(void)
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_hangup_handler_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_moh_start_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_moh_stop_type);
-	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_mixmonitor_start_type);
-	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_mixmonitor_stop_type);
-	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_mixmonitor_mute_type);
+	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_monitor_start_type);
+	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_monitor_stop_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_agent_login_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_agent_logoff_type);
 	STASIS_MESSAGE_TYPE_CLEANUP(ast_channel_talking_start);
@@ -1735,8 +1689,6 @@ int ast_stasis_channels_init(void)
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_masquerade_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_dtmf_begin_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_dtmf_end_type);
-	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_flash_type);
-	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_wink_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_hold_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_unhold_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_chanspy_start_type);
@@ -1745,9 +1697,8 @@ int ast_stasis_channels_init(void)
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_hangup_handler_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_moh_start_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_moh_stop_type);
-	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_mixmonitor_start_type);
-	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_mixmonitor_stop_type);
-	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_mixmonitor_mute_type);
+	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_monitor_start_type);
+	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_monitor_stop_type);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_talking_start);
 	res |= STASIS_MESSAGE_TYPE_INIT(ast_channel_talking_stop);
 

@@ -102,7 +102,6 @@
 						<enum name="FORWARD"/>
 						<enum name="LINKEDID_END"/>
 						<enum name="LOCAL_OPTIMIZE"/>
-						<enum name="LOCAL_OPTIMIZE_BEGIN"/>
 					</enumlist>
 					</description>
 				</configOption>
@@ -322,7 +321,6 @@ static const char * const cel_event_types[CEL_MAX_EVENT_IDS] = {
 	[AST_CEL_FORWARD]          = "FORWARD",
 	[AST_CEL_LINKEDID_END]     = "LINKEDID_END",
 	[AST_CEL_LOCAL_OPTIMIZE]   = "LOCAL_OPTIMIZE",
-	[AST_CEL_LOCAL_OPTIMIZE_BEGIN]   = "LOCAL_OPTIMIZE_BEGIN",
 };
 
 struct cel_backend {
@@ -974,7 +972,7 @@ static void cel_channel_app_change(
 	}
 }
 
-/*! \brief Handlers for channel snapshot changes.
+/* \brief Handlers for channel snapshot changes.
  * \note Order of the handlers matters. Application changes must come before state
  * changes to ensure that hangup notifications occur after application changes.
  * Linkedid checking should always come last.
@@ -1391,11 +1389,9 @@ static void cel_pickup_cb(
 	ast_json_unref(extra);
 }
 
-
-static void cel_local_optimization_cb_helper(
+static void cel_local_cb(
 	void *data, struct stasis_subscription *sub,
-	struct stasis_message *message,
-	enum ast_cel_event_type event_type)
+	struct stasis_message *message)
 {
 	struct ast_multi_channel_blob *obj = stasis_message_data(message);
 	struct ast_channel_snapshot *localone = ast_multi_channel_blob_get_channel(obj, "1");
@@ -1413,25 +1409,8 @@ static void cel_local_optimization_cb_helper(
 		return;
 	}
 
-	cel_report_event(localone, event_type, stasis_message_timestamp(message), NULL, extra, NULL);
+	cel_report_event(localone, AST_CEL_LOCAL_OPTIMIZE, stasis_message_timestamp(message), NULL, extra, NULL);
 	ast_json_unref(extra);
-}
-
-static void cel_local_optimization_end_cb(
-	void *data, struct stasis_subscription *sub,
-	struct stasis_message *message)
-{
-	/* The AST_CEL_LOCAL_OPTIMIZE event has always been triggered by the end of optimization.
-	   This can either be used as an indication that the call was locally optimized, or as
-	   the END event in combination with the subsequently added BEGIN event. */
-	cel_local_optimization_cb_helper(data, sub, message, AST_CEL_LOCAL_OPTIMIZE);
-}
-
-static void cel_local_optimization_begin_cb(
-	void *data, struct stasis_subscription *sub,
-	struct stasis_message *message)
-{
-	cel_local_optimization_cb_helper(data, sub, message, AST_CEL_LOCAL_OPTIMIZE_BEGIN);
 }
 
 static void destroy_routes(void)
@@ -1576,12 +1555,7 @@ static int create_routes(void)
 
 	ret |= stasis_message_router_add(cel_state_router,
 		ast_local_optimization_end_type(),
-		cel_local_optimization_end_cb,
-		NULL);
-
-	ret |= stasis_message_router_add(cel_state_router,
-		ast_local_optimization_begin_type(),
-		cel_local_optimization_begin_cb,
+		cel_local_cb,
 		NULL);
 
 	if (ret) {
@@ -1687,21 +1661,6 @@ static int reload_module(void)
 	ast_verb(3, "CEL logging %sabled.\n", is_enabled ? "en" : "dis");
 
 	return 0;
-}
-
-void ast_cel_publish_user_event(struct ast_channel *chan,
-	const char *event,
-	const char *extra)
-{
-	RAII_VAR(struct ast_json *, blob, NULL, ast_json_unref);
-
-	blob = ast_json_pack("{s: s, s: {s: s}}",
-		"event", event,
-		"extra", "extra", S_OR(extra, ""));
-	if (!blob) {
-		return;
-	}
-	ast_cel_publish_event(chan, AST_CEL_USER_DEFINED, blob);
 }
 
 void ast_cel_publish_event(struct ast_channel *chan,

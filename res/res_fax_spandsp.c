@@ -167,17 +167,10 @@ struct spandsp_pvt {
 static int spandsp_v21_new(struct spandsp_pvt *p);
 static void session_destroy(struct spandsp_pvt *p);
 static int t38_tx_packet_handler(t38_core_state_t *t38_core_state, void *data, const uint8_t *buf, int len, int count);
-static int update_stats(struct spandsp_pvt *p, int completion_code);
-static int spandsp_modems(struct ast_fax_session_details *details);
-#if SPANDSP_RELEASE_DATE >= 20120902
-/* for spandsp shaphots 3.0.0 and higher */
-static void t30_phase_e_handler(void *data, int completion_code);
-static void spandsp_log(void *user_data, int level, const char *msg);
-#else
-/* for spandsp release 0.0.6 */
 static void t30_phase_e_handler(t30_state_t *t30_state, void *data, int completion_code);
 static void spandsp_log(int level, const char *msg);
-#endif
+static int update_stats(struct spandsp_pvt *p, int completion_code);
+static int spandsp_modems(struct ast_fax_session_details *details);
 
 static void set_logging(logging_state_t *state, struct ast_fax_session_details *details);
 static void set_local_info(t30_state_t *t30_state, struct ast_fax_session_details *details);
@@ -382,23 +375,13 @@ static int update_stats(struct spandsp_pvt *p, int completion_code)
  * This function pulls stats from the spandsp stack and stores them for res_fax
  * to use later.
  */
-#if SPANDSP_RELEASE_DATE >= 20120902
-/* for spandsp shaphots 3.0.0 and higher */
-static void t30_phase_e_handler(void *data, int completion_code)
-#else
-/* for spandsp release 0.0.6 */
 static void t30_phase_e_handler(t30_state_t *t30_state, void *data, int completion_code)
-#endif
 {
 	struct ast_fax_session *s = data;
 	struct spandsp_pvt *p = s->tech_pvt;
 	char headerinfo[T30_MAX_PAGE_HEADER_INFO + 1];
 	const char *c;
 	t30_stats_t stats;
-#if SPANDSP_RELEASE_DATE >= 20120902
-	/* for spandsp shaphots 3.0.0 and higher */
-	t30_state_t *t30_state = p->t30_state;
-#endif
 
 	ast_debug(5, "FAX session '%u' entering phase E\n", s->id);
 
@@ -447,13 +430,7 @@ static void t30_phase_e_handler(t30_state_t *t30_state, void *data, int completi
  *
  * \note This function is a callback function called by spandsp.
  */
-#if SPANDSP_RELEASE_DATE >= 20120902
-/* for spandsp shaphots 3.0.0 and higher */
-static void spandsp_log(void *user_data, int level, const char *msg)
-#else
-/* for spandsp release 0.0.6 */
 static void spandsp_log(int level, const char *msg)
-#endif
 {
 	if (level == SPAN_LOG_ERROR) {
 		ast_log(LOG_ERROR, "%s", msg);
@@ -468,17 +445,11 @@ static void set_logging(logging_state_t *state, struct ast_fax_session_details *
 {
 	int level = SPAN_LOG_WARNING;
 
-	if (details->option.debug) {
+        if (details->option.debug) {
 		level = SPAN_LOG_DEBUG_3;
 	}
 
-#if SPANDSP_RELEASE_DATE >= 20120902
-	/* for spandsp shaphots 3.0.0 and higher */
-	span_log_set_message_handler(state, spandsp_log, NULL);
-#else
-	/* for spandsp release 0.0.6 */
 	span_log_set_message_handler(state, spandsp_log);
-#endif
 	span_log_set_level(state, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | level);
 }
 
@@ -508,13 +479,7 @@ static void set_file(t30_state_t *t30_state, struct ast_fax_session_details *det
 static void set_ecm(t30_state_t *t30_state, struct ast_fax_session_details *details)
 {
 	t30_set_ecm_capability(t30_state, details->option.ecm);
-#if SPANDSP_RELEASE_DATE >= 20120902
-	/* for spandsp shaphots 3.0.0 and higher */
-	t30_set_supported_compressions(t30_state, T4_COMPRESSION_T4_1D | T4_COMPRESSION_T4_2D | T4_COMPRESSION_T6);
-#else
-	/* for spandsp release 0.0.6 */
 	t30_set_supported_compressions(t30_state, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
-#endif
 }
 
 static int spandsp_v21_new(struct spandsp_pvt *p)
@@ -925,7 +890,7 @@ static int spandsp_fax_gateway_start(struct ast_fax_session *s)
 /*! \brief process a frame from the bridge
  * \param s fax session
  * \param f frame to process
- * \return 1 on sucess 0 on incorrect packet*/
+ * \return 1 on sucess 0 on incorect packet*/
 static int spandsp_fax_gateway_process(struct ast_fax_session *s, const struct ast_frame *f)
 {
 	struct spandsp_pvt *p = s->tech_pvt;
@@ -1291,13 +1256,7 @@ static int load_module(void)
 	}
 
 	/* prevent logging to stderr */
-#if SPANDSP_RELEASE_DATE >= 20120902
-	/* for spandsp shaphots 3.0.0 and higher */
-	span_set_message_handler(NULL, NULL);
-#else
-	/* for spandsp release 0.0.6 */
 	span_set_message_handler(NULL);
-#endif
 
 	return AST_MODULE_LOAD_SUCCESS;
 }

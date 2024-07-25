@@ -29,6 +29,12 @@
  * This section contains a (not yet complete) list of libraries that are used
  * by various parts of Asterisk, including related licensing information.
  *
+ * \subsection alsa_lib ALSA Library
+ * \arg <b>Library</b>: libasound
+ * \arg <b>Website</b>: http://www.alsa-project.org
+ * \arg <b>Used by</b>: chan_alsa
+ * \arg <b>License</b>: LGPL
+ *
  * \subsection openssl_lib OpenSSL
  * \arg <b>Library</b>: libcrypto, libssl
  * \arg <b>Website</b>: http://www.openssl.org
@@ -51,7 +57,8 @@
  * \arg <b>Note</b>:    Even though PortAudio is licensed under a BSD style
  *                      license, PortAudio will make use of some audio interface,
  *                      depending on how it was built.  That audio interface may
- *                      introduce additional licensing restrictions.
+ *                      introduce additional licensing restrictions.  On Linux,
+ *                      this would most commonly be ALSA: \ref alsa_lib.
  *
  * \subsection rawlist Raw list of libraries that used by any part of Asterisk
  * \li c-client.a (app_voicemail with IMAP support)
@@ -127,7 +134,7 @@
  * \li libsqlite3.so.0
  * \li libss7.so.1
  * \li libssl.so.0.9.8 (chan_h323)
- * \li libstdc++.so (chan_h323)
+ * \li libstdc++.so (chan_h323, chan_vpb)
  * \li libsuppserv.so
  * \li libsybdb.so.5
  * \li libsysfs.so.2
@@ -137,6 +144,7 @@
  * \li libtonezone.so.1.0
  * \li libvorbis.so.0
  * \li libvorbisenc.so.2
+ * \li libvpb.a (chan_vpb)
  * \li libwrap.so.0
  * \li libxcb-xlib.so.0
  * \li libxcb.so.1

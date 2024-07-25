@@ -75,8 +75,8 @@ int ast_tdd_gen_ecdisa(unsigned char *outbuf, int len);
 
 
 /*! Generate hold tone
- * \param buf This is the buffer to receive the tone data
+ * \param outbuf This is the buffer to receive the tone data
 */
-int tdd_gen_holdtone(unsigned char* buf);
+int tdd_gen_holdtone(unsigned char* outbuf);
 
 #endif /* _ASTERISK_TDD_H */

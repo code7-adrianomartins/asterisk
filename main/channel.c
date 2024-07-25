@@ -97,13 +97,9 @@ unsigned long global_fin, global_fout;
 AST_THREADSTORAGE(state2str_threadbuf);
 #define STATE2STR_BUFSIZE   32
 
-/*! Default amount of time to use when emulating a DTMF digit as a begin and end
+/*! Default amount of time to use when emulating a digit as a begin and end
  *  100ms */
 #define AST_DEFAULT_EMULATE_DTMF_DURATION 100
-
-/*! Default amount of time to use when emulating an MF digit as a begin and end
- *  55ms */
-#define DEFAULT_EMULATE_MF_DURATION 55
 
 #define DEFAULT_AMA_FLAGS AST_AMA_DOCUMENTATION
 
@@ -633,6 +629,12 @@ int ast_str2cause(const char *name)
 	return -1;
 }
 
+/*! \brief Gives the string form of a given channel state.
+ *
+ * \note This function is not reentrant.
+ *
+ * \param state
+ */
 const char *ast_state2str(enum ast_channel_state state)
 {
 	char *buf;
@@ -1080,11 +1082,8 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 	}
 
 	if ((queued_frames + new_frames > 128 || queued_voice_frames + new_voice_frames > 96)) {
-		int total_queued = queued_frames + new_frames;
-		int total_voice = queued_voice_frames + new_voice_frames;
 		int count = 0;
-		ast_log(LOG_WARNING, "Exceptionally long %squeue length (%d voice / %d total) queuing to %s\n",
-			queued_frames + new_frames > 128 ? "" : "voice ", total_voice, total_queued, ast_channel_name(chan));
+		ast_log(LOG_WARNING, "Exceptionally long %squeue length queuing to %s\n", queued_frames + new_frames > 128 ? "" : "voice ", ast_channel_name(chan));
 		AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), cur, frame_list) {
 			/* Save the most recent frame */
 			if (!AST_LIST_NEXT(cur, frame_list)) {
@@ -1101,9 +1100,6 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 			}
 		}
 		AST_LIST_TRAVERSE_SAFE_END;
-		if (count) {
-			ast_debug(4, "Discarded %d frame%s due to queue overload on %s\n", count, ESS(count), ast_channel_name(chan));
-		}
 	}
 
 	if (after) {
@@ -1316,9 +1312,9 @@ static int ast_channel_by_exten_cb(void *obj, void *arg, void *data, int flags)
 	}
 
 	ast_channel_lock(chan);
-	if (strcasecmp(ast_channel_context(chan), context)) {
+	if (strcasecmp(ast_channel_context(chan), context) && strcasecmp(ast_channel_macrocontext(chan), context)) {
 		ret = 0; /* Context match failed, continue */
-	} else if (strcasecmp(ast_channel_exten(chan), exten)) {
+	} else if (strcasecmp(ast_channel_exten(chan), exten) && strcasecmp(ast_channel_macroexten(chan), exten)) {
 		ret = 0; /* Extension match failed, continue */
 	}
 	ast_channel_unlock(chan);
@@ -1436,15 +1432,15 @@ struct ast_channel *ast_channel_get_by_name_prefix(const char *name, size_t name
 	struct ast_channel *chan;
 	char *l_name = (char *) name;
 
-	if (ast_strlen_zero(l_name)) {
-		/* We didn't have a name to search for so quit. */
-		return NULL;
-	}
-
 	chan = ast_channel_callback(ast_channel_by_name_cb, l_name, &name_len,
 		(name_len == 0) /* optimize if it is a complete name match */ ? OBJ_KEY : 0);
 	if (chan) {
 		return chan;
+	}
+
+	if (ast_strlen_zero(l_name)) {
+		/* We didn't have a name to search for so quit. */
+		return NULL;
 	}
 
 	/* Now try a search for uniqueid. */
@@ -1495,7 +1491,7 @@ int ast_is_deferrable_frame(const struct ast_frame *frame)
 }
 
 /*! \brief Wait, look for hangups and condition arg */
-static int safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*cond)(void*), void *data, unsigned int generate_silence)
+int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*cond)(void*), void *data)
 {
 	struct ast_frame *f;
 	struct ast_silence_generator *silgen = NULL;
@@ -1507,7 +1503,7 @@ static int safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int 
 	AST_LIST_HEAD_INIT_NOLOCK(&deferred_frames);
 
 	/* If no other generator is present, start silencegen while waiting */
-	if (generate_silence && ast_opt_transmit_silence && !ast_channel_generatordata(chan)) {
+	if (ast_opt_transmit_silence && !ast_channel_generatordata(chan)) {
 		silgen = ast_channel_start_silence_generator(chan);
 	}
 
@@ -1565,20 +1561,10 @@ static int safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int 
 	return res;
 }
 
-int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*cond)(void*), void *data)
-{
-	return safe_sleep_conditional(chan, timeout_ms, cond, data, 1);
-}
-
 /*! \brief Wait, look for hangups */
 int ast_safe_sleep(struct ast_channel *chan, int ms)
 {
-	return safe_sleep_conditional(chan, ms, NULL, NULL, 1);
-}
-
-int ast_safe_sleep_without_silence(struct ast_channel *chan, int ms)
-{
-	return safe_sleep_conditional(chan, ms, NULL, NULL, 0);
+	return ast_safe_sleep_conditional(chan, ms, NULL, NULL);
 }
 
 struct ast_channel *ast_channel_release(struct ast_channel *chan)
@@ -2201,6 +2187,11 @@ static void ast_channel_destructor(void *obj)
 
 	ast_debug(1, "Channel %p '%s' destroying\n", chan, ast_channel_name(chan));
 
+	/* Stop monitoring */
+	if (ast_channel_monitor(chan)) {
+		ast_channel_monitor(chan)->stop(chan, 0);
+	}
+
 	/* If there is native format music-on-hold state, free it */
 	if (ast_channel_music_state(chan)) {
 		ast_moh_cleanup(chan);
@@ -2517,13 +2508,15 @@ void ast_set_hangupsource(struct ast_channel *chan, const char *source, int forc
 
 int ast_channel_has_audio_frame_or_monitor(struct ast_channel *chan)
 {
-	return !ast_audiohook_write_list_empty(ast_channel_audiohooks(chan))
+	return ast_channel_monitor(chan)
+		|| !ast_audiohook_write_list_empty(ast_channel_audiohooks(chan))
 		|| !ast_framehook_list_contains_no_active(ast_channel_framehooks(chan));
 }
 
 int ast_channel_has_hook_requiring_audio(struct ast_channel *chan)
 {
-	return !ast_audiohook_write_list_empty(ast_channel_audiohooks(chan))
+	return ast_channel_monitor(chan)
+		|| !ast_audiohook_write_list_empty(ast_channel_audiohooks(chan))
 		|| !ast_framehook_list_contains_no_active_of_type(ast_channel_framehooks(chan), AST_FRAME_VOICE);
 }
 
@@ -2624,6 +2617,8 @@ void ast_hangup(struct ast_channel *chan)
  * \since 13.11.0
  *
  * \param chan Channel to set answered time.
+ *
+ * \return Nothing
  */
 static void set_channel_answer_time(struct ast_channel *chan)
 {
@@ -2864,7 +2859,7 @@ static inline int should_trigger_dtmf_emulating(struct ast_channel *chan)
 			ast_tvdiff_ms(ast_tvnow(), *ast_channel_dtmf_tv(chan)) < 2*AST_MIN_DTMF_GAP) {
 		/*
 		 * We're not in the middle of a digit, but it hasn't been long enough
-		 * since the last digit, so we'll have to trigger DTMF further on.
+		 * since the last digit, so we'll have to trigger DTMF furtheron.
 		 * Using 2 times AST_MIN_DTMF_GAP to trigger readq reading for possible
 		 * buffered next dtmf event
 		 */
@@ -3203,7 +3198,7 @@ int ast_settimeout_full(struct ast_channel *c, unsigned int rate, int (*func)(co
 		real_rate = max_rate;
 	}
 
-	ast_debug(3, "Scheduling timer at (%u requested / %u actual) timer ticks per second\n", rate, real_rate);
+	ast_debug(1, "Scheduling timer at (%u requested / %u actual) timer ticks per second\n", rate, real_rate);
 
 	res = ast_timer_set_rate(ast_channel_timer(c), real_rate);
 
@@ -3320,7 +3315,6 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, const char *bre
 				case AST_CONTROL_UPDATE_RTP_PEER:
 				case AST_CONTROL_HOLD:
 				case AST_CONTROL_UNHOLD:
-				case AST_CONTROL_FLASH:
 				case -1:
 					/* Unimportant */
 					break;
@@ -3397,16 +3391,6 @@ static void send_dtmf_end_event(struct ast_channel *chan,
 	}
 
 	ast_channel_publish_blob(chan, ast_channel_dtmf_end_type(), blob);
-}
-
-static void send_flash_event(struct ast_channel *chan)
-{
-	ast_channel_publish_blob(chan, ast_channel_flash_type(), NULL);
-}
-
-static void send_wink_event(struct ast_channel *chan)
-{
-	ast_channel_publish_blob(chan, ast_channel_wink_type(), NULL);
 }
 
 static void ast_read_generator_actions(struct ast_channel *chan, struct ast_frame *f)
@@ -3587,7 +3571,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio, int
 		switch (res) {
 		case AST_TIMING_EVENT_EXPIRED:
 			if (ast_timer_ack(ast_channel_timer(chan), 1) < 0) {
-				ast_log(LOG_ERROR, "Failed to acknowledge timer in ast_read\n");
+				ast_log(LOG_ERROR, "Failed to acknoweldge timer in ast_read\n");
 				goto done;
 			}
 
@@ -3618,7 +3602,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio, int
 					break;
 				}
 			} else if (trigger_dtmf_emulating) {
-				/* generate null frame to trigger dtmf emulating */
+				/* generate null frame to trigger dtmf emualating */
 				f = &ast_null_frame;
 				break;
 			} else {
@@ -3840,7 +3824,8 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio, int
 						break;
 					}
 					ast_channel_unlock(chan);
-					if (ast_channel_connected_line_sub(NULL, chan, &connected, 0)) {
+					if (ast_channel_connected_line_sub(NULL, chan, &connected, 0) &&
+						ast_channel_connected_line_macro(NULL, chan, &connected, 1, 0)) {
 						ast_indicate_data(chan, AST_CONTROL_CONNECTED_LINE,
 							read_action_payload->payload,
 							read_action_payload->payload_size);
@@ -3874,10 +3859,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio, int
 				 */
 				ast_frfree(f);
 				f = &ast_null_frame;
-			} else if (f->subclass.integer == AST_CONTROL_FLASH) {
-				send_flash_event(chan);
-			} else if (f->subclass.integer == AST_CONTROL_WINK) {
-				send_wink_event(chan);
 			}
 			break;
 		case AST_FRAME_DTMF_END:
@@ -4160,6 +4141,40 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio, int
 				f = ast_audiohook_write_list(chan, ast_channel_audiohooks(chan), AST_AUDIOHOOK_DIRECTION_READ, f);
 				if (old_frame != f) {
 					ast_frfree(old_frame);
+				}
+			}
+
+			if (ast_channel_monitor(chan) && ast_channel_monitor(chan)->read_stream) {
+				/* XXX what does this do ? */
+#ifndef MONITOR_CONSTANT_DELAY
+				int jump = ast_channel_outsmpl(chan) - ast_channel_insmpl(chan) - 4 * f->samples;
+				if (jump >= 0) {
+					jump = calc_monitor_jump((ast_channel_outsmpl(chan) - ast_channel_insmpl(chan)),
+						ast_format_get_sample_rate(f->subclass.format),
+						ast_format_get_sample_rate(ast_channel_monitor(chan)->read_stream->fmt->format));
+					if (ast_seekstream(ast_channel_monitor(chan)->read_stream, jump, SEEK_FORCECUR) == -1) {
+						ast_log(LOG_WARNING, "Failed to perform seek in monitoring read stream, synchronization between the files may be broken\n");
+					}
+					ast_channel_insmpl_set(chan, ast_channel_insmpl(chan) + (ast_channel_outsmpl(chan) - ast_channel_insmpl(chan)) + f->samples);
+				} else {
+					ast_channel_insmpl_set(chan, ast_channel_insmpl(chan) + f->samples);
+				}
+#else
+				int jump = calc_monitor_jump((ast_channel_outsmpl(chan) - ast_channel_insmpl(chan)),
+					ast_format_get_sample_rate(f->subclass.format),
+					ast_format_get_sample_rate(ast_channel_monitor(chan)->read_stream->fmt->format));
+				if (jump - MONITOR_DELAY >= 0) {
+					if (ast_seekstream(ast_channel_monitor(chan)->read_stream, jump - f->samples, SEEK_FORCECUR) == -1) {
+						ast_log(LOG_WARNING, "Failed to perform seek in monitoring read stream, synchronization between the files may be broken\n");
+					}
+					ast_channel_insmpl(chan) += ast_channel_outsmpl(chan) - ast_channel_insmpl(chan);
+				} else {
+					ast_channel_insmpl(chan) += f->samples;
+				}
+#endif
+				if (ast_channel_monitor(chan)->state == AST_MONITOR_RUNNING) {
+					if (ast_writestream(ast_channel_monitor(chan)->read_stream, f) < 0)
+						ast_log(LOG_WARNING, "Failed to write data to channel monitor read stream\n");
 				}
 			}
 
@@ -4831,45 +4846,6 @@ int ast_sendtext(struct ast_channel *chan, const char *text)
 	return rc;
 }
 
-int ast_senddigit_mf_begin(struct ast_channel *chan, char digit)
-{
-	static const char * const mf_tones[] = {
-		"1300+1500", /* 0 */
-		"700+900",   /* 1 */
-		"700+1100",  /* 2 */
-		"900+1100",  /* 3 */
-		"700+1300",  /* 4 */
-		"900+1300",  /* 5 */
-		"1100+1300", /* 6 */
-		"700+1500",  /* 7 */
-		"900+1500",  /* 8 */
-		"1100+1500", /* 9 */
-		"1100+1700", /* * (KP) */
-		"1500+1700", /* # (ST) */
-		"900+1700",  /* A (STP) */
-		"1300+1700", /* B (ST2P) */
-		"700+1700"   /* C (ST3P) */
-	};
-
-	if (digit >= '0' && digit <='9') {
-		ast_playtones_start(chan, 0, mf_tones[digit-'0'], 0);
-	} else if (digit == '*') {
-		ast_playtones_start(chan, 0, mf_tones[10], 0);
-	} else if (digit == '#') {
-		ast_playtones_start(chan, 0, mf_tones[11], 0);
-	} else if (digit == 'A') {
-		ast_playtones_start(chan, 0, mf_tones[12], 0);
-	} else if (digit == 'B') {
-		ast_playtones_start(chan, 0, mf_tones[13], 0);
-	} else if (digit == 'C') {
-		ast_playtones_start(chan, 0, mf_tones[14], 0);
-	} else {
-		/* not handled */
-		ast_log(LOG_WARNING, "Unable to generate MF tone '%c' for '%s'\n", digit, ast_channel_name(chan));
-	}
-	return 0;
-}
-
 int ast_senddigit_begin(struct ast_channel *chan, char digit)
 {
 	/* Device does not support DTMF tones, lets fake
@@ -4939,37 +4915,6 @@ int ast_senddigit_end(struct ast_channel *chan, char digit, unsigned int duratio
 	return 0;
 }
 
-int ast_senddigit_mf_end(struct ast_channel *chan)
-{
-	if (ast_channel_generator(chan)) {
-		ast_playtones_stop(chan);
-		return 0;
-	}
-	return -1;
-}
-
-int ast_senddigit_mf(struct ast_channel *chan, char digit, unsigned int duration,
-	unsigned int durationkp, unsigned int durationst, int is_external)
-{
-	if (duration < DEFAULT_EMULATE_MF_DURATION) {
-		duration = DEFAULT_EMULATE_MF_DURATION;
-	}
-	if (ast_channel_tech(chan)->send_digit_begin) {
-		if (digit == '*') {
-			duration = durationkp;
-		} else if (digit == '#' || digit == 'A' || digit == 'B' || digit == 'C') {
-			duration = durationst;
-		}
-		ast_senddigit_mf_begin(chan, digit);
-		if (is_external) {
-			usleep(duration * 1000);
-		} else {
-			ast_safe_sleep(chan, duration);
-		}
-	}
-	return ast_senddigit_mf_end(chan);
-}
-
 int ast_senddigit(struct ast_channel *chan, char digit, unsigned int duration)
 {
 	if (duration < AST_DEFAULT_EMULATE_DTMF_DURATION) {
@@ -5003,7 +4948,7 @@ int ast_prod(struct ast_channel *chan)
 
 	/* Send an empty audio frame to get things moving */
 	if (ast_channel_state(chan) != AST_STATE_UP) {
-		ast_debug(3, "Prodding channel '%s'\n", ast_channel_name(chan));
+		ast_debug(1, "Prodding channel '%s'\n", ast_channel_name(chan));
 		a.subclass.format = ast_channel_rawwriteformat(chan);
 		a.data.ptr = nothing + AST_FRIENDLY_OFFSET;
 		a.src = "ast_prod"; /* this better match check in ast_write */
@@ -5402,6 +5347,48 @@ int ast_write_stream(struct ast_channel *chan, int stream_num, struct ast_frame 
 					f = cur; /* set f to be the beginning of our new list */
 				}
 				prev = cur;
+			}
+		}
+
+		/* If Monitor is running on this channel, then we have to write frames out there too */
+		/* the translator on chan->writetrans may have returned multiple frames
+		   from the single frame we passed in; if so, feed each one of them to the
+		   monitor */
+		if ((stream == default_stream) && ast_channel_monitor(chan) && ast_channel_monitor(chan)->write_stream) {
+			struct ast_frame *cur;
+
+			for (cur = f; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
+			/* XXX must explain this code */
+#ifndef MONITOR_CONSTANT_DELAY
+				int jump = ast_channel_insmpl(chan) - ast_channel_outsmpl(chan) - 4 * cur->samples;
+				if (jump >= 0) {
+					jump = calc_monitor_jump((ast_channel_insmpl(chan) - ast_channel_outsmpl(chan)),
+					                         ast_format_get_sample_rate(f->subclass.format),
+					                         ast_format_get_sample_rate(ast_channel_monitor(chan)->write_stream->fmt->format));
+					if (ast_seekstream(ast_channel_monitor(chan)->write_stream, jump, SEEK_FORCECUR) == -1) {
+						ast_log(LOG_WARNING, "Failed to perform seek in monitoring write stream, synchronization between the files may be broken\n");
+					}
+					ast_channel_outsmpl_set(chan, ast_channel_outsmpl(chan) + (ast_channel_insmpl(chan) - ast_channel_outsmpl(chan)) + cur->samples);
+				} else {
+					ast_channel_outsmpl_set(chan, ast_channel_outsmpl(chan) + cur->samples);
+				}
+#else
+				int jump = calc_monitor_jump((ast_channel_insmpl(chan) - ast_channel_outsmpl(chan)),
+				                             ast_format_get_sample_rate(f->subclass.format),
+				                             ast_format_get_sample_rate(ast_channel_monitor(chan)->write_stream->fmt->format));
+				if (jump - MONITOR_DELAY >= 0) {
+					if (ast_seekstream(ast_channel_monitor(chan)->write_stream, jump - cur->samples, SEEK_FORCECUR) == -1) {
+						ast_log(LOG_WARNING, "Failed to perform seek in monitoring write stream, synchronization between the files may be broken\n");
+					}
+					ast_channel_outsmpl_set(chan, ast_channel_outsmpl(chan) + ast_channel_insmpl(chan) - ast_channel_outsmpl(chan));
+				} else {
+					ast_channel_outsmpl_set(chan, ast_channel_outsmpl(chan) + cur->samples);
+				}
+#endif
+				if (ast_channel_monitor(chan)->state == AST_MONITOR_RUNNING) {
+					if (ast_writestream(ast_channel_monitor(chan)->write_stream, cur) < 0)
+						ast_log(LOG_WARNING, "Failed to write data to channel monitor write stream\n");
+				}
 			}
 		}
 
@@ -5865,6 +5852,8 @@ static void handle_cause(int cause, int *outstate)
  * \param new_chan Channel inheriting information.
  * \param parent Channel new_chan inherits information.
  * \param orig Channel being replaced by the call forward channel.
+ *
+ * \return Nothing
  */
 static void call_forward_inherit(struct ast_channel *new_chan, struct ast_channel *parent, struct ast_channel *orig)
 {
@@ -5879,7 +5868,8 @@ static void call_forward_inherit(struct ast_channel *new_chan, struct ast_channe
 		ast_channel_lock(orig);
 		ast_party_redirecting_copy(&redirecting, ast_channel_redirecting(orig));
 		ast_channel_unlock(orig);
-		if (ast_channel_redirecting_sub(orig, parent, &redirecting, 0)) {
+		if (ast_channel_redirecting_sub(orig, parent, &redirecting, 0) &&
+			ast_channel_redirecting_macro(orig, parent, &redirecting, 1, 0)) {
 			ast_channel_update_redirecting(parent, &redirecting, NULL);
 		}
 		ast_party_redirecting_free(&redirecting);
@@ -6027,7 +6017,7 @@ struct ast_channel *__ast_request_and_dial(const char *type, struct ast_format_c
 	}
 
 	/*
-	 * It seems strange to set the CallerID on an outgoing call leg
+	 * I seems strange to set the CallerID on an outgoing call leg
 	 * to whom we are calling, but this function's callers are doing
 	 * various Originate methods.  This call leg goes to the local
 	 * user.  Once the local user answers, the dialplan needs to be
@@ -6274,13 +6264,8 @@ static struct ast_channel *request_channel(const char *type, struct ast_format_c
 
 		/* find the best audio format to use */
 		tmp_cap = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT);
-		if (!tmp_cap) {
-			AST_RWLIST_UNLOCK(&backends);
-			return NULL;
-		}
-
-		ast_format_cap_append_from_cap(tmp_cap, request_cap, AST_MEDIA_TYPE_AUDIO);
-		if (!ast_format_cap_empty(tmp_cap)) {
+		if (tmp_cap) {
+			ast_format_cap_append_from_cap(tmp_cap, request_cap, AST_MEDIA_TYPE_AUDIO);
 			/* We have audio - is it possible to connect the various calls to each other?
 				(Avoid this check for calls without audio, like text+video calls)
 			*/
@@ -6311,9 +6296,7 @@ static struct ast_channel *request_channel(const char *type, struct ast_format_c
 		}
 		ast_format_cap_append_from_cap(joint_cap, request_cap, AST_MEDIA_TYPE_UNKNOWN);
 		ast_format_cap_remove_by_type(joint_cap, AST_MEDIA_TYPE_AUDIO);
-		if (best_audio_fmt) { /* text+video call? then, this is NULL */
-			ast_format_cap_append(joint_cap, best_audio_fmt, 0);
-		}
+		ast_format_cap_append(joint_cap, best_audio_fmt, 0);
 		ao2_cleanup(tmp_converted_cap);
 
 		c = chan->tech->requester(type, joint_cap, assignedids, requestor, addr, cause);
@@ -6371,6 +6354,8 @@ struct ast_channel *ast_request_with_stream_topology(const char *type, struct as
  * \param precious TRUE if pre-existing accountcodes on chan will not be overwritten.
  *
  * \pre The chan and requestor channels are already locked.
+ *
+ * \return Nothing
  */
 static void channel_req_accountcodes(struct ast_channel *chan, const struct ast_channel *requestor, enum ast_channel_requestor_relationship relationship, int precious)
 {
@@ -6483,24 +6468,7 @@ int ast_call(struct ast_channel *chan, const char *addr, int timeout)
 */
 int ast_transfer(struct ast_channel *chan, char *dest)
 {
-	int protocol;
-	return ast_transfer_protocol(chan, dest, &protocol);
-}
-
-/*!
-  \brief Transfer a call to dest, if the channel supports transfer
-
-  Called by:
-	\arg app_transfer
-	\arg the manager interface
-*/
-int ast_transfer_protocol(struct ast_channel *chan, char *dest, int *protocol)
-{
 	int res = -1;
-
-	if (protocol) {
-		*protocol = 0;
-	}
 
 	/* Stop if we're a zombie or need a soft hangup */
 	ast_channel_lock(chan);
@@ -6535,13 +6503,6 @@ int ast_transfer_protocol(struct ast_channel *chan, char *dest, int *protocol)
 				res = 1;
 			} else {
 				res = -1;
-				/* Message can contain a protocol specific code
-				   AST_TRANSFER_SUCCESS indicates success
-				   Else, failure.  Protocol will be set to the failure reason.
-				   SIP example, 0 is success, else error code 3xx-6xx */
-				if (protocol) {
-					*protocol = *message;
-				}
 			}
 
 			ast_frfree(fr);
@@ -6741,11 +6702,9 @@ int ast_channel_make_compatible(struct ast_channel *chan, struct ast_channel *pe
 static void __ast_change_name_nolink(struct ast_channel *chan, const char *newname)
 {
 	/*** DOCUMENTATION
-		<managerEvent language="en_US" name="Rename">
-			<managerEventInstance class="EVENT_FLAG_CALL">
-				<synopsis>Raised when the name of a channel is changed.</synopsis>
-			</managerEventInstance>
-		</managerEvent>
+		<managerEventInstance>
+			<synopsis>Raised when the name of a channel is changed.</synopsis>
+		</managerEventInstance>
 	***/
 	ast_manager_event(chan, EVENT_FLAG_CALL, "Rename",
 		"Channel: %s\r\n"
@@ -6929,7 +6888,7 @@ static void channel_do_masquerade(struct ast_channel *original, struct ast_chann
 	ast_channel_unlock(original);
 	ast_indicate(original, -1);
 
-	/* Start the masquerade channel contents rearrangement. */
+	/* Start the masquerade channel contents rearangement. */
 	ast_channel_lock_both(original, clonechan);
 
 	ast_debug(1, "Actually Masquerading %s(%u) into the structure of %s(%u)\n",
@@ -7052,6 +7011,11 @@ static void channel_do_masquerade(struct ast_channel *original, struct ast_chann
 			ast_clear_flag(ast_channel_flags(clonechan), AST_FLAG_DISABLE_DEVSTATE_CACHE);
 		}
 	}
+
+	/* Update the type. */
+	t_pvt = ast_channel_monitor(original);
+	ast_channel_monitor_set(original, ast_channel_monitor(clonechan));
+	ast_channel_monitor_set(clonechan, t_pvt);
 
 	/* Keep the same language.  */
 	ast_channel_language_set(original, ast_channel_language(clonechan));
@@ -7805,6 +7769,8 @@ static int ast_channel_hash_cb(const void *obj, const int flags)
  * \param v_obj A pointer to the object we want the key printed.
  * \param where User data needed by prnt to determine where to put output.
  * \param prnt Print output callback function to use.
+ *
+ * \return Nothing
  */
 static void prnt_channel_key(void *v_obj, void *where, ao2_prnt_fn *prnt)
 {
@@ -8237,12 +8203,6 @@ int ast_say_number(struct ast_channel *chan, int num,
 	return ast_say_number_full(chan, num, ints, language, options, -1, -1);
 }
 
-int ast_say_ordinal(struct ast_channel *chan, int num,
-	const char *ints, const char *language, const char *options)
-{
-	return ast_say_ordinal_full(chan, num, ints, language, options, -1, -1);
-}
-
 int ast_say_enumeration(struct ast_channel *chan, int num,
 	const char *ints, const char *language, const char *options)
 {
@@ -8259,12 +8219,6 @@ int ast_say_digit_str(struct ast_channel *chan, const char *str,
 	const char *ints, const char *lang)
 {
 	return ast_say_digit_str_full(chan, str, ints, lang, -1, -1);
-}
-
-int ast_say_money_str(struct ast_channel *chan, const char *str,
-	const char *ints, const char *lang)
-{
-	return ast_say_money_str_full(chan, str, ints, lang, -1, -1);
 }
 
 int ast_say_character_str(struct ast_channel *chan, const char *str,
@@ -9125,7 +9079,6 @@ void ast_channel_set_redirecting(struct ast_channel *chan, const struct ast_part
 	ast_channel_lock(chan);
 	ast_party_redirecting_set(ast_channel_redirecting(chan), redirecting, update);
 	ast_channel_snapshot_invalidate_segment(chan, AST_CHANNEL_SNAPSHOT_INVALIDATE_CALLER);
-	ast_channel_publish_snapshot(chan);
 	ast_channel_unlock(chan);
 }
 
@@ -10317,13 +10270,15 @@ AST_THREADSTORAGE_RAW(in_intercept_routine);
  * \since 13.14.0
  *
  * \param in_intercept_mode New intercept mode.  (Non-zero if in intercept mode)
+ *
+ * \return Nothing
  */
 static void channel_set_intercept_mode(int in_intercept_mode)
 {
 	int status;
 
 	status = ast_threadstorage_set_ptr(&in_intercept_routine,
-		in_intercept_mode ? &(int) { 1 } : NULL);
+		in_intercept_mode ? (void *) 1 : (void *) 0);
 	if (status) {
 		ast_log(LOG_ERROR, "Failed to set dialplan intercept mode\n");
 	}
@@ -10332,6 +10287,110 @@ static void channel_set_intercept_mode(int in_intercept_mode)
 int ast_channel_get_intercept_mode(void)
 {
 	return ast_threadstorage_get_ptr(&in_intercept_routine) ? 1 : 0;
+}
+
+int ast_channel_connected_line_macro(struct ast_channel *autoservice_chan, struct ast_channel *macro_chan, const void *connected_info, int is_caller, int is_frame)
+{
+	static int deprecation_warning = 0;
+	const char *macro;
+	const char *macro_args;
+	int retval;
+
+	ast_channel_lock(macro_chan);
+	macro = pbx_builtin_getvar_helper(macro_chan, is_caller
+		? "CONNECTED_LINE_CALLER_SEND_MACRO" : "CONNECTED_LINE_CALLEE_SEND_MACRO");
+	macro = ast_strdupa(S_OR(macro, ""));
+	macro_args = pbx_builtin_getvar_helper(macro_chan, is_caller
+		? "CONNECTED_LINE_CALLER_SEND_MACRO_ARGS" : "CONNECTED_LINE_CALLEE_SEND_MACRO_ARGS");
+	macro_args = ast_strdupa(S_OR(macro_args, ""));
+
+	if (ast_strlen_zero(macro)) {
+		ast_channel_unlock(macro_chan);
+		return -1;
+	}
+
+	if (!deprecation_warning) {
+		deprecation_warning = 1;
+		ast_log(LOG_WARNING, "Usage of CONNECTED_LINE_CALLE[ER]_SEND_MACRO is deprecated.  Please use CONNECTED_LINE_SEND_SUB instead.\n");
+	}
+	if (is_frame) {
+		const struct ast_frame *frame = connected_info;
+
+		ast_connected_line_parse_data(frame->data.ptr, frame->datalen, ast_channel_connected(macro_chan));
+	} else {
+		const struct ast_party_connected_line *connected = connected_info;
+
+		ast_party_connected_line_copy(ast_channel_connected(macro_chan), connected);
+	}
+	ast_channel_unlock(macro_chan);
+
+	channel_set_intercept_mode(1);
+	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
+	channel_set_intercept_mode(0);
+	if (!retval) {
+		struct ast_party_connected_line saved_connected;
+
+		ast_party_connected_line_init(&saved_connected);
+		ast_channel_lock(macro_chan);
+		ast_party_connected_line_copy(&saved_connected, ast_channel_connected(macro_chan));
+		ast_channel_unlock(macro_chan);
+		ast_channel_update_connected_line(macro_chan, &saved_connected, NULL);
+		ast_party_connected_line_free(&saved_connected);
+	}
+
+	return retval;
+}
+
+int ast_channel_redirecting_macro(struct ast_channel *autoservice_chan, struct ast_channel *macro_chan, const void *redirecting_info, int is_caller, int is_frame)
+{
+	static int deprecation_warning = 0;
+	const char *macro;
+	const char *macro_args;
+	int retval;
+
+	ast_channel_lock(macro_chan);
+	macro = pbx_builtin_getvar_helper(macro_chan, is_caller
+		? "REDIRECTING_CALLER_SEND_MACRO" : "REDIRECTING_CALLEE_SEND_MACRO");
+	macro = ast_strdupa(S_OR(macro, ""));
+	macro_args = pbx_builtin_getvar_helper(macro_chan, is_caller
+		? "REDIRECTING_CALLER_SEND_MACRO_ARGS" : "REDIRECTING_CALLEE_SEND_MACRO_ARGS");
+	macro_args = ast_strdupa(S_OR(macro_args, ""));
+
+	if (ast_strlen_zero(macro)) {
+		ast_channel_unlock(macro_chan);
+		return -1;
+	}
+
+	if (!deprecation_warning) {
+		deprecation_warning = 1;
+		ast_log(LOG_WARNING, "Usage of REDIRECTING_CALLE[ER]_SEND_MACRO is deprecated.  Please use REDIRECTING_SEND_SUB instead.\n");
+	}
+	if (is_frame) {
+		const struct ast_frame *frame = redirecting_info;
+
+		ast_redirecting_parse_data(frame->data.ptr, frame->datalen, ast_channel_redirecting(macro_chan));
+	} else {
+		const struct ast_party_redirecting *redirecting = redirecting_info;
+
+		ast_party_redirecting_copy(ast_channel_redirecting(macro_chan), redirecting);
+	}
+	ast_channel_unlock(macro_chan);
+
+	channel_set_intercept_mode(1);
+	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
+	channel_set_intercept_mode(0);
+	if (!retval) {
+		struct ast_party_redirecting saved_redirecting;
+
+		ast_party_redirecting_init(&saved_redirecting);
+		ast_channel_lock(macro_chan);
+		ast_party_redirecting_copy(&saved_redirecting, ast_channel_redirecting(macro_chan));
+		ast_channel_unlock(macro_chan);
+		ast_channel_update_redirecting(macro_chan, &saved_redirecting, NULL);
+		ast_party_redirecting_free(&saved_redirecting);
+	}
+
+	return retval;
 }
 
 int ast_channel_connected_line_sub(struct ast_channel *autoservice_chan, struct ast_channel *sub_chan, const void *connected_info, int is_frame)
@@ -10750,9 +10809,6 @@ static struct ast_frame *suppress_framehook_event_cb(struct ast_channel *chan, s
 	if (suppress_frame) {
 		switch (frame->frametype) {
 		case AST_FRAME_VOICE:
-			if (event == AST_FRAMEHOOK_EVENT_READ) {
-				ast_frfree(frame);
-			}
 			frame = &ast_null_frame;
 			break;
 		default:

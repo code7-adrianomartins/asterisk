@@ -41,6 +41,9 @@ static pjsip_module distributor_mod = {
 
 struct ast_sched_context *prune_context;
 
+/* From the auth/realm realtime column size */
+#define MAX_REALM_LENGTH 40
+
 #define DEFAULT_SUSPECTS_BUCKETS 53
 
 static struct ao2_container *unidentified_requests;
@@ -610,7 +613,7 @@ static AO2_GLOBAL_OBJ_STATIC(artificial_auth);
 
 static int create_artificial_auth(void)
 {
-	char default_realm[AST_SIP_AUTH_MAX_REALM_LENGTH + 1];
+	char default_realm[MAX_REALM_LENGTH + 1];
 	struct ast_sip_auth *fake_auth;
 
 	ast_sip_get_default_realm(default_realm, sizeof(default_realm));
@@ -760,8 +763,9 @@ static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 		char name[AST_UUID_STR_LEN] = "";
 		pjsip_uri *from = rdata->msg_info.from->uri;
 
-		if (ast_sip_is_allowed_uri(from)) {
-			ast_copy_pj_str(name, ast_sip_pjsip_uri_get_username(from), sizeof(name));
+		if (PJSIP_URI_SCHEME_IS_SIP(from) || PJSIP_URI_SCHEME_IS_SIPS(from)) {
+			pjsip_sip_uri *sip_from = pjsip_uri_get_uri(from);
+			ast_copy_pj_str(name, &sip_from->user, sizeof(name));
 		}
 
 		unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY);
@@ -829,7 +833,6 @@ static int extract_contact_addr(pjsip_contact_hdr *contact, struct ast_sockaddr 
 		*addrs = NULL;
 		return 0;
 	}
-
 	if (!PJSIP_URI_SCHEME_IS_SIP(contact->uri) && !PJSIP_URI_SCHEME_IS_SIPS(contact->uri)) {
 		*addrs = NULL;
 		return 0;
@@ -1161,7 +1164,7 @@ static int clean_task(const void *data)
 
 static void global_loaded(const char *object_type)
 {
-	char default_realm[AST_SIP_AUTH_MAX_REALM_LENGTH + 1];
+	char default_realm[MAX_REALM_LENGTH + 1];
 	struct ast_sip_auth *fake_auth;
 	char *identifier_order;
 
@@ -1216,6 +1219,8 @@ static struct ast_sorcery_observer global_observer = {
  * \internal
  * \brief Shutdown the serializers in the distributor pool.
  * \since 13.10.0
+ *
+ * \return Nothing
  */
 static void distributor_pool_shutdown(void)
 {

@@ -1085,8 +1085,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_remove_protocol)(const char *name, ast_w
 
 /*! \brief Parse the given uri into a path and remote address.
  *
- * Expected uri form:
- * \verbatim [ws[s]]://<host>[:port][/<path>] \endverbatim
+ * Expected uri form: [ws[s]]://<host>[:port][/<path>]
  *
  * The returned host will contain the address and optional port while
  * path will contain everything after the address/port if included.
@@ -1163,12 +1162,6 @@ static struct ast_tcptls_session_args *websocket_client_args_create(
 	}
 	ast_sockaddr_copy(&args->remote_address, addr);
 	ast_free(addr);
-
-	/* We need to save off the hostname but it may contain a port spec */
-	snprintf(args->hostname, sizeof(args->hostname),
-		"%.*s",
-		(int) strcspn(host, ":"), host);
-
 	return args;
 }
 
@@ -1229,7 +1222,8 @@ static void websocket_client_destroy(void *obj)
 }
 
 static struct ast_websocket * websocket_client_create(
-	struct ast_websocket_client_options *options, enum ast_websocket_result *result)
+	const char *uri, const char *protocols,	struct ast_tls_config *tls_cfg,
+	enum ast_websocket_result *result)
 {
 	struct ast_websocket *ws = ao2_alloc(sizeof(*ws), session_destroy_fn);
 
@@ -1253,18 +1247,18 @@ static struct ast_websocket * websocket_client_create(
 	}
 
 	if (websocket_client_parse_uri(
-		    options->uri, &ws->client->host, &ws->client->resource_name)) {
+		    uri, &ws->client->host, &ws->client->resource_name)) {
 		ao2_ref(ws, -1);
 		*result = WS_URI_PARSE_ERROR;
 		return NULL;
 	}
 
 	if (!(ws->client->args = websocket_client_args_create(
-		      ws->client->host, options->tls_cfg, result))) {
+		      ws->client->host, tls_cfg, result))) {
 		ao2_ref(ws, -1);
 		return NULL;
 	}
-	ws->client->protocols = ast_strdup(options->protocols);
+	ws->client->protocols = ast_strdup(protocols);
 
 	ws->client->version = 13;
 	ws->opcode = -1;
@@ -1314,11 +1308,7 @@ static enum ast_websocket_result websocket_client_handshake_get_response(
 	int has_accept = 0;
 	int has_protocol = 0;
 
-	while (ast_iostream_gets(client->ser->stream, buf, sizeof(buf)) <= 0) {
-		if (errno == EINTR || errno == EAGAIN) {
-			continue;
-		}
-
+	if (ast_iostream_gets(client->ser->stream, buf, sizeof(buf)) <= 0) {
 		ast_log(LOG_ERROR, "Unable to retrieve HTTP status line.");
 		return WS_BAD_STATUS;
 	}
@@ -1331,19 +1321,10 @@ static enum ast_websocket_result websocket_client_handshake_get_response(
 
 	/* Ignoring line folding - assuming header field values are contained
 	   within a single line */
-	while (1) {
-		ssize_t len = ast_iostream_gets(client->ser->stream, buf, sizeof(buf));
+	while (ast_iostream_gets(client->ser->stream, buf, sizeof(buf)) > 0) {
 		char *name, *value;
-		int parsed;
+		int parsed = ast_http_header_parse(buf, &name, &value);
 
-		if (len <= 0) {
-			if (errno == EINTR || errno == EAGAIN) {
-				continue;
-			}
-			break;
-		}
-
-		parsed = ast_http_header_parse(buf, &name, &value);
 		if (parsed < 0) {
 			break;
 		}
@@ -1379,7 +1360,6 @@ static enum ast_websocket_result websocket_client_handshake_get_response(
 			return WS_NOT_SUPPORTED;
 		}
 	}
-
 	return has_upgrade && has_connection && has_accept ?
 		WS_OK : WS_HEADER_MISSING;
 }
@@ -1414,13 +1394,13 @@ static enum ast_websocket_result websocket_client_handshake(
 	return websocket_client_handshake_get_response(client);
 }
 
-static enum ast_websocket_result websocket_client_connect(struct ast_websocket *ws, int timeout)
+static enum ast_websocket_result websocket_client_connect(struct ast_websocket *ws)
 {
 	enum ast_websocket_result res;
 	/* create and connect the client - note client_start
 	   releases the session instance on failure */
-	if (!(ws->client->ser = ast_tcptls_client_start_timeout(
-		      ast_tcptls_client_create(ws->client->args), timeout))) {
+	if (!(ws->client->ser = ast_tcptls_client_start(
+		      ast_tcptls_client_create(ws->client->args)))) {
 		return WS_CLIENT_START_ERROR;
 	}
 
@@ -1441,26 +1421,14 @@ struct ast_websocket *AST_OPTIONAL_API_NAME(ast_websocket_client_create)
 	(const char *uri, const char *protocols, struct ast_tls_config *tls_cfg,
 	 enum ast_websocket_result *result)
 {
-	struct ast_websocket_client_options options = {
-		.uri = uri,
-		.protocols = protocols,
-		.timeout = -1,
-		.tls_cfg = tls_cfg,
-	};
-
-	return ast_websocket_client_create_with_options(&options, result);
-}
-
-struct ast_websocket *AST_OPTIONAL_API_NAME(ast_websocket_client_create_with_options)
-	(struct ast_websocket_client_options *options, enum ast_websocket_result *result)
-{
-	struct ast_websocket *ws = websocket_client_create(options, result);
+	struct ast_websocket *ws = websocket_client_create(
+		uri, protocols, tls_cfg, result);
 
 	if (!ws) {
 		return NULL;
 	}
 
-	if ((*result = websocket_client_connect(ws, options->timeout)) != WS_OK) {
+	if ((*result = websocket_client_connect(ws)) != WS_OK) {
 		ao2_ref(ws, -1);
 		return NULL;
 	}
@@ -1553,7 +1521,7 @@ static int unload_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "HTTP WebSocket Support",
-	.support_level = AST_MODULE_SUPPORT_CORE,
+	.support_level = AST_MODULE_SUPPORT_EXTENDED,
 	.load = load_module,
 	.unload = unload_module,
 	.load_pri = AST_MODPRI_CHANNEL_DEPEND,

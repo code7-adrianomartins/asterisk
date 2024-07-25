@@ -489,10 +489,9 @@ struct parking_lot_cfg *parking_lot_cfg_create(const char *cat)
  * \brief find an item in a container by its name
  *
  * \param container ao2container where we want the item from
- * \param name name of the item wanted to be found
+ * \param key name of the item wanted to be found
  *
- * \return pointer to the parking lot if available.
- * \retval NULL if not found.
+ * \retval pointer to the parking lot if available. NULL if not found.
  */
 static void *named_item_find(struct ao2_container *container, const char *name)
 {

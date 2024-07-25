@@ -489,10 +489,7 @@ static int expiration_str2struct(const struct aco_option *opt, struct ast_variab
 static int expiration_struct2str(const void *obj, const intptr_t *args, char **buf)
 {
 	const struct ast_sip_contact *contact = obj;
-	char secs[AST_TIME_T_LEN];
-
-	ast_time_t_to_string(contact->expiration_time.tv_sec, secs, sizeof(secs));
-	return (ast_asprintf(buf, "%s", secs) < 0) ? -1 : 0;
+	return (ast_asprintf(buf, "%ld", contact->expiration_time.tv_sec) < 0) ? -1 : 0;
 }
 
 static int permanent_uri_sort_fn(const void *obj_left, const void *obj_right, int flags)
@@ -1413,7 +1410,6 @@ int ast_sip_initialize_sorcery_location(void)
 	ast_sorcery_object_field_register(sorcery, "aor", "authenticate_qualify", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_aor, authenticate_qualify));
 	ast_sorcery_object_field_register(sorcery, "aor", "max_contacts", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_aor, max_contacts));
 	ast_sorcery_object_field_register(sorcery, "aor", "remove_existing", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_aor, remove_existing));
-	ast_sorcery_object_field_register(sorcery, "aor", "remove_unavailable", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_aor, remove_unavailable));
 	ast_sorcery_object_field_register_custom(sorcery, "aor", "contact", "", permanent_uri_handler, contacts_to_str, contacts_to_var_list, 0, 0);
 	ast_sorcery_object_field_register(sorcery, "aor", "mailboxes", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_aor, mailboxes));
 	ast_sorcery_object_field_register_custom(sorcery, "aor", "voicemail_extension", "", voicemail_extension_handler, voicemail_extension_to_str, NULL, 0, 0);

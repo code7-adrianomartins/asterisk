@@ -48,13 +48,11 @@
 #define DEFAULT_MWI_TPS_QUEUE_HIGH AST_TASKPROCESSOR_HIGH_WATER_LEVEL
 #define DEFAULT_MWI_TPS_QUEUE_LOW -1
 #define DEFAULT_MWI_DISABLE_INITIAL_UNSOLICITED 0
-#define DEFAULT_ALLOW_SENDING_180_AFTER_183 0
 #define DEFAULT_IGNORE_URI_USER_OPTIONS 0
 #define DEFAULT_USE_CALLERID_CONTACT 0
 #define DEFAULT_SEND_CONTACT_STATUS_ON_UPDATE_REGISTRATION 0
 #define DEFAULT_TASKPROCESSOR_OVERLOAD_TRIGGER TASKPROCESSOR_OVERLOAD_TRIGGER_GLOBAL
 #define DEFAULT_NOREFERSUB 1
-#define DEFAULT_ALL_CODECS_ON_EMPTY_REINVITE 0
 
 /*!
  * \brief Cached global config object
@@ -94,13 +92,11 @@ struct global_config {
 	unsigned int contact_expiration_check_interval;
 	/*! Nonzero to disable multi domain support */
 	unsigned int disable_multi_domain;
-	/*! Nonzero to disable changing 180/SDP to 183/SDP */
-	unsigned int allow_sending_180_after_183;
 	/*! The maximum number of unidentified requests per source IP address before a security event is logged */
 	unsigned int unidentified_request_count;
 	/*! The period during which unidentified requests are accumulated */
 	unsigned int unidentified_request_period;
-	/*! Interval at which expired unidentified requests will be pruned */
+	/*! Interval at which expired unidentifed requests will be pruned */
 	unsigned int unidentified_request_prune_interval;
 	struct {
 		/*! Taskprocessor high water alert trigger level */
@@ -120,8 +116,6 @@ struct global_config {
 	enum ast_sip_taskprocessor_overload_trigger overload_trigger;
 	/*! Nonzero if norefersub is to be sent in Supported header */
 	unsigned int norefersub;
-	/*! Nonzero if we should return all codecs on empty re-INVITE */
-	unsigned int all_codecs_on_empty_reinvite;
 };
 
 static void global_destructor(void *obj)
@@ -450,21 +444,6 @@ unsigned int ast_sip_get_mwi_disable_initial_unsolicited(void)
 	return disable_initial_unsolicited;
 }
 
-unsigned int ast_sip_get_allow_sending_180_after_183(void)
-{
-	unsigned int allow_sending_180_after_183;
-	struct global_config *cfg;
-
-	cfg = get_global_cfg();
-	if (!cfg) {
-		return DEFAULT_ALLOW_SENDING_180_AFTER_183;
-	}
-
-	allow_sending_180_after_183 = cfg->allow_sending_180_after_183;
-	ao2_ref(cfg, -1);
-	return allow_sending_180_after_183;
-}
-
 unsigned int ast_sip_get_ignore_uri_user_options(void)
 {
 	unsigned int ignore_uri_user_options;
@@ -540,21 +519,6 @@ unsigned int ast_sip_get_norefersub(void)
 	return norefersub;
 }
 
-unsigned int ast_sip_get_all_codecs_on_empty_reinvite(void)
-{
-	unsigned int all_codecs_on_empty_reinvite;
-	struct global_config *cfg;
-
-	cfg = get_global_cfg();
-	if (!cfg) {
-		return DEFAULT_ALL_CODECS_ON_EMPTY_REINVITE;
-	}
-
-	all_codecs_on_empty_reinvite = cfg->all_codecs_on_empty_reinvite;
-	ao2_ref(cfg, -1);
-	return all_codecs_on_empty_reinvite;
-}
-
 static int overload_trigger_handler(const struct aco_option *opt,
 	struct ast_variable *var, void *obj)
 {
@@ -600,6 +564,8 @@ static int overload_trigger_to_str(const void *obj, const intptr_t *args, char *
  * \param sorcery Instance being observed.
  * \param object_type Name of object being observed.
  * \param reloaded Non-zero if the object is being reloaded.
+ *
+ * \return Nothing
  */
 static void global_loaded_observer(const char *name, const struct ast_sorcery *sorcery, const char *object_type, int reloaded)
 {
@@ -744,9 +710,6 @@ int ast_sip_initialize_sorcery_global(void)
 	ast_sorcery_object_field_register(sorcery, "global", "mwi_disable_initial_unsolicited",
 		DEFAULT_MWI_DISABLE_INITIAL_UNSOLICITED ? "yes" : "no",
 		OPT_BOOL_T, 1, FLDSET(struct global_config, mwi.disable_initial_unsolicited));
-	ast_sorcery_object_field_register(sorcery, "global", "allow_sending_180_after_183",
-		DEFAULT_ALLOW_SENDING_180_AFTER_183 ? "yes" : "no",
-		OPT_BOOL_T, 1, FLDSET(struct global_config, allow_sending_180_after_183));
 	ast_sorcery_object_field_register(sorcery, "global", "ignore_uri_user_options",
 		DEFAULT_IGNORE_URI_USER_OPTIONS ? "yes" : "no",
 		OPT_BOOL_T, 1, FLDSET(struct global_config, ignore_uri_user_options));
@@ -762,9 +725,6 @@ int ast_sip_initialize_sorcery_global(void)
 	ast_sorcery_object_field_register(sorcery, "global", "norefersub",
 		DEFAULT_NOREFERSUB ? "yes" : "no",
 		OPT_YESNO_T, 1, FLDSET(struct global_config, norefersub));
-	ast_sorcery_object_field_register(sorcery, "global", "all_codecs_on_empty_reinvite",
-		DEFAULT_ALL_CODECS_ON_EMPTY_REINVITE ? "yes" : "no",
-		OPT_BOOL_T, 1, FLDSET(struct global_config, all_codecs_on_empty_reinvite));
 
 	if (ast_sorcery_instance_observer_add(sorcery, &observer_callbacks_global)) {
 		return -1;

@@ -51,8 +51,6 @@
 #include "asterisk/channel.h"
 #include "asterisk/autochan.h"
 #include "asterisk/manager.h"
-#include "asterisk/stasis.h"
-#include "asterisk/stasis_channels.h"
 #include "asterisk/callerid.h"
 #include "asterisk/mod_format.h"
 #include "asterisk/linkedlists.h"
@@ -89,16 +87,6 @@
 					<option name="B">
 						<para>Play a periodic beep while this call is being recorded.</para>
 						<argument name="interval"><para>Interval, in seconds. Default is 15.</para></argument>
-					</option>
-					<option name="c">
-						<para>Use the real Caller ID from the channel for the voicemail Caller ID.</para>
-						<para>By default, the Connected Line is used. If you want the channel caller's
-						real number, you may need to specify this option.</para>
-					</option>
-					<option name="d">
-						<para>Delete the recording file as soon as MixMonitor is done with it.</para>
-						<para>For example, if you use the m option to dispatch the recording to a voicemail box,
-						you can specify this option to delete the original copy of it afterwards.</para>
 					</option>
 					<option name="v">
 						<para>Adjust the <emphasis>heard</emphasis> volume by a factor of <replaceable>x</replaceable>
@@ -183,7 +171,10 @@
 			function <variable>FILTER()</variable>.</para></warning>
 		</description>
 		<see-also>
+			<ref type="application">Monitor</ref>
 			<ref type="application">StopMixMonitor</ref>
+			<ref type="application">PauseMonitor</ref>
+			<ref type="application">UnpauseMonitor</ref>
 			<ref type="function">AUDIOHOOK_INHERIT</ref>
 		</see-also>
 	</application>
@@ -304,51 +295,6 @@
 			</parameter>
 		</syntax>
 	</function>
-	<managerEvent language="en_US" name="MixMonitorStart">
-		<managerEventInstance class="EVENT_FLAG_CALL">
-			<synopsis>Raised when monitoring has started on a channel.</synopsis>
-			<syntax>
-				<channel_snapshot/>
-			</syntax>
-			<see-also>
-				<ref type="managerEvent">MixMonitorStop</ref>
-				<ref type="application">MixMonitor</ref>
-				<ref type="manager">MixMonitor</ref>
-			</see-also>
-		</managerEventInstance>
-	</managerEvent>
-	<managerEvent language="en_US" name="MixMonitorStop">
-		<managerEventInstance class="EVENT_FLAG_CALL">
-		<synopsis>Raised when monitoring has stopped on a channel.</synopsis>
-		<syntax>
-			<channel_snapshot/>
-		</syntax>
-		<see-also>
-			<ref type="managerEvent">MixMonitorStart</ref>
-			<ref type="application">StopMixMonitor</ref>
-			<ref type="manager">StopMixMonitor</ref>
-		</see-also>
-		</managerEventInstance>
-	</managerEvent>
-	<managerEvent language="en_US" name="MixMonitorMute">
-		<managerEventInstance class="EVENT_FLAG_CALL">
-		<synopsis>Raised when monitoring is muted or unmuted on a channel.</synopsis>
-		<syntax>
-			<channel_snapshot/>
-			<parameter name="Direction">
-				<para>Which part of the recording was muted or unmuted: read, write or both
-				(from channel, to channel or both directions).</para>
-			</parameter>
-			<parameter name="State">
-				<para>If the monitoring was muted or unmuted: 1 when muted, 0 when unmuted.</para>
-			</parameter>
-		</syntax>
-		<see-also>
-			<ref type="manager">MixMonitorMute</ref>
-		</see-also>
-		</managerEventInstance>
-	</managerEvent>
-
 
  ***/
 
@@ -386,6 +332,7 @@ struct mixmonitor {
 	/* the below string fields describe data used for creating voicemails from the recording */
 	AST_DECLARE_STRING_FIELDS(
 		AST_STRING_FIELD(call_context);
+		AST_STRING_FIELD(call_macrocontext);
 		AST_STRING_FIELD(call_extension);
 		AST_STRING_FIELD(call_callerchan);
 		AST_STRING_FIELD(call_callerid);
@@ -413,8 +360,6 @@ enum mixmonitor_flags {
 	MUXFLAG_BEEP_STOP = (1 << 13),
 	MUXFLAG_DEPRECATED_RWSYNC = (1 << 14),
 	MUXFLAG_NO_RWSYNC = (1 << 15),
-	MUXFLAG_AUTO_DELETE = (1 << 16),
-	MUXFLAG_REAL_CALLERID = (1 << 17),
 };
 
 enum mixmonitor_args {
@@ -435,8 +380,6 @@ AST_APP_OPTIONS(mixmonitor_opts, {
 	AST_APP_OPTION('a', MUXFLAG_APPEND),
 	AST_APP_OPTION('b', MUXFLAG_BRIDGED),
 	AST_APP_OPTION_ARG('B', MUXFLAG_BEEP, OPT_ARG_BEEP_INTERVAL),
-	AST_APP_OPTION('c', MUXFLAG_REAL_CALLERID),
-	AST_APP_OPTION('d', MUXFLAG_AUTO_DELETE),
 	AST_APP_OPTION('p', MUXFLAG_BEEP_START),
 	AST_APP_OPTION('P', MUXFLAG_BEEP_STOP),
 	AST_APP_OPTION_ARG('v', MUXFLAG_READVOLUME, OPT_ARG_READVOLUME),
@@ -641,7 +584,6 @@ static void mixmonitor_free(struct mixmonitor *mixmonitor)
  * \brief Copies the mixmonitor to all voicemail recipients
  * \param mixmonitor The mixmonitor that needs to forward its file to recipients
  * \param ext Format of the file that was saved
- * \param filename
  */
 static void copy_to_voicemail(struct mixmonitor *mixmonitor, const char *ext, const char *filename)
 {
@@ -656,6 +598,7 @@ static void copy_to_voicemail(struct mixmonitor *mixmonitor, const char *ext, co
 	ast_string_field_set(&recording_data, recording_file, filename);
 	ast_string_field_set(&recording_data, recording_ext, ext);
 	ast_string_field_set(&recording_data, call_context, mixmonitor->call_context);
+	ast_string_field_set(&recording_data, call_macrocontext, mixmonitor->call_macrocontext);
 	ast_string_field_set(&recording_data, call_extension, mixmonitor->call_extension);
 	ast_string_field_set(&recording_data, call_callerchan, mixmonitor->call_callerchan);
 	ast_string_field_set(&recording_data, call_callerid, mixmonitor->call_callerid);
@@ -869,19 +812,6 @@ static void *mixmonitor_thread(void *obj)
 		ast_debug(3, "No recipients to forward monitor to, moving on.\n");
 	}
 
-	if (ast_test_flag(mixmonitor, MUXFLAG_AUTO_DELETE)) {
-		ast_debug(3, "Deleting our copies of recording files\n");
-		if (!ast_strlen_zero(fs_ext)) {
-			ast_filedelete(mixmonitor->filename, fs_ext);
-		}
-		if (!ast_strlen_zero(fs_read_ext)) {
-			ast_filedelete(mixmonitor->filename_read, fs_ext);
-		}
-		if (!ast_strlen_zero(fs_write_ext)) {
-			ast_filedelete(mixmonitor->filename_write, fs_ext);
-		}
-	}
-
 	mixmonitor_free(mixmonitor);
 
 	ast_module_unref(ast_module_info->self);
@@ -1037,39 +967,23 @@ static int launch_monitor_thread(struct ast_channel *chan, const char *filename,
 
 	if (!ast_strlen_zero(recipients)) {
 		char callerid[256];
+		struct ast_party_connected_line *connected;
 
 		ast_channel_lock(chan);
 
-		/* We use the connected line of the invoking channel for caller ID,
-		 * unless we've been told to use the Caller ID.
-		 * The initial use for this relied on Connected Line to get the
-		 * actual number for recording with Digium phones,
-		 * but in generic use the Caller ID is likely what people want.
-		 */
+		/* We use the connected line of the invoking channel for caller ID. */
 
-		if (ast_test_flag(mixmonitor, MUXFLAG_REAL_CALLERID)) {
-			struct ast_party_caller *caller;
-			caller = ast_channel_caller(chan);
-			ast_debug(3, "Caller ID = %d - %s : %d - %s\n", caller->id.name.valid,
-				caller->id.name.str, caller->id.number.valid,
-				caller->id.number.str);
-			ast_callerid_merge(callerid, sizeof(callerid),
-				S_COR(caller->id.name.valid, caller->id.name.str, NULL),
-				S_COR(caller->id.number.valid, caller->id.number.str, NULL),
-				"Unknown");
-		} else {
-			struct ast_party_connected_line *connected;
-			connected = ast_channel_connected(chan);
-			ast_debug(3, "Connected Line CID = %d - %s : %d - %s\n", connected->id.name.valid,
-				connected->id.name.str, connected->id.number.valid,
-				connected->id.number.str);
-			ast_callerid_merge(callerid, sizeof(callerid),
-				S_COR(connected->id.name.valid, connected->id.name.str, NULL),
-				S_COR(connected->id.number.valid, connected->id.number.str, NULL),
-				"Unknown");
-		}
+		connected = ast_channel_connected(chan);
+		ast_debug(3, "Connected Line CID = %d - %s : %d - %s\n", connected->id.name.valid,
+			connected->id.name.str, connected->id.number.valid,
+			connected->id.number.str);
+		ast_callerid_merge(callerid, sizeof(callerid),
+			S_COR(connected->id.name.valid, connected->id.name.str, NULL),
+			S_COR(connected->id.number.valid, connected->id.number.str, NULL),
+			"Unknown");
 
 		ast_string_field_set(mixmonitor, call_context, ast_channel_context(chan));
+		ast_string_field_set(mixmonitor, call_macrocontext, ast_channel_macrocontext(chan));
 		ast_string_field_set(mixmonitor, call_extension, ast_channel_exten(chan));
 		ast_string_field_set(mixmonitor, call_callerchan, ast_channel_name(chan));
 		ast_string_field_set(mixmonitor, call_callerid, callerid);
@@ -1163,7 +1077,6 @@ static int mixmonitor_exec(struct ast_channel *chan, const char *data)
 	struct ast_flags flags = { 0 };
 	char *recipients = NULL;
 	char *parse;
-	RAII_VAR(struct stasis_message *, message, NULL, ao2_cleanup);
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(filename);
 		AST_APP_ARG(options);
@@ -1284,12 +1197,6 @@ static int mixmonitor_exec(struct ast_channel *chan, const char *data)
 		ast_module_unref(ast_module_info->self);
 	}
 
-	message = ast_channel_blob_create_from_cache(ast_channel_uniqueid(chan),
-		ast_channel_mixmonitor_start_type(), NULL);
-	if (message) {
-		stasis_publish(ast_channel_topic(chan), message);
-	}
-
 	return 0;
 }
 
@@ -1299,7 +1206,6 @@ static int stop_mixmonitor_full(struct ast_channel *chan, const char *data)
 	char *parse = "";
 	struct mixmonitor_ds *mixmonitor_ds;
 	const char *beep_id = NULL;
-	RAII_VAR(struct stasis_message *, message, NULL, ao2_cleanup);
 
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(mixmonid);
@@ -1355,13 +1261,6 @@ static int stop_mixmonitor_full(struct ast_channel *chan, const char *data)
 
 	if (!ast_strlen_zero(beep_id)) {
 		ast_beep_stop(chan, beep_id);
-	}
-
-	message = ast_channel_blob_create_from_cache(ast_channel_uniqueid(chan),
-	                                             ast_channel_mixmonitor_stop_type(),
-	                                             NULL);
-	if (message) {
-		stasis_publish(ast_channel_topic(chan), message);
 	}
 
 	return 0;
@@ -1441,50 +1340,6 @@ static char *handle_cli_mixmonitor(struct ast_cli_entry *e, int cmd, struct ast_
 	return CLI_SUCCESS;
 }
 
-/*! \brief  Mute / unmute  an individual MixMonitor by id */
-static int mute_mixmonitor_instance(struct ast_channel *chan, const char *data,
-									enum ast_audiohook_flags flag, int clearmute)
-{
-	struct ast_datastore *datastore = NULL;
-	char *parse = "";
-	struct mixmonitor_ds *mixmonitor_ds;
-
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(mixmonid);
-	);
-
-	if (!ast_strlen_zero(data)) {
-		parse = ast_strdupa(data);
-	}
-
-	AST_STANDARD_APP_ARGS(args, parse);
-
-	ast_channel_lock(chan);
-
-	datastore = ast_channel_datastore_find(chan, &mixmonitor_ds_info,
-		S_OR(args.mixmonid, NULL));
-	if (!datastore) {
-		ast_channel_unlock(chan);
-		return -1;
-	}
-	mixmonitor_ds = datastore->data;
-
-	ast_mutex_lock(&mixmonitor_ds->lock);
-
-	if (mixmonitor_ds->audiohook) {
-		if (clearmute) {
-			ast_clear_flag(mixmonitor_ds->audiohook, flag);
-		} else {
-			ast_set_flag(mixmonitor_ds->audiohook, flag);
-		}
-	}
-
-	ast_mutex_unlock(&mixmonitor_ds->lock);
-	ast_channel_unlock(chan);
-
-	return 0;
-}
-
 /*! \brief  Mute / unmute  a MixMonitor channel */
 static int manager_mute_mixmonitor(struct mansession *s, const struct message *m)
 {
@@ -1493,11 +1348,8 @@ static int manager_mute_mixmonitor(struct mansession *s, const struct message *m
 	const char *id = astman_get_header(m, "ActionID");
 	const char *state = astman_get_header(m, "State");
 	const char *direction = astman_get_header(m,"Direction");
-	const char *mixmonitor_id = astman_get_header(m, "MixMonitorID");
-	int clearmute = 1, mutedcount = 0;
+	int clearmute = 1;
 	enum ast_audiohook_flags flag;
-	RAII_VAR(struct stasis_message *, stasis_message, NULL, ao2_cleanup);
-	RAII_VAR(struct ast_json *, stasis_message_blob, NULL, ast_json_unref);
 
 	if (ast_strlen_zero(direction)) {
 		astman_send_error(s, m, "No direction specified. Must be read, write or both");
@@ -1533,34 +1385,10 @@ static int manager_mute_mixmonitor(struct mansession *s, const struct message *m
 		return AMI_SUCCESS;
 	}
 
-	if (ast_strlen_zero(mixmonitor_id)) {
-		mutedcount = ast_audiohook_set_mute_all(c, mixmonitor_spy_type, flag, clearmute);
-		if (mutedcount < 0) {
-			ast_channel_unref(c);
-			astman_send_error(s, m, "Cannot set mute flag");
-			return AMI_SUCCESS;
-		}
-	} else {
-		if (mute_mixmonitor_instance(c, mixmonitor_id, flag, clearmute)) {
-			ast_channel_unref(c);
-			astman_send_error(s, m, "Cannot set mute flag");
-			return AMI_SUCCESS;
-		}
-		mutedcount = 1;
-	}
-
-
-	stasis_message_blob = ast_json_pack("{s: s, s: b, s: s, s: i}",
-		"direction", direction,
-		"state", ast_true(state),
-		"mixmonitorid", mixmonitor_id,
-		"count", mutedcount);
-
-	stasis_message = ast_channel_blob_create_from_cache(ast_channel_uniqueid(c),
-		ast_channel_mixmonitor_mute_type(), stasis_message_blob);
-
-	if (stasis_message) {
-		stasis_publish(ast_channel_topic(c), stasis_message);
+	if (ast_audiohook_set_mute(c, mixmonitor_spy_type, flag, clearmute)) {
+		ast_channel_unref(c);
+		astman_send_error(s, m, "Cannot set mute flag");
+		return AMI_SUCCESS;
 	}
 
 	astman_append(s, "Response: Success\r\n");

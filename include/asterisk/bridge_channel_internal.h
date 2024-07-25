@@ -30,8 +30,8 @@
  * by other members of the Bridging API.
  *
  * See Also:
- * \arg \ref AstBridging
  * \arg \ref AstCREDITS
+ * \arg \ref Ast
  */
 
 /*!
@@ -78,7 +78,7 @@ enum bridge_channel_action_type {
  * \param bridge The bridge to make the bridge_channel for
  *
  * \retval NULL on error
- * \return ao2 ref counted object on success
+ * \retval ao2 ref counted object on success
  */
 struct ast_bridge_channel *bridge_channel_internal_alloc(struct ast_bridge *bridge);
 
@@ -91,6 +91,8 @@ struct ast_bridge_channel *bridge_channel_internal_alloc(struct ast_bridge *brid
  * \param bridge_channel Channel that owes events to the original bridge.
  *
  * \note On entry, the orig_bridge is already locked.
+ *
+ * \return Nothing
  */
 void bridge_channel_settle_owed_events(struct ast_bridge *orig_bridge, struct ast_bridge_channel *bridge_channel);
 
@@ -100,6 +102,8 @@ void bridge_channel_settle_owed_events(struct ast_bridge *orig_bridge, struct as
  * \since 13.17.0
  *
  * \param bridge_channel Channel that the deferred frames should be pulled from and queued to.
+ *
+ * \return Nothing
  */
 void bridge_channel_queue_deferred_frames(struct ast_bridge_channel *bridge_channel);
 
@@ -152,15 +156,18 @@ int bridge_channel_internal_push_full(struct ast_bridge_channel *bridge_channel,
  * \param bridge_channel Channel to pull.
  *
  * \note On entry, bridge_channel->bridge is already locked.
+ *
+ * \return Nothing
  */
 void bridge_channel_internal_pull(struct ast_bridge_channel *bridge_channel);
 
 /*!
- * \internal
  * \brief Signal imparting threads to wake up.
  * \since 13.9.0
  *
  * \param chan Channel imparted that we need to signal.
+ *
+ * \return Nothing
  */
 void bridge_channel_impart_signal(struct ast_channel *chan);
 
@@ -187,21 +194,20 @@ int bridge_channel_internal_join(struct ast_bridge_channel *bridge_channel);
 
 /*!
  * \internal
- * \brief Suspend a channel from a bridge.
+ * \brief Temporarily suspend a channel from a bridge, handing control over to some
+ * other system
  *
- * \param bridge_channel Channel to suspend.
- *
- * \note This function assumes bridge_channel->bridge is locked.
+ * \param bridge_channel The channel in the bridge
+ * \note This function assumes that \ref bridge_channel is already locked
  */
 void bridge_channel_internal_suspend_nolock(struct ast_bridge_channel *bridge_channel);
 
 /*!
  * \internal
- * \brief Unsuspend a channel from a bridge.
+ * \brief Unsuspend a channel that was previously suspended
  *
- * \param bridge_channel Channel to unsuspend.
- *
- * \note This function assumes bridge_channel->bridge is locked.
+ * \param bridge_channel The channel in the bridge
+ * \note This function assumes that \ref bridge_channel is already locked
  */
 void bridge_channel_internal_unsuspend_nolock(struct ast_bridge_channel *bridge_channel);
 
@@ -216,7 +222,8 @@ void bridge_channel_internal_unsuspend_nolock(struct ast_bridge_channel *bridge_
  *
  * \param transferee The channel to have the action queued on
  * \param exten The destination extension for the transferee
- * \param context, new_channel_cb, user_data
+ * \param context The destination context for the transferee
+ * \param hook Frame hook to attach to transferee
  *
  * \retval 0 on success.
  * \retval -1 on error.

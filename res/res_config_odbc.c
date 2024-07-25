@@ -49,9 +49,6 @@
 /*! Initial SQL query buffer size to allocate. */
 #define SQL_BUF_SIZE	1024
 
-static const char *res_config_odbc_conf = "res_config_odbc.conf";
-static int order_multi_row_results_by_initial_column = 1;
-
 AST_THREADSTORAGE(sql_buf);
 AST_THREADSTORAGE(rowdata_buf);
 
@@ -158,16 +155,16 @@ static SQLHSTMT custom_prepare(struct odbc_obj *obj, void *data)
 }
 
 /*!
- * \brief Execute an SQL query and return ast_variable list
+ * \brief Excute an SQL query and return ast_variable list
  * \param database
  * \param table
- * \param fields list containing one or more field/operator/value set.
+ * \param ap list containing one or more field/operator/value set.
  *
  * Select database and preform query on table, prepare the sql statement
  * Sub-in the values to the prepared statement and execute it. Return results
  * as a ast_variable list.
  *
- * \return var on success
+ * \retval var on success
  * \retval NULL on failure
  */
 static struct ast_variable *realtime_odbc(const char *database, const char *table, const struct ast_variable *fields)
@@ -329,17 +326,17 @@ static struct ast_variable *realtime_odbc(const char *database, const char *tabl
 }
 
 /*!
- * \brief Execute an Select query and return ast_config list
+ * \brief Excute an Select query and return ast_config list
  * \param database
  * \param table
- * \param fields list containing one or more field/operator/value set.
+ * \param ap list containing one or more field/operator/value set.
  *
  * Select database and preform query on table, prepare the sql statement
  * Sub-in the values to the prepared statement and execute it.
  * Execute this prepared query against several ODBC connected databases.
  * Return results as an ast_config variable.
  *
- * \return var on success
+ * \retval var on success
  * \retval NULL on failure
  */
 static struct ast_config *realtime_multi_odbc(const char *database, const char *table, const struct ast_variable *fields)
@@ -391,10 +388,7 @@ static struct ast_config *realtime_multi_odbc(const char *database, const char *
 		ast_str_append(&sql, 0, " AND %s%s ?%s", field->name, op,
 			strcasestr(field->name, "LIKE") && !ast_odbc_backslash_is_escape(obj) ? " ESCAPE '\\\\'" : "");
 	}
-
-	if (order_multi_row_results_by_initial_column) {
-		ast_str_append(&sql, 0, " ORDER BY %s", initfield);
-	}
+	ast_str_append(&sql, 0, " ORDER BY %s", initfield);
 
 	cps.sql = ast_str_buffer(sql);
 
@@ -505,18 +499,18 @@ next_sql_fetch:;
 }
 
 /*!
- * \brief Execute an UPDATE query
+ * \brief Excute an UPDATE query
  * \param database
  * \param table
  * \param keyfield where clause field
  * \param lookup value of field for where clause
- * \param fields list containing one or more field/value set(s).
+ * \param ap list containing one or more field/value set(s).
  *
  * Update a database table, prepare the sql statement using keyfield and lookup
  * control the number of records to change. All values to be changed are stored in ap list.
  * Sub-in the values to the prepared statement and execute it.
  *
- * \return number of rows affected
+ * \retval number of rows affected
  * \retval -1 on failure
  */
 static int update_odbc(const char *database, const char *table, const char *keyfield, const char *lookup, const struct ast_variable *fields)
@@ -666,15 +660,16 @@ static SQLHSTMT update2_prepare(struct odbc_obj *obj, void *data)
 
 /*!
  * \brief Execute an UPDATE query
- * \param database, table, lookup_fields
- * \param update_fields list containing one or more field/value set(s).
+ * \param database
+ * \param table
+ * \param ap list containing one or more field/value set(s).
  *
  * Update a database table, preparing the sql statement from a list of
  * key/value pairs specified in ap.  The lookup pairs are specified first
  * and are separated from the update pairs by a sentinel value.
  * Sub-in the values to the prepared statement and execute it.
  *
- * \return number of rows affected
+ * \retval number of rows affected
  * \retval -1 on failure
 */
 static int update2_odbc(const char *database, const char *table, const struct ast_variable *lookup_fields, const struct ast_variable *update_fields)
@@ -731,16 +726,16 @@ static int update2_odbc(const char *database, const char *table, const struct as
 }
 
 /*!
- * \brief Execute an INSERT query
+ * \brief Excute an INSERT query
  * \param database
  * \param table
- * \param fields list containing one or more field/value set(s)
+ * \param ap list containing one or more field/value set(s)
  *
  * Insert a new record into database table, prepare the sql statement.
  * All values to be changed are stored in ap list.
  * Sub-in the values to the prepared statement and execute it.
  *
- * \return number of rows affected
+ * \retval number of rows affected
  * \retval -1 on failure
  */
 static int store_odbc(const char *database, const char *table, const struct ast_variable *fields)
@@ -812,18 +807,18 @@ static int store_odbc(const char *database, const char *table, const struct ast_
 }
 
 /*!
- * \brief Execute an DELETE query
+ * \brief Excute an DELETE query
  * \param database
  * \param table
  * \param keyfield where clause field
  * \param lookup value of field for where clause
- * \param fields list containing one or more field/value set(s)
+ * \param ap list containing one or more field/value set(s)
  *
  * Delete a row from a database table, prepare the sql statement using keyfield and lookup
  * control the number of records to change. Additional params to match rows are stored in ap list.
  * Sub-in the values to the prepared statement and execute it.
  *
- * \return number of rows affected
+ * \retval number of rows affected
  * \retval -1 on failure
  */
 static int destroy_odbc(const char *database, const char *table, const char *keyfield, const char *lookup, const struct ast_variable *fields)
@@ -960,7 +955,7 @@ static struct ast_config *config_odbc(const char *database, const char *table, c
 
 	memset(&q, 0, sizeof(q));
 
-	if (!file || !strcmp (file, res_config_odbc_conf) || !sql) {
+	if (!file || !strcmp (file, "res_config_odbc.conf") || !sql) {
 		return NULL;		/* cant configure myself with myself ! */
 	}
 
@@ -1139,7 +1134,6 @@ static int require_odbc(const char *database, const char *table, va_list ap)
 					break;
 				case SQL_TYPE_TIMESTAMP:
 				case SQL_TIMESTAMP:
-				case SQL_DATETIME:
 					if (type != RQ_DATE && type != RQ_DATETIME) {
 						warn_type(col, type);
 					}
@@ -1254,46 +1248,22 @@ static struct ast_config_engine odbc_engine = {
 	.unload_func = unload_odbc,
 };
 
-static void load_config(const char *filename)
+static int unload_module (void)
 {
-	struct ast_config *config;
-	struct ast_flags config_flags = { 0 };
-	const char *s;
+	ast_config_engine_deregister(&odbc_engine);
 
-	config = ast_config_load(filename, config_flags);
-	if (config == CONFIG_STATUS_FILEMISSING || config == CONFIG_STATUS_FILEINVALID) {
-		if (config == CONFIG_STATUS_FILEINVALID) {
-			ast_log(LOG_WARNING, "Unable to load config '%s'. Using defaults.\n", filename);
-		}
-		order_multi_row_results_by_initial_column = 1;
-		return;
-	}
-
-	/* Result set ordering is enabled by default */
-	s = ast_variable_retrieve(config, "general", "order_multi_row_results_by_initial_column");
-	order_multi_row_results_by_initial_column = !s || ast_true(s);
-
-	ast_config_destroy(config);
+	return 0;
 }
 
-static int load_module(void)
+static int load_module (void)
 {
-	/* We'll either successfully load the configuration or fail with reasonable
-	 * defaults */
-	load_config(res_config_odbc_conf);
 	ast_config_engine_register(&odbc_engine);
+
 	return 0;
 }
 
 static int reload_module(void)
 {
-	load_config(res_config_odbc_conf);
-	return 0;
-}
-
-static int unload_module(void)
-{
-	ast_config_engine_deregister(&odbc_engine);
 	return 0;
 }
 

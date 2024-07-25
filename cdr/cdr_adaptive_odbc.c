@@ -564,7 +564,6 @@ static int odbc_log(struct ast_cdr *cdr)
 					break;
 				case SQL_TYPE_TIMESTAMP:
 				case SQL_TIMESTAMP:
-				case SQL_DATETIME:
 					if (ast_strlen_zero(colptr)) {
 						continue;
 					} else {
@@ -741,7 +740,7 @@ static int odbc_log(struct ast_cdr *cdr)
 			} else if (entry->filtervalue
 				&& ((!entry->negatefiltervalue && entry->filtervalue[0] != '\0')
 					|| (entry->negatefiltervalue && entry->filtervalue[0] == '\0'))) {
-				ast_verb(4, "CDR column '%s' was not set and does not match filter of"
+				ast_log(AST_LOG_WARNING, "CDR column '%s' was not set and does not match filter of"
 					" %s'%s'.  Cancelling this CDR.\n",
 					entry->cdrname, entry->negatefiltervalue ? "!" : "",
 					entry->filtervalue);

@@ -90,7 +90,7 @@
 			<para>Plays hold music specified by class. If omitted, the default music
 			source for the channel will be used. Change the default class with
 			Set(CHANNEL(musicclass)=...). If duration is given, hold music will be played
-			specified number of seconds. If duration is omitted, music plays indefinitely.
+			specified number of seconds. If duration is ommited, music plays indefinitely.
 			Returns <literal>0</literal> when done, <literal>-1</literal> on hangup.</para>
 			<para>This application does not automatically answer and should be preceeded by
 			an application such as Answer() or Progress().</para>
@@ -153,8 +153,6 @@ struct moh_files_state {
 #define MOH_ANNOUNCEMENT	(1 << 6)	/*!< Do we play announcement files between songs on this channel? */
 #define MOH_PREFERCHANNELCLASS	(1 << 7)	/*!< Should queue moh override channel moh */
 
-#define MOH_LOOPLAST (1 << 8) /*!< Whether to loop the last file in the music class when we reach the end, rather than starting over */
-
 /* Custom astobj2 flag */
 #define MOH_NOTDELETED          (1 << 30)       /*!< Find only records that aren't deleted? */
 #define MOH_REALTIME          (1 << 31)       /*!< Find only records that are realtime */
@@ -195,8 +193,6 @@ struct mohclass {
 	unsigned int delete:1;
 	AST_LIST_HEAD_NOLOCK(, mohdata) members;
 	AST_LIST_ENTRY(mohclass) list;
-	/*!< Play the moh if the channel answered */
-	int answeredonly;
 };
 
 struct mohdata {
@@ -368,11 +364,7 @@ static int ast_moh_files_next(struct ast_channel *chan)
 	} else {
 		/* This is easy, just increment our position and make sure we don't exceed the total file count */
 		state->pos++;
-		if (ast_test_flag(state->class, MOH_LOOPLAST)) {
-			state->pos = MIN(file_count - 1, state->pos);
-		} else {
-			state->pos %= file_count;
-		}
+		state->pos %= file_count;
 		state->save_pos = -1;
 		state->samples = 0;
 	}
@@ -464,22 +456,24 @@ static void moh_files_write_format_change(struct ast_channel *chan, void *data)
 
 static int moh_files_generator(struct ast_channel *chan, void *data, int len, int samples)
 {
-	struct moh_files_state *state;
+	struct moh_files_state *state = ast_channel_music_state(chan);
 	struct ast_frame *f = NULL;
-	int res = 0, sample_queue = 0;
+	int res = 0;
 
-	ast_channel_lock(chan);
-	state = ast_channel_music_state(chan);
 	state->sample_queue += samples;
-	/* save the sample queue value for un-locked access */
-	sample_queue = state->sample_queue;
-	ast_channel_unlock(chan);
 
-	while (sample_queue > 0) {
+	while (state->sample_queue > 0) {
 		ast_channel_lock(chan);
 		f = moh_files_readframe(chan);
+
+		/* We need to be sure that we unlock
+		 * the channel prior to calling
+		 * ast_write. Otherwise, the recursive locking
+		 * that occurs can cause deadlocks when using
+		 * indirect channels, like local channels
+		 */
+		ast_channel_unlock(chan);
 		if (!f) {
-			ast_channel_unlock(chan);
 			return -1;
 		}
 
@@ -493,19 +487,6 @@ static int moh_files_generator(struct ast_channel *chan, void *data, int len, in
 		if (ast_format_cmp(f->subclass.format, state->mohwfmt) == AST_FORMAT_CMP_NOT_EQUAL) {
 			ao2_replace(state->mohwfmt, f->subclass.format);
 		}
-
-		/* We need to be sure that we unlock
-		 * the channel prior to calling
-		 * ast_write, but after our references to state
-		 * as it refers to chan->music_state. Update
-		 * sample_queue for our loop
-		 * Otherwise, the recursive locking that occurs
-		 * can cause deadlocks when using indirect
-		 * channels, like local channels
-		 */
-		sample_queue = state->sample_queue;
-		ast_channel_unlock(chan);
-
 		res = ast_write(chan, f);
 		ast_frfree(f);
 		if (res < 0) {
@@ -1137,7 +1118,7 @@ static void moh_parse_options(struct ast_variable *var, struct mohclass *mohclas
 		} else if (!strcasecmp(var->name, "mode")) {
 			ast_copy_string(mohclass->mode, var->value, sizeof(mohclass->mode));
 		} else if (!strcasecmp(var->name, "entry")) {
-			if (ast_begins_with(var->value, "/") || strstr(var->value, "://")) {
+			if (ast_begins_with(var->value, "/") || ast_begins_with(var->value, "http://") || ast_begins_with(var->value, "https://")) {
 				char *dup;
 
 				if (!playlist_entries) {
@@ -1163,7 +1144,7 @@ static void moh_parse_options(struct ast_variable *var, struct mohclass *mohclas
 
 				AST_VECTOR_APPEND(playlist_entries, dup);
 			} else {
-				ast_log(LOG_ERROR, "Playlist entries must be a URL or an absolute path, '%s' provided.\n", var->value);
+				ast_log(LOG_ERROR, "Playlist entries must be an HTTP(S) URL or absolute path, '%s' provided.\n", var->value);
 			}
 		} else if (!strcasecmp(var->name, "directory")) {
 			ast_copy_string(mohclass->dir, var->value, sizeof(mohclass->dir));
@@ -1189,12 +1170,6 @@ static void moh_parse_options(struct ast_variable *var, struct mohclass *mohclas
 			} else if (!strcasecmp(var->value, "randstart")) {
 				ast_set_flag(mohclass, MOH_RANDSTART);
 			}
-		} else if (!strcasecmp(var->name, "loop_last")) {
-			if (ast_true(var->value)) {
-				ast_set_flag(mohclass, MOH_LOOPLAST);
-			} else {
-				ast_clear_flag(mohclass, MOH_LOOPLAST);
-			}
 		} else if (!strcasecmp(var->name, "format") && !ast_strlen_zero(var->value)) {
 			ao2_cleanup(mohclass->format);
 			mohclass->format = ast_format_cache_get(var->value);
@@ -1218,8 +1193,6 @@ static void moh_parse_options(struct ast_variable *var, struct mohclass *mohclas
 				ast_log(LOG_WARNING, "kill_method '%s' is invalid.  Setting to 'process_group'\n", var->value);
 				mohclass->kill_method = KILL_METHOD_PROCESS_GROUP;
 			}
-		} else if (!strcasecmp(var->name, "answeredonly")) {
-			mohclass->answeredonly = ast_true(var->value) ? 1: 0;
 		}
 	}
 
@@ -1236,8 +1209,7 @@ static void moh_parse_options(struct ast_variable *var, struct mohclass *mohclas
 
 		/* We don't need to lock here because we are the thread that
 		 * created this mohclass and we haven't published it yet */
-		ao2_ref(mohclass->files, -1);
-		mohclass->files = playlist_entries;
+		ao2_replace(mohclass->files, playlist_entries);
 	}
 }
 
@@ -1334,8 +1306,7 @@ static int moh_scan_files(struct mohclass *class) {
 	AST_VECTOR_COMPACT(files);
 
 	ao2_lock(class);
-	ao2_ref(class->files, -1);
-	class->files = files;
+	ao2_replace(class->files, files);
 	ao2_unlock(class);
 
 	return AST_VECTOR_SIZE(files);
@@ -1768,7 +1739,7 @@ static int local_ast_moh_start(struct ast_channel *chan, const char *mclass, con
 					return -1;
 				}
 			} else {
-				/* We don't register RT moh class, so let's init it manually */
+				/* We don't register RT moh class, so let's init it manualy */
 
 				time(&mohclass->start);
 				mohclass->start -= respawn_time;
@@ -1859,11 +1830,6 @@ static int local_ast_moh_start(struct ast_channel *chan, const char *mclass, con
 	}
 
 	if (!mohclass) {
-		return -1;
-	}
-
-	if (mohclass->answeredonly && (ast_channel_state(chan) != AST_STATE_UP)) {
-		ast_verb(3, "The channel '%s' is not answered yet. Ignore the moh request.\n", ast_channel_name(chan));
 		return -1;
 	}
 

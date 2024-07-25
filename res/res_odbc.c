@@ -27,7 +27,7 @@
  * \author Anthony Minessale II <anthmct@yahoo.com>
  * \author Tilghman Lesher <tilghman@digium.com>
  *
- * \arg See also: \ref cdr_odbc.c
+ * \arg See also: \ref cdr_odbc
  */
 
 /*! \li \ref res_odbc.c uses the configuration file \ref res_odbc.conf
@@ -215,6 +215,13 @@ static void destroy_table_cache(struct odbc_cache_tables *table)
 }
 
 /*!
+ * \brief Find or create an entry describing the table specified.
+ * \param database Name of an ODBC class on which to query the table
+ * \param tablename Tablename to describe
+ * \retval A structure describing the table layout, or NULL, if the table is not found or another error occurs.
+ * When a structure is returned, the contained columns list will be
+ * rdlock'ed, to ensure that it will be retained in memory.
+ *
  * XXX This creates a connection and disconnects it. In some situations, the caller of
  * this function has its own connection and could donate it to this function instead of
  * needing to create another one.
@@ -228,6 +235,8 @@ static void destroy_table_cache(struct odbc_cache_tables *table)
  *   the need to cache tables is questionable. Instead, the table structure can be fetched from
  *   the DB directly each time, resulting in a single owner of the data.
  * * Make odbc_cache_tables a refcounted object.
+ *
+ * \since 1.6.1
  */
 struct odbc_cache_tables *ast_odbc_find_table(const char *database, const char *tablename)
 {
@@ -861,7 +870,7 @@ unsigned int ast_odbc_get_max_connections(const char *name)
 	return max_connections;
 }
 
-/*!
+/*
  * \brief Determine if the connection has died.
  *
  * \param connection The connection to check
@@ -915,16 +924,12 @@ struct odbc_obj *_ast_odbc_request_obj2(const char *name, struct ast_flags flags
 		return NULL;
 	}
 
-	while (!obj) {
-		ast_mutex_lock(&class->lock);
+	ast_mutex_lock(&class->lock);
 
+	while (!obj) {
 		obj = AST_LIST_REMOVE_HEAD(&class->connections, list);
 
-		ast_mutex_unlock(&class->lock);
-
 		if (!obj) {
-			ast_mutex_lock(&class->lock);
-
 			if (class->connection_cnt < class->maxconnections) {
 				/* If no connection is immediately available establish a new
 				 * one if allowed. If we try and fail we give up completely as
@@ -932,31 +937,20 @@ struct odbc_obj *_ast_odbc_request_obj2(const char *name, struct ast_flags flags
 				 */
 				obj = ao2_alloc(sizeof(*obj), odbc_obj_destructor);
 				if (!obj) {
-					ast_mutex_unlock(&class->lock);
 					break;
 				}
 
 				obj->parent = ao2_bump(class);
-
-				class->connection_cnt++;
-
-				ast_mutex_unlock(&class->lock);
-
 				if (odbc_obj_connect(obj) == ODBC_FAIL) {
-					ast_mutex_lock(&class->lock);
-					class->connection_cnt--;
-					ast_mutex_unlock(&class->lock);
 					ao2_ref(obj->parent, -1);
 					ao2_ref(obj, -1);
 					obj = NULL;
 					break;
 				}
 
-				ast_mutex_lock(&class->lock);
-
+				class->connection_cnt++;
 				ast_debug(2, "Created ODBC handle %p on class '%s', new count is %zd\n", obj,
 					name, class->connection_cnt);
-
 			} else {
 				/* Otherwise if we're not allowed to create a new one we
 				 * wait for another thread to give up the connection they
@@ -964,24 +958,15 @@ struct odbc_obj *_ast_odbc_request_obj2(const char *name, struct ast_flags flags
 				 */
 				ast_cond_wait(&class->cond, &class->lock);
 			}
-
-			ast_mutex_unlock(&class->lock);
-
 		} else if (connection_dead(obj, class)) {
 			/* If the connection is dead try to grab another functional one from the
 			 * pool instead of trying to resurrect this one.
 			 */
 			ao2_ref(obj, -1);
 			obj = NULL;
-
-			ast_mutex_lock(&class->lock);
-
 			class->connection_cnt--;
 			ast_debug(2, "ODBC handle %p dead - removing from class '%s', new count is %zd\n",
 				obj, name, class->connection_cnt);
-
-			ast_mutex_unlock(&class->lock);
-
 		} else {
 			/* We successfully grabbed a connection from the pool and all is well!
 			 */
@@ -990,6 +975,7 @@ struct odbc_obj *_ast_odbc_request_obj2(const char *name, struct ast_flags flags
 		}
 	}
 
+	ast_mutex_unlock(&class->lock);
 	ao2_ref(class, -1);
 
 	return obj;
@@ -1052,9 +1038,7 @@ static odbc_status odbc_obj_connect(struct odbc_obj *obj)
 	/* Dont connect while server is marked as unreachable via negative_connection_cache */
 	negative_cache_expiration = obj->parent->last_negative_connect.tv_sec + obj->parent->negative_connection_cache.tv_sec;
 	if (time(NULL) < negative_cache_expiration) {
-		char secs[AST_TIME_T_LEN];
-		ast_time_t_to_string(negative_cache_expiration - time(NULL), secs, sizeof(secs));
-		ast_log(LOG_WARNING, "Not connecting to %s. Negative connection cache for %s seconds\n", obj->parent->name, secs);
+		ast_log(LOG_WARNING, "Not connecting to %s. Negative connection cache for %ld seconds\n", obj->parent->name, negative_cache_expiration - time(NULL));
 		return ODBC_FAIL;
 	}
 

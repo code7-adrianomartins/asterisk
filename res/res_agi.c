@@ -296,9 +296,6 @@
 			<replaceable>options</replaceable>.</para>
 			<para>Returns whatever the <replaceable>application</replaceable> returns, or
 			<literal>-2</literal> on failure to find <replaceable>application</replaceable>.</para>
-			<note>
-				<para>exec does not evaluate dialplan functions and variables unless it is explicitly enabled by setting the <variable>AGIEXECFULL</variable> variable to <literal>yes</literal>.</para>
-			</note>
 		</description>
 		<see-also>
 			<ref type="application">AGI</ref>
@@ -797,10 +794,14 @@
 			Enable/Disable Music on hold generator
 		</synopsis>
 		<syntax>
-			<parameter name="boolean" required="true">
+			<parameter required="true">
 				<enumlist>
-					<enum name="on" />
-					<enum name="off" />
+					<enum>
+						<parameter name="on" literal="true" required="true" />
+					</enum>
+					<enum>
+						<parameter name="off" literal="true" required="true" />
+					</enum>
 				</enumlist>
 			</parameter>
 			<parameter name="class" required="true" />
@@ -1184,17 +1185,21 @@
 			after a channel hangup is detected, set the <variable>AGIEXITONHANGUP</variable>
 			variable to <literal>yes</literal>.</para>
 			</note>
-			<example title="Start the AGI script /tmp/my-cool-script.sh, passing it the contents of the channel variable FOO">
-			same => n,AGI(/tmp/my-cool-script.sh,${FOO})
-			</example>
-			<example title="Start the AGI script my-cool-script.sh located in the astagidir directory, specified in asterisk.conf">
-			same => n,AGI(my-cool-script.sh)
-			</example>
-			<example title="Connect to the FastAGI server located at 127.0.0.1 and start the script awesome-script">
-			same => n,AGI(agi://127.0.0.1/awesome-script)
-			</example>
-			<example title="Start AsyncAGI">
-			same => n,AGI(agi:async)
+			<example title="AGI invocation examples">
+				; Start the AGI script /tmp/my-cool-script.sh, passing it the contents
+				; of the channel variable FOO
+				same => n,AGI(/tmp/my-cool-script.sh,${FOO})
+
+				; Start the AGI script my-cool-script.sh located in the astagidir
+				; directory, specified in asterisk.conf
+				same => n,AGI(my-cool-script.sh)
+
+				; Connect to the FastAGI server located at 127.0.0.1 and start the script
+				; awesome-script
+				same => n,AGI(agi://127.0.0.1/awesome-script)
+
+				; Start AsyncAGI
+				same => n,AGI(agi:async)
 			</example>
 			<para>This application sets the following channel variable upon completion:</para>
 			<variablelist>
@@ -2907,7 +2912,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 	int gotsilence = 0;             /* did we timeout for silence? */
 	char *silencestr = NULL;
 	RAII_VAR(struct ast_format *, rfmt, NULL, ao2_cleanup);
-	struct ast_silence_generator *silgen = NULL;
 
 	/* XXX EAGI FIXME XXX */
 
@@ -2955,18 +2959,12 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 
 	/* backward compatibility, if no offset given, arg[6] would have been
 	 * caught below and taken to be a beep, else if it is a digit then it is a
-	 * offset.
-	 *
-	 * In other words, if the argument does not look like the offset_samples
-	 * argument (a number) and it doesn't look like the silence argument (starts
-	 * with "s=") then it must be the beep argument. The beep argument has no
-	 * required value, the presence of anything in the argument slot we are
-	 * inspecting is an indication that the user wants a beep played.
-	 */
-	if ((argc > 6 && sscanf(argv[6], "%30ld", &sample_offset) != 1 && !ast_begins_with(argv[6], "s="))
-	   || (argc > 7 && !ast_begins_with(argv[7], "s="))) {
+	 * offset */
+	if ((argc >6) && (sscanf(argv[6], "%30ld", &sample_offset) != 1) && (!strchr(argv[6], '=')))
 		res = ast_streamfile(chan, "beep", ast_channel_language(chan));
-	}
+
+	if ((argc > 7) && (!strchr(argv[7], '=')))
+		res = ast_streamfile(chan, "beep", ast_channel_language(chan));
 
 	if (!res)
 		res = ast_waitstream(chan, argv[4]);
@@ -2991,10 +2989,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 		ast_seekstream(fs, sample_offset, SEEK_SET);
 		ast_truncstream(fs);
 
-		if (ast_opt_transmit_silence) {
-			silgen = ast_channel_start_silence_generator(chan);
-		}
-
 		start = ast_tvnow();
 		while ((ms < 0) || ast_tvdiff_ms(ast_tvnow(), start) < ms) {
 			res = ast_waitfor(chan, ms - ast_tvdiff_ms(ast_tvnow(), start));
@@ -3003,8 +2997,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 				ast_agi_send(agi->fd, chan, "200 result=%d (waitfor) endpos=%ld\n", res,sample_offset);
 				if (sildet)
 					ast_dsp_free(sildet);
-				if (silgen)
-					ast_channel_stop_silence_generator(chan, silgen);
 				return RESULT_FAILURE;
 			}
 			f = ast_read(chan);
@@ -3013,14 +3005,12 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 				ast_agi_send(agi->fd, chan, "200 result=%d (hangup) endpos=%ld\n", -1, sample_offset);
 				if (sildet)
 					ast_dsp_free(sildet);
-				if (silgen)
-					ast_channel_stop_silence_generator(chan, silgen);
 				return RESULT_FAILURE;
 			}
 			switch(f->frametype) {
 			case AST_FRAME_DTMF:
 				if (strchr(argv[4], f->subclass.integer)) {
-					/* This is an interrupting character, so rewind to chop off any small
+					/* This is an interrupting chracter, so rewind to chop off any small
 					   amount of DTMF that may have been recorded
 					*/
 					ast_stream_rewind(fs, 200);
@@ -3031,8 +3021,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 					ast_frfree(f);
 					if (sildet)
 						ast_dsp_free(sildet);
-					if (silgen)
-						ast_channel_stop_silence_generator(chan, silgen);
 					return RESULT_SUCCESS;
 				}
 				break;
@@ -3082,10 +3070,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, const
 		if (res)
 			ast_log(LOG_WARNING, "Unable to restore read format on '%s'\n", ast_channel_name(chan));
 		ast_dsp_free(sildet);
-	}
-
-	if (silgen) {
-		ast_channel_stop_silence_generator(chan, silgen);
 	}
 
 	return RESULT_SUCCESS;
@@ -3145,9 +3129,6 @@ static int handle_exec(struct ast_channel *chan, AGI *agi, int argc, const char 
 {
 	int res, workaround;
 	struct ast_app *app_to_exec;
-	const char *agi_exec_full_str;
-	int agi_exec_full;
-	struct ast_str *data_with_var = NULL;
 
 	if (argc < 2)
 		return RESULT_SHOWUSAGE;
@@ -3159,21 +3140,8 @@ static int handle_exec(struct ast_channel *chan, AGI *agi, int argc, const char 
 		if (!(workaround = ast_test_flag(ast_channel_flags(chan), AST_FLAG_DISABLE_WORKAROUNDS))) {
 			ast_set_flag(ast_channel_flags(chan), AST_FLAG_DISABLE_WORKAROUNDS);
 		}
-		agi_exec_full_str = pbx_builtin_getvar_helper(chan, "AGIEXECFULL");
-		agi_exec_full = ast_true(agi_exec_full_str);
 		ast_channel_unlock(chan);
-
-		if (agi_exec_full) {
-			if ((data_with_var = ast_str_create(16))) {
-				ast_str_substitute_variables(&data_with_var, 0, chan, argv[2]);
-				res = pbx_exec(chan, app_to_exec, argc == 2 ? "" : ast_str_buffer(data_with_var));
-				ast_free(data_with_var);
-			} else {
-				res = -2;
-			}
-		} else {
-			res = pbx_exec(chan, app_to_exec, argc == 2 ? "" : argv[2]);
-		}
+		res = pbx_exec(chan, app_to_exec, argc == 2 ? "" : argv[2]);
 		if (!workaround) {
 			ast_channel_clear_flag(chan, AST_FLAG_DISABLE_WORKAROUNDS);
 		}
@@ -4542,7 +4510,7 @@ static int agi_exec_full(struct ast_channel *chan, const char *data, int enhance
 	memset(&agi, 0, sizeof(agi));
 	buf = ast_strdupa(data);
 	AST_STANDARD_APP_ARGS(args, buf);
-	args.arg[args.argc] = NULL;
+	args.argv[args.argc] = NULL;
 #if 0
 	 /* Answer if need be */
 	if (chan->_state != AST_STATE_UP) {
@@ -4550,7 +4518,7 @@ static int agi_exec_full(struct ast_channel *chan, const char *data, int enhance
 			return -1;
 	}
 #endif
-	res = launch_script(chan, args.arg[0], args.argc, args.arg, fds, enhanced ? &efd : NULL, &pid);
+	res = launch_script(chan, args.argv[0], args.argc, args.argv, fds, enhanced ? &efd : NULL, &pid);
 	/* Async AGI do not require run_agi(), so just proceed if normal AGI
 	   or Fast AGI are setup with success. */
 	if (res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) {
@@ -4559,7 +4527,7 @@ static int agi_exec_full(struct ast_channel *chan, const char *data, int enhance
 		agi.ctrl = fds[0];
 		agi.audio = efd;
 		agi.fast = (res == AGI_RESULT_SUCCESS_FAST) ? 1 : 0;
-		res = run_agi(chan, args.arg[0], &agi, pid, &status, dead, args.argc, args.arg);
+		res = run_agi(chan, args.argv[0], &agi, pid, &status, dead, args.argc, args.argv);
 		/* If the fork'd process returns non-zero, set AGISTATUS to FAILURE */
 		if ((res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) && status)
 			res = AGI_RESULT_FAILURE;

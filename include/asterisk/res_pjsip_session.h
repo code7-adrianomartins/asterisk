@@ -33,8 +33,6 @@
 /* Needed for pjmedia_sdp_session and pjsip_inv_session */
 #include <pjsip_ua.h>
 
-/* Needed for ast_sip_security_mechanism_vector */
-#include "asterisk/res_pjsip.h"
 
 /* Forward declarations */
 struct ast_sip_endpoint;
@@ -231,8 +229,6 @@ struct ast_sip_session {
 	unsigned int ended_while_deferred:1;
 	/*! Whether to pass through hold and unhold using re-invites with recvonly and sendrecv */
 	unsigned int moh_passthrough:1;
-	/*! Whether early media state has been confirmed through PRACK */
-	unsigned int early_confirmed:1;
 	/*! DTMF mode to use with this session, from endpoint but can change */
 	enum ast_sip_dtmf_mode dtmf;
 	/*! Initial incoming INVITE Request-URI.  NULL otherwise. */
@@ -243,8 +239,6 @@ struct ast_sip_session {
 	unsigned int authentication_challenge_count:4;
 	/*! The direction of the call respective to Asterisk */
 	enum ast_sip_session_call_direction call_direction;
-	/*! Originating Line Info (ANI II digits) */
-	int ani2;
 };
 
 typedef int (*ast_sip_session_request_creation_cb)(struct ast_sip_session *session, pjsip_tx_data *tdata);
@@ -497,7 +491,7 @@ struct ast_sip_channel_pvt *ast_sip_channel_pvt_alloc(void *pvt, struct ast_sip_
  *
  * \param endpoint The endpoint that this session communicates with
  * \param contact The contact associated with this session
- * \param inv The PJSIP INVITE session data
+ * \param inv_session The PJSIP INVITE session data
  * \param rdata INVITE request received (NULL if for outgoing allocation)
  */
 struct ast_sip_session *ast_sip_session_alloc(struct ast_sip_endpoint *endpoint,
@@ -510,6 +504,8 @@ struct ast_sip_session *ast_sip_session_alloc(struct ast_sip_endpoint *endpoint,
  * \param session Which session to suspend the serializer.
  *
  * \note No channel locks can be held while calling without risk of deadlock.
+ *
+ * \return Nothing
  */
 void ast_sip_session_suspend(struct ast_sip_session *session);
 
@@ -518,6 +514,8 @@ void ast_sip_session_suspend(struct ast_sip_session *session);
  * \since 12.7.0
  *
  * \param session Which session to unsuspend the serializer.
+ *
+ * \return Nothing
  */
 void ast_sip_session_unsuspend(struct ast_sip_session *session);
 
@@ -734,6 +732,7 @@ int ast_sip_session_refresh(struct ast_sip_session *session,
  *
  * \param session The session on which the answer will be updated
  * \param on_sdp_creation Callback called when SDP is created
+ * \param generate_new_sdp Boolean to indicate if a new SDP should be created
  * \retval 0 Successfully updated the SDP answer
  * \retval -1 Failure to updated the SDP answer
  */
@@ -799,26 +798,6 @@ void ast_sip_session_send_request_with_cb(struct ast_sip_session *session, pjsip
 struct ast_sip_session *ast_sip_dialog_get_session(pjsip_dialog *dlg);
 
 /*!
- * \brief Retrieves a dialog from a session
- *
- * \param session The session to retrieve the dialog from
- *
- * \retval non-NULL if dialog exists
- * \retval NULL if no dialog
- */
-pjsip_dialog *ast_sip_session_get_dialog(const struct ast_sip_session *session);
-
-/*!
- * \brief Retrieves the pjsip_inv_state from a session
- *
- * \param session The session to retrieve the state from
- *
- * \retval state if inv_session exists
- * \retval PJSIP_INV_STATE_NULL if inv_session is NULL
- */
-pjsip_inv_state ast_sip_session_get_pjsip_inv_state(const struct ast_sip_session *session);
-
-/*!
  * \brief Resumes processing of a deferred incoming re-invite
  *
  * \param session The session which has a pending incoming re-invite
@@ -878,7 +857,6 @@ struct ast_sip_session_media *ast_sip_session_media_state_add(struct ast_sip_ses
 /*!
  * \brief Save a media stats.
  *
- * \param sip_session Session on which to save active media state for
  * \param media_state The media state to save
  */
 void ast_sip_session_media_stats_save(struct ast_sip_session *sip_session, struct ast_sip_session_media_state *media_state);

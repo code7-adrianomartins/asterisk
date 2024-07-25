@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2013, Russell Bryant
 #
-# Russell Bryant <russell@russellbryant.net>
+# Russell Bryant <russell@rusellbryant.net>
 #
 # See http://www.asterisk.org for more information about
 # the Asterisk project. Please do not directly contact

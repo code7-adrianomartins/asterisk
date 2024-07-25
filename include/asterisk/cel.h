@@ -73,10 +73,8 @@ enum ast_cel_event_type {
 	AST_CEL_PICKUP = 15,
 	/*! \brief this call was forwarded somewhere else  */
 	AST_CEL_FORWARD = 16,
-	/*! \brief A local channel optimization occurred, this marks the end */
+	/*! \brief A local channel optimization occurred */
 	AST_CEL_LOCAL_OPTIMIZE = 17,
-	/*! \brief A local channel optimization has begun */
-	AST_CEL_LOCAL_OPTIMIZE_BEGIN = 18,
 };
 
 /*!
@@ -194,22 +192,6 @@ int ast_cel_fill_record(const struct ast_event *event, struct ast_cel_event_reco
 void ast_cel_publish_event(struct ast_channel *chan,
 	enum ast_cel_event_type event_type,
 	struct ast_json *blob);
-
-/*!
- * \brief Publish a CEL user event
- * \since 18
- *
- * \note
- * This serves as a wrapper function around ast_cel_publish_event() to help pack the
- * extra details before publishing.
- *
- * \param chan This is the primary channel associated with this channel event.
- * \param event This is the user event being reported.
- * \param extra This contains any extra parameters that need to be conveyed for this event.
- */
-void ast_cel_publish_user_event(struct ast_channel *chan,
-	const char *event,
-	const char *extra);
 
 /*!
  * \brief Get the CEL topic
