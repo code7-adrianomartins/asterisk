@@ -1693,16 +1693,31 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 					f = orig;
 				}
 
-				ast_verb(100, "VERBO-Recording  dspsilence = %d detecting_initial_silence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, detecting_initial_silence, initial_silence/1000, startsilence/1000);
+				ast_verb(100, "VERBO-Recording  dspsilence = %d detecting_initial_silence = %d initial_silence = %d startSilence = %d maxsilence = %d\n", dspsilence/1000, detecting_initial_silence, initial_silence/1000, startsilence/1000, maxsilence / 1000);
 				/* Silence Detection */
 				if((detecting_initial_silence == 1) && (startsilence > 0) ){
 				      // Verificar o silêncio inicial
 					dspsilence = 0;
 					ast_dsp_silence(sildet, f, &dspsilence);
-                     			initial_silence += dspsilence;
-					ast_verb(3, "Recording  dspsilence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, initial_silence/1000, startsilence/1000);
+					if (olddspsilence > dspsilence) {
+						totalsilence += olddspsilence;
+					}	
+					olddspsilence = dspsilence;
 
-                    			if (initial_silence > startsilence) {
+					if (paused) {
+						/* record how much silence there was while we are paused */
+						pausedsilence = dspsilence;
+					} else if (dspsilence > pausedsilence) {
+						/* ignore the paused silence */
+						dspsilence -= pausedsilence;
+					} else {
+						/* dspsilence has reset, reset pausedsilence */
+						pausedsilence = 0;
+					}
+
+					ast_verb(3, "IF Recording  dspsilence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, initial_silence/1000, startsilence/1000);
+
+                    			if (dspsilence > startsilence) {
                         			ast_verb(3, "Recording automatically stopped after initial silence of %d startsilence = %d seconds\n", initial_silence/1000, startsilence/1000);
                         			res = 'S';
                         			outmsg = 2;
@@ -1711,9 +1726,10 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 				        if (dspsilence == 0) {
                         			/* Fala detectada, iniciar a detecção de silêncio contínuo */
                         			detecting_initial_silence = 0;
-						ast_verb(5,"VERBO- DSPSILENCE = 0");
+						ast_verb(5,"VERBO- Voz detectado - DSPSILENCE = 0");
                     			}	
 				}else{
+					ast_verb(3, "ELSE Recording  dspsilence = %d initial_silence = %d startSilence = %d\n", dspsilence/1000, initial_silence/1000, startsilence/1000);
 					if (maxsilence > 0) {
 						dspsilence = 0;
 						ast_dsp_silence(sildet, f, &dspsilence);
