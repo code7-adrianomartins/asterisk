@@ -630,7 +630,7 @@ struct ast_ari_channels_record_args {
 	/*! Maximum duration of the recording, in seconds. 0 for no limit */
 	int max_duration_seconds;
 	/*! Maximum duration of silence, in seconds. 0 for no limit */
-	int max_silence_seconds;
+	int max_silence_seconds; 
 	/*! Action to take if a recording with the same name already exists. */
 	const char *if_exists;
 	/*! Play beep when recording begins */
@@ -638,7 +638,7 @@ struct ast_ari_channels_record_args {
 	/*! DTMF input to terminate recording */
 	const char *terminate_on;
 	/*! Stat duration of silence, in seconds. 0 for no limit */
-	int start_silence_seconds;
+	int start_silence_seconds; 
 };
 /*!
  * \brief Body parsing function for /channels/{channelId}/record.
